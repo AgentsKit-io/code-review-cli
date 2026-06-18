@@ -77,6 +77,10 @@ Add `ANTHROPIC_API_KEY` as a repo/org secret. In CI the LLM is the **Anthropic A
 
 > Cost: every PR open/push runs 7 lenses × files × votes against the API. Tune `max-files` / `votes`, or scope the trigger, to control spend.
 
+### Run it locally on a self-hosted runner (claude -p, no API cost)
+
+Point a [self-hosted runner](https://docs.github.com/actions/hosting-your-own-runners) at your machine where Claude Code is logged in, then set `use-claude-cli: 'true'` and `runs-on: self-hosted` — the review runs through your local `claude -p` (no API key, no cost). See `examples/pull-request-selfhosted.yml`. The example adds `$HOME/.local/bin` to `PATH` so a launchd-started runner can find `claude`.
+
 ## Updating the vendored agent
 
 ```sh

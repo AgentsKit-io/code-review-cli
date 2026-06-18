@@ -5,9 +5,13 @@ branding:
   color: 'green'
 
 inputs:
+  use-claude-cli:
+    description: 'Run via the local `claude -p` CLI instead of the Anthropic API. For self-hosted runners with Claude Code logged in (no API key, no cost). Default false.'
+    required: false
+    default: 'false'
   anthropic-api-key:
-    description: 'Anthropic API key (set as a repo/org secret).'
-    required: true
+    description: 'Anthropic API key (required unless use-claude-cli is true). Set as a repo/org secret.'
+    required: false
   github-token:
     description: 'Token used to read the PR diff and post the review.'
     required: false
@@ -51,7 +55,8 @@ runs:
         cd "$GITHUB_ACTION_PATH"
         npm run --silent review -- \
           --pr "${{ github.repository }}#${{ github.event.pull_request.number }}" \
-          --post --api \
+          --post \
+          ${{ inputs.use-claude-cli == 'true' && ' ' || '--api' }} \
           --model "${{ inputs.model }}" \
           --votes "${{ inputs.votes }}" \
           --max-files "${{ inputs.max-files }}" \

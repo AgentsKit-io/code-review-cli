@@ -1,0 +1,26 @@
+# Runs the review on a SELF-HOSTED runner using the local `claude -p` CLI —
+# no Anthropic API key, no API cost. Requires a self-hosted runner with Claude
+# Code logged in. Drop in at .github/workflows/code-review.yml.
+name: Code Review (local)
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  review:
+    runs-on: self-hosted
+    steps:
+      # launchd-started runners have a minimal PATH — make the logged-in `claude`
+      # binary findable. (Node is provided by the action's setup-node step.)
+      - name: Add claude to PATH
+        run: echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+      - uses: AgentsKit-io/code-review-cli@main
+        with:
+          use-claude-cli: 'true'
+          # fail-on-block: 'true'   # default: advisory (posts only)
+          # block: 'high'
