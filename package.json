@@ -1,0 +1,29 @@
+{
+  "name": "code-review-cli",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Local CLI over the agentskit code-review agent — runs on claude -p (no API key) or the Anthropic API.",
+  "scripts": {
+    "review": "tsx src/cli.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@agentskit/adapters": "^0.12.2",
+    "@agentskit/core": "^1.9.0",
+    "@agentskit/ink": "^0.9.0",
+    "@agentskit/runtime": "^0.7.3",
+    "@agentskit/tools": "^0.9.4",
+    "zod": "^3.25.0",
+    "zod-to-json-schema": "^3.24.0"
+  },
+  "devDependencies": {
+    "@types/json-schema": "^7.0.15",
+    "@types/node": "^22.10.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.2"
+  },
+  "engines": {
+    "node": "22.x"
+  }
+}
