@@ -56,11 +56,11 @@ export function claudeCode(opts: { model?: string } = {}): AdapterFactory {
           }
           yield { type: "done" };
         } catch (err) {
-          // Surface claude's stderr/stdout — `execFile` errors carry them but the
-          // default message ("Command failed: claude -p …") hides the real reason.
+          // Surface claude's own stderr/stdout (e.g. "Not logged in · Please run
+          // /login"). The default execFile message embeds the whole prompt — drop it.
           const e = err as { message?: string; stderr?: string; stdout?: string };
           const detail = [e.stderr, e.stdout].filter(Boolean).join(" ").trim();
-          yield { type: "error", content: `${e.message ?? String(err)}${detail ? ` — ${detail.slice(0, 500)}` : ""}` };
+          yield { type: "error", content: `claude -p failed${detail ? `: ${detail.slice(0, 400)}` : ` (no output): ${(e.message ?? "").split("\n")[0]}`}` };
         }
       },
       abort: () => {},

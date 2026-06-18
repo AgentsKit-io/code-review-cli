@@ -85,7 +85,16 @@ jobs:
 
 ### Run it locally on a self-hosted runner (claude -p, no API cost)
 
-Point a [self-hosted runner](https://docs.github.com/actions/hosting-your-own-runners) at your machine where Claude Code is logged in, then set `provider: 'claude-cli'` and `runs-on: self-hosted` — the review runs through your local `claude -p` (no API key, no cost). See `examples/pull-request-selfhosted.yml`. The example adds `$HOME/.local/bin` to `PATH` so a launchd-started runner can find `claude`.
+Point a [self-hosted runner](https://docs.github.com/actions/hosting-your-own-runners) at your machine, set `provider: 'claude-cli'` and `runs-on: self-hosted` — the review runs through your local `claude -p` using your **subscription** (no per-call API cost). See `examples/pull-request-selfhosted.yml`.
+
+**Headless auth:** a CI/launchd-spawned `claude` can't use your interactive login session. Generate a long-lived token once and store it as a secret:
+
+```sh
+claude setup-token   # interactive (browser); requires a Claude subscription
+# → copy the token into the repo secret CLAUDE_CODE_OAUTH_TOKEN
+```
+
+The example wires `claude-oauth-token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}` (exported as `CLAUDE_CODE_OAUTH_TOKEN`, which `claude` reads). It also adds `$HOME/.local/bin` to `PATH` so a launchd-started runner finds `claude`.
 
 ## Updating the vendored agent
 

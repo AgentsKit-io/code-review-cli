@@ -12,6 +12,9 @@ inputs:
   api-key:
     description: 'API key for the provider (required unless provider is claude-cli or a keyless local provider). Set as a repo/org secret. Passed via env, never the command line.'
     required: false
+  claude-oauth-token:
+    description: 'For provider=claude-cli on headless/CI runners: a long-lived token from `claude setup-token` (uses your subscription, no per-call API cost). Set as a secret. Headless `claude -p` cannot use the interactive login session.'
+    required: false
   base-url:
     description: 'Override the provider base URL (e.g. ollama / openrouter / a self-hosted gateway).'
     required: false
@@ -54,6 +57,7 @@ runs:
       shell: bash
       env:
         LLM_API_KEY: ${{ inputs.api-key }}
+        CLAUDE_CODE_OAUTH_TOKEN: ${{ inputs.claude-oauth-token }}
         GITHUB_TOKEN: ${{ inputs.github-token }}
       run: |
         cd "$GITHUB_ACTION_PATH"
