@@ -21,6 +21,6 @@ jobs:
         run: echo "$HOME/.local/bin" >> "$GITHUB_PATH"
       - uses: AgentsKit-io/code-review-cli@main
         with:
-          use-claude-cli: 'true'
+          provider: 'claude-cli'   # local claude -p — no API key, no cost
           # fail-on-block: 'true'   # default: advisory (posts only)
           # block: 'high'

@@ -16,9 +16,12 @@ jobs:
     steps:
       - uses: AgentsKit-io/code-review-cli@main
         with:
-          anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
+          # default provider is 'anthropic'; switch to any @agentskit adapter:
+          # provider: 'openai'   (+ model: 'gpt-4o')   /  'gemini' / 'grok' / 'groq' / 'openrouter' / …
+          provider: 'anthropic'
+          model: 'claude-opus-4-8'
+          api-key: ${{ secrets.LLM_API_KEY }}   # the selected provider's key
           # advisory by default (posts, never blocks). To gate merges:
           # fail-on-block: 'true'
           # block: 'high'        # or 'blocker'
-          # model: 'claude-opus-4-8'
           # max-files: '40'

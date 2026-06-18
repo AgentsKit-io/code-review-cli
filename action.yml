@@ -5,19 +5,23 @@ branding:
   color: 'green'
 
 inputs:
-  use-claude-cli:
-    description: 'Run via the local `claude -p` CLI instead of the Anthropic API. For self-hosted runners with Claude Code logged in (no API key, no cost). Default false.'
+  provider:
+    description: 'LLM provider: "claude-cli" (local claude -p, self-hosted, no key/cost) or any @agentskit/adapters factory — anthropic, openai, gemini, grok, ollama, deepseek, mistral, groq, openrouter, together, …'
     required: false
-    default: 'false'
-  anthropic-api-key:
-    description: 'Anthropic API key (required unless use-claude-cli is true). Set as a repo/org secret.'
+    default: 'anthropic'
+  api-key:
+    description: 'API key for the provider (required unless provider is claude-cli or a keyless local provider). Set as a repo/org secret. Passed via env, never the command line.'
     required: false
+  base-url:
+    description: 'Override the provider base URL (e.g. ollama / openrouter / a self-hosted gateway).'
+    required: false
+    default: ''
   github-token:
     description: 'Token used to read the PR diff and post the review.'
     required: false
     default: ${{ github.token }}
   model:
-    description: 'Claude model id.'
+    description: 'Model id for the provider.'
     required: false
     default: 'claude-opus-4-8'
   block:
@@ -49,15 +53,16 @@ runs:
     - name: Review pull request
       shell: bash
       env:
-        ANTHROPIC_API_KEY: ${{ inputs.anthropic-api-key }}
+        LLM_API_KEY: ${{ inputs.api-key }}
         GITHUB_TOKEN: ${{ inputs.github-token }}
       run: |
         cd "$GITHUB_ACTION_PATH"
         npm run --silent review -- \
           --pr "${{ github.repository }}#${{ github.event.pull_request.number }}" \
           --post \
-          ${{ inputs.use-claude-cli == 'true' && ' ' || '--api' }} \
+          --provider "${{ inputs.provider }}" \
           --model "${{ inputs.model }}" \
+          ${{ inputs.base-url != '' && format('--base-url {0}', inputs.base-url) || '' }} \
           --votes "${{ inputs.votes }}" \
           --max-files "${{ inputs.max-files }}" \
           --block "${{ inputs.block }}" \

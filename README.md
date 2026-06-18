@@ -1,6 +1,6 @@
 # code-review-cli
 
-A thin local CLI over the agentskit [`code-review`](https://github.com/AgentsKit-io/agentskit-registry/tree/main/registry/code-review) agent. Default LLM is your **local `claude -p`** (no API key); `--api` switches to the Anthropic API for CI.
+A thin local CLI over the agentskit [`code-review`](https://github.com/AgentsKit-io/agentskit-registry/tree/main/registry/code-review) agent. **LLM-agnostic**: defaults to your **local `claude -p`** (no key); `--provider <name>` runs it on any `@agentskit/adapters` provider (anthropic, openai, gemini, grok, ollama, …).
 
 The agent is **vendored** under `agents/code-review/` (shadcn-style — copied from the registry, we own it). This repo is just the CLI + the `claude -p` adapter.
 
@@ -21,7 +21,8 @@ npm run review -- --base main --votes 5 --min-severity high
 npm run review -- --pr owner/repo#42 --post           # batched PR review (needs GITHUB_TOKEN)
 npm run review -- --paths src --max-files 30 --sarif out.sarif
 echo "const x = a.b" | npm run review -- --stdin --lang ts
-npm run review -- --api --model claude-opus-4-8        # use the Anthropic API instead of claude -p
+npm run review -- --provider openai --model gpt-4o     # any provider (key: --api-key / OPENAI_API_KEY / LLM_API_KEY)
+npm run review -- --provider ollama --model llama3 --base-url http://localhost:11434
 ```
 
 ### Flags
@@ -40,7 +41,10 @@ npm run review -- --api --model claude-opus-4-8        # use the Anthropic API i
 | `--validate-patch` | `git apply --check` each suggested patch |
 | `--block <severity>` | CI gate floor (default `blocker`) |
 | `--conventions <path>` | inject a conventions doc (else auto-detects CONVENTIONS/CONTRIBUTING/AGENTS) |
-| `--api [--model m]` | use the Anthropic API (`ANTHROPIC_API_KEY`) instead of `claude -p` |
+| `--provider <name>` | LLM provider: `claude-cli` (default) or any `@agentskit/adapters` factory (anthropic, openai, gemini, grok, ollama, …) |
+| `--api-key <key>` | provider key (else `LLM_API_KEY` / `<PROVIDER>_API_KEY` env) |
+| `--base-url <url>` | provider base URL (ollama / openrouter / gateway) |
+| `--api` | back-compat alias for `--provider anthropic` |
 
 ### CI gate
 
@@ -68,18 +72,20 @@ jobs:
     steps:
       - uses: AgentsKit-io/code-review-cli@main
         with:
-          anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
-          # fail-on-block: 'true'   # gate merges (default: advisory — posts only)
+          provider: 'anthropic'      # or openai / gemini / grok / groq / openrouter / ollama / …
+          model: 'claude-opus-4-8'
+          api-key: ${{ secrets.LLM_API_KEY }}
+          # fail-on-block: 'true'    # gate merges (default: advisory — posts only)
           # block: 'high'
 ```
 
-Add `ANTHROPIC_API_KEY` as a repo/org secret. In CI the LLM is the **Anthropic API** (no `claude -p`). Inputs: `anthropic-api-key` (required), `github-token` (default `${{ github.token }}`), `model`, `block`, `fail-on-block`, `votes`, `max-files`. It fetches the PR diff via the API and posts a batched inline review + summary. **Advisory by default** — set `fail-on-block: 'true'` to fail the check (and block merge with branch protection).
+**LLM-agnostic.** `provider` is any `@agentskit/adapters` factory (`anthropic`, `openai`, `gemini`, `grok`, `ollama`, `deepseek`, `mistral`, `groq`, `openrouter`, `together`, …) or `claude-cli` for the local `claude -p`. Inputs: `provider`, `api-key` (passed via env, not the command line), `base-url` (for ollama/openrouter/gateways), `model`, `github-token` (default `${{ github.token }}`), `block`, `fail-on-block`, `votes`, `max-files`. It fetches the PR diff via the API and posts a batched inline review + summary. **Advisory by default** — set `fail-on-block: 'true'` to fail the check (and block merge with branch protection).
 
 > Cost: every PR open/push runs 7 lenses × files × votes against the API. Tune `max-files` / `votes`, or scope the trigger, to control spend.
 
 ### Run it locally on a self-hosted runner (claude -p, no API cost)
 
-Point a [self-hosted runner](https://docs.github.com/actions/hosting-your-own-runners) at your machine where Claude Code is logged in, then set `use-claude-cli: 'true'` and `runs-on: self-hosted` — the review runs through your local `claude -p` (no API key, no cost). See `examples/pull-request-selfhosted.yml`. The example adds `$HOME/.local/bin` to `PATH` so a launchd-started runner can find `claude`.
+Point a [self-hosted runner](https://docs.github.com/actions/hosting-your-own-runners) at your machine where Claude Code is logged in, then set `provider: 'claude-cli'` and `runs-on: self-hosted` — the review runs through your local `claude -p` (no API key, no cost). See `examples/pull-request-selfhosted.yml`. The example adds `$HOME/.local/bin` to `PATH` so a launchd-started runner can find `claude`.
 
 ## Updating the vendored agent
 

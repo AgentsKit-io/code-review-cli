@@ -1,18 +1,20 @@
 #!/usr/bin/env node
 /**
- * Thin local CLI over the registry `code-review` agent. Default LLM is the local
- * `claude -p` (no API key); `--api` switches to the Anthropic API for CI.
+ * Thin local CLI over the registry `code-review` agent. LLM-agnostic: default is the
+ * local `claude -p` (no key); `--provider <name>` selects ANY @agentskit/adapters
+ * factory (anthropic, openai, gemini, grok, ollama, deepseek, mistral, groq,
+ * openrouter, together, …).
  *
- *   code-review                              # review git diff vs origin/main → Markdown
- *   code-review --base main --votes 5
- *   code-review --pr owner/repo#42 --post    # post a batched PR review (needs GITHUB_TOKEN)
- *   code-review --paths src --whole-repo --max-files 30 --sarif out.sarif
+ *   code-review                                      # claude -p, git diff vs origin/main
+ *   code-review --pr owner/repo#42 --post            # post a batched PR review (GITHUB_TOKEN)
+ *   code-review --provider openai --model gpt-4o     # any provider (key via --api-key / *_API_KEY / LLM_API_KEY)
+ *   code-review --provider ollama --model llama3 --base-url http://localhost:11434
  *   echo "const x=a.b" | code-review --stdin --lang ts
- *   code-review --api --model claude-opus-4-8 ...   # use the Anthropic API
  *
- * Exit code: 1 when a finding at/above --block (default "blocker") survives — wire to CI.
+ * Exit code: 1 when a finding at/above --block survives (unless --no-fail) — wire to CI.
  */
-import { anthropic } from '@agentskit/adapters'
+import * as adapters from '@agentskit/adapters'
+import type { AdapterFactory } from '@agentskit/core'
 import { createProgressObserver } from '@agentskit/ink'
 import { readFileSync } from 'node:fs'
 import { createCodeReviewAgent, type CodeReviewConfig, type Reporter, type Severity } from '../agents/code-review/agent.js'
@@ -57,9 +59,7 @@ async function resolveSource(): Promise<SourceConfig> {
 
 async function main() {
   const source = await resolveSource()
-  const adapter = has('api')
-    ? anthropic({ apiKey: process.env.ANTHROPIC_API_KEY!, model: flag('model') ?? 'claude-opus-4-8' })
-    : claudeCode({ model: flag('model') })
+  const adapter = buildAdapter()
 
   const reporters: Reporter[] = [markdownReporter()]
   const sarif = flag('sarif')
@@ -89,6 +89,26 @@ async function main() {
   // --no-fail = advisory: post the review but never fail the job (exit 0). Real errors
   // still surface via the catch below (exit 2).
   process.exit(review.blocking && !has('no-fail') ? 1 : 0)
+}
+
+/**
+ * LLM-agnostic adapter selection. `claude-cli` (default) uses the local `claude -p`;
+ * any other name resolves to a `@agentskit/adapters` factory and is given
+ * `{ apiKey, model, baseUrl? }`. `--api` is a back-compat alias for `--provider anthropic`.
+ */
+function buildAdapter(): AdapterFactory {
+  const provider = flag('provider') ?? (has('api') ? 'anthropic' : 'claude-cli')
+  const model = flag('model') ?? (provider === 'anthropic' ? 'claude-opus-4-8' : undefined)
+  if (provider === 'claude-cli') return claudeCode({ model })
+
+  const make = (adapters as Record<string, unknown>)[provider]
+  if (typeof make !== 'function') {
+    throw new Error(`unknown --provider "${provider}". Use "claude-cli" or any @agentskit/adapters factory (anthropic, openai, gemini, grok, ollama, deepseek, mistral, groq, openrouter, together, …).`)
+  }
+  if (!model) throw new Error(`--model is required for provider "${provider}"`)
+  const apiKey = flag('api-key') ?? process.env.LLM_API_KEY ?? process.env[`${provider.toUpperCase()}_API_KEY`] ?? ''
+  const baseUrl = flag('base-url')
+  return (make as (c: Record<string, unknown>) => AdapterFactory)({ apiKey, model, ...(baseUrl ? { baseUrl } : {}) })
 }
 
 /** Best-effort: feed a conventions doc to every lens if one exists. */
