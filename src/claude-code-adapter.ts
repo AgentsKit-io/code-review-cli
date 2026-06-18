@@ -6,10 +6,27 @@
  * args and synthesize the `tool_call` stream chunk the runtime expects.
  */
 import { execFile } from "node:child_process";
-import { promisify } from "node:util";
 import type { AdapterFactory, AdapterRequest, StreamChunk, StreamSource } from "@agentskit/core";
 
-const run = promisify(execFile);
+/**
+ * Run `claude` and capture stdout. Crucially we CLOSE the child's stdin: in a
+ * non-TTY env (CI / self-hosted runner) `claude -p` otherwise blocks waiting for
+ * stdin ("no stdin data received in 3s …") and fails. Locally stdin is a TTY so it
+ * never showed. stderr is attached to the error for diagnosis.
+ */
+function runClaude(args: string[]): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const child = execFile("claude", args, { maxBuffer: 20 * 1024 * 1024 }, (err, stdout, stderr) => {
+      if (err) {
+        (err as { stderr?: string }).stderr = stderr;
+        reject(err);
+      } else {
+        resolve(stdout);
+      }
+    });
+    child.stdin?.end();
+  });
+}
 
 /**
  * Pull the JSON object out of a model reply: first `{` to last `}` over the whole
@@ -46,8 +63,7 @@ export function claudeCode(opts: { model?: string } = {}): AdapterFactory {
 
           const args = ["-p", prompt];
           if (opts.model) args.push("--model", opts.model);
-          const { stdout } = await run("claude", args, { maxBuffer: 20 * 1024 * 1024 });
-          const out = stdout.trim();
+          const out = (await runClaude(args)).trim();
 
           if (tools.length === 1) {
             yield { type: "tool_call", toolCall: { id: `tc-${Date.now()}`, name: tools[0]!.name, args: extractJson(out) } };
