@@ -16,9 +16,14 @@ import type { AdapterFactory, AdapterRequest, StreamChunk, StreamSource } from "
  */
 function runClaude(args: string[]): Promise<string> {
   return new Promise((resolve, reject) => {
-    const child = execFile("claude", args, { maxBuffer: 20 * 1024 * 1024 }, (err, stdout, stderr) => {
+    // Run from HOME (a trusted dir): the runner's checkout dir is untrusted and can
+    // make claude exit without output (folder-trust). The file under review is in the
+    // prompt, not read from cwd, so cwd is irrelevant to the result.
+    const child = execFile("claude", args, { maxBuffer: 20 * 1024 * 1024, cwd: process.env.HOME }, (err, stdout, stderr) => {
       if (err) {
-        (err as { stderr?: string }).stderr = stderr;
+        const e = err as { stderr?: string; stdout?: string };
+        e.stderr = stderr;
+        e.stdout = stdout;
         reject(err);
       } else {
         resolve(stdout);
