@@ -56,7 +56,11 @@ export function claudeCode(opts: { model?: string } = {}): AdapterFactory {
           }
           yield { type: "done" };
         } catch (err) {
-          yield { type: "error", content: err instanceof Error ? err.message : String(err) };
+          // Surface claude's stderr/stdout — `execFile` errors carry them but the
+          // default message ("Command failed: claude -p …") hides the real reason.
+          const e = err as { message?: string; stderr?: string; stdout?: string };
+          const detail = [e.stderr, e.stdout].filter(Boolean).join(" ").trim();
+          yield { type: "error", content: `${e.message ?? String(err)}${detail ? ` — ${detail.slice(0, 500)}` : ""}` };
         }
       },
       abort: () => {},
