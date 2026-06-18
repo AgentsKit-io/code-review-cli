@@ -86,7 +86,9 @@ async function main() {
   }
 
   const review = await createCodeReviewAgent(config).run()
-  process.exit(review.blocking ? 1 : 0)
+  // --no-fail = advisory: post the review but never fail the job (exit 0). Real errors
+  // still surface via the catch below (exit 2).
+  process.exit(review.blocking && !has('no-fail') ? 1 : 0)
 }
 
 /** Best-effort: feed a conventions doc to every lens if one exists. */

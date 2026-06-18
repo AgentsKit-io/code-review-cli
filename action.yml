@@ -1,0 +1,59 @@
+name: 'AgentsKit Code Review'
+description: 'Deep, low-noise AI code review on a pull request — 7 lenses + adversarial verification. Advisory by default.'
+branding:
+  icon: 'check-circle'
+  color: 'green'
+
+inputs:
+  anthropic-api-key:
+    description: 'Anthropic API key (set as a repo/org secret).'
+    required: true
+  github-token:
+    description: 'Token used to read the PR diff and post the review.'
+    required: false
+    default: ${{ github.token }}
+  model:
+    description: 'Claude model id.'
+    required: false
+    default: 'claude-opus-4-8'
+  block:
+    description: 'Severity floor for the gate: blocker | high.'
+    required: false
+    default: 'high'
+  fail-on-block:
+    description: 'Fail the check when a finding at/above `block` survives. Default false (advisory — posts but never blocks).'
+    required: false
+    default: 'false'
+  votes:
+    description: 'Adversarial verify votes per finding.'
+    required: false
+    default: '3'
+  max-files:
+    description: 'Max files reviewed per run (budget cap).'
+    required: false
+    default: '40'
+
+runs:
+  using: 'composite'
+  steps:
+    - uses: actions/setup-node@v4
+      with:
+        node-version: '22'
+    - name: Install code-review
+      shell: bash
+      run: cd "$GITHUB_ACTION_PATH" && npm ci
+    - name: Review pull request
+      shell: bash
+      env:
+        ANTHROPIC_API_KEY: ${{ inputs.anthropic-api-key }}
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+      run: |
+        cd "$GITHUB_ACTION_PATH"
+        npm run --silent review -- \
+          --pr "${{ github.repository }}#${{ github.event.pull_request.number }}" \
+          --post --api \
+          --model "${{ inputs.model }}" \
+          --votes "${{ inputs.votes }}" \
+          --max-files "${{ inputs.max-files }}" \
+          --block "${{ inputs.block }}" \
+          ${{ inputs.fail-on-block == 'true' && ' ' || '--no-fail' }}

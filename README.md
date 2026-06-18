@@ -50,6 +50,33 @@ Exit code is `1` when a finding at/above `--block` survives verify+threshold, `0
 npm run review -- --base "$GITHUB_BASE_REF" --api --block high
 ```
 
+## Use as a GitHub Action (review every PR)
+
+This repo is also a composite Action. Add a workflow to any repo (`.github/workflows/code-review.yml`):
+
+```yaml
+name: Code Review
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+permissions:
+  contents: read
+  pull-requests: write
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: AgentsKit-io/code-review-cli@main
+        with:
+          anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
+          # fail-on-block: 'true'   # gate merges (default: advisory — posts only)
+          # block: 'high'
+```
+
+Add `ANTHROPIC_API_KEY` as a repo/org secret. In CI the LLM is the **Anthropic API** (no `claude -p`). Inputs: `anthropic-api-key` (required), `github-token` (default `${{ github.token }}`), `model`, `block`, `fail-on-block`, `votes`, `max-files`. It fetches the PR diff via the API and posts a batched inline review + summary. **Advisory by default** — set `fail-on-block: 'true'` to fail the check (and block merge with branch protection).
+
+> Cost: every PR open/push runs 7 lenses × files × votes against the API. Tune `max-files` / `votes`, or scope the trigger, to control spend.
+
 ## Updating the vendored agent
 
 ```sh

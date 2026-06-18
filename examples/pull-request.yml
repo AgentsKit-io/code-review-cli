@@ -1,0 +1,24 @@
+# Drop this in any repo at .github/workflows/code-review.yml
+# Requires repo/org secret ANTHROPIC_API_KEY.
+name: Code Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write # post inline + summary review comments
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: AgentsKit-io/code-review-cli@main
+        with:
+          anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
+          # advisory by default (posts, never blocks). To gate merges:
+          # fail-on-block: 'true'
+          # block: 'high'        # or 'blocker'
+          # model: 'claude-opus-4-8'
+          # max-files: '40'
