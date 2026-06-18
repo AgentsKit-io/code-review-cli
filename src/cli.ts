@@ -47,7 +47,9 @@ async function resolveSource(): Promise<SourceConfig> {
   if (has('stdin')) return { kind: 'stdin', content: await readStdin(), filename: `snippet.${flag('lang') ?? 'txt'}` }
   if (has('paths')) {
     const i = process.argv.indexOf('--paths')
-    const paths = process.argv.slice(i + 1).filter((a) => !a.startsWith('--'))
+    const paths: string[] = []
+    for (let j = i + 1; j < process.argv.length && !process.argv[j]!.startsWith('--'); j++) paths.push(process.argv[j]!)
+    if (!paths.length) throw new Error('--paths needs at least one file/dir')
     return { kind: 'paths', paths, cwd: process.cwd() }
   }
   return { kind: 'git-diff', base: flag('base') ?? 'origin/main', cwd: process.cwd() }
