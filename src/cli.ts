@@ -20,6 +20,7 @@ import { readFileSync } from 'node:fs'
 import { createCodeReviewAgent, type CodeReviewConfig, type Reporter, type Severity } from '../agents/code-review/agent.js'
 import { githubInlineReporter, githubSummaryReporter, markdownReporter, sarifReporter } from '../agents/code-review/reporters.js'
 import { claudeCode } from './claude-code-adapter.js'
+import { codexCli } from './codex-adapter.js'
 import type { SourceConfig } from '../agents/code-review/sources.js'
 
 function flag(name: string): string | undefined {
@@ -100,6 +101,7 @@ function buildAdapter(): AdapterFactory {
   const provider = flag('provider') ?? (has('api') ? 'anthropic' : 'claude-cli')
   const model = flag('model') ?? (provider === 'anthropic' ? 'claude-opus-4-8' : undefined)
   if (provider === 'claude-cli') return claudeCode({ model })
+  if (provider === 'codex-cli') return codexCli({ model })
 
   const make = (adapters as Record<string, unknown>)[provider]
   if (typeof make !== 'function') {

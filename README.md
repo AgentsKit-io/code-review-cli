@@ -1,6 +1,6 @@
 # code-review-cli
 
-A thin local CLI over the agentskit [`code-review`](https://github.com/AgentsKit-io/agentskit-registry/tree/main/registry/code-review) agent. **LLM-agnostic**: defaults to your **local `claude -p`** (no key); `--provider <name>` runs it on any `@agentskit/adapters` provider (anthropic, openai, gemini, grok, ollama, …).
+A thin local CLI over the agentskit [`code-review`](https://github.com/AgentsKit-io/agentskit-registry/tree/main/registry/code-review) agent. **LLM-agnostic**: two free **local CLI** providers — `claude-cli` (`claude -p`, default) and `codex-cli` (OpenAI `codex exec`, your ChatGPT subscription, no API key) — or `--provider <name>` for any `@agentskit/adapters` provider (anthropic, openai, gemini, ollama, …).
 
 The agent is **vendored** under `agents/code-review/` (shadcn-style — copied from the registry, we own it). This repo is just the CLI + the `claude -p` adapter.
 
@@ -41,7 +41,7 @@ npm run review -- --provider ollama --model llama3 --base-url http://localhost:1
 | `--validate-patch` | `git apply --check` each suggested patch |
 | `--block <severity>` | CI gate floor (default `blocker`) |
 | `--conventions <path>` | inject a conventions doc (else auto-detects CONVENTIONS/CONTRIBUTING/AGENTS) |
-| `--provider <name>` | LLM provider: `claude-cli` (default) or any `@agentskit/adapters` factory (anthropic, openai, gemini, grok, ollama, …) |
+| `--provider <name>` | LLM provider: `claude-cli` (default, `claude -p`), `codex-cli` (OpenAI `codex exec`, ChatGPT login — free, no key), or any `@agentskit/adapters` factory (anthropic, openai, gemini, ollama, …) |
 | `--api-key <key>` | provider key (else `LLM_API_KEY` / `<PROVIDER>_API_KEY` env) |
 | `--base-url <url>` | provider base URL (ollama / openrouter / gateway) |
 | `--api` | back-compat alias for `--provider anthropic` |
