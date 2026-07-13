@@ -154,7 +154,7 @@ async function main() {
 function buildAdapter(): AdapterFactory {
   const provider = flag('provider') ?? (has('api') ? 'anthropic' : undefined)
   if (!provider) throw new Error('choose a provider with --provider <name> (run --list-providers for common options)')
-  const model = flag('model') ?? (provider === 'anthropic' ? 'claude-opus-4-8' : undefined)
+  const model = flag('model') ?? (has('api') ? 'claude-opus-4-8' : undefined)
   if (provider === 'claude-cli') return claudeCode({ model })
   if (provider === 'codex-cli') return codexCli({ model })
 

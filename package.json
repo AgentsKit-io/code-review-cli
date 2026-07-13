@@ -30,6 +30,7 @@
     "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc --noEmit",
     "check": "npm run typecheck && npm run build && node dist/src/cli.js --help",
+    "prepare": "npm run build",
     "prepack": "npm run build"
   },
   "dependencies": {

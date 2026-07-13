@@ -19,27 +19,29 @@ AgentsKit Code Review is built around a different contract:
 - **Local first, CI ready.** Review a diff before pushing, inspect complete paths, read stdin, or comment directly on a GitHub PR.
 - **Control cost and policy.** Set file budgets, concurrency, thresholds, project conventions, and blocking severity.
 
-## Quickstart
+## Run your first review
 
-Clone the repository and choose the provider you already have:
+Open a terminal inside any Git repository and choose a provider you already use. You do not need to clone or install AgentsKit Code Review:
 
 ```sh
-npm install
+# Codex CLI — uses your existing login
+npx --yes github:AgentsKit-io/code-review-cli --provider codex-cli
 
-# Use a logged-in local CLI — no API key
-npm run review -- --provider codex-cli
-npm run review -- --provider claude-cli
+# Claude CLI — uses your existing login
+npx --yes github:AgentsKit-io/code-review-cli --provider claude-cli
 
-# Use an API provider
-OPENAI_API_KEY=... npm run review -- --provider openai --model gpt-4o
-
-# Keep code on your machine with Ollama
-npm run review -- --provider ollama --model llama3 --base-url http://localhost:11434
+# OpenAI API
+OPENAI_API_KEY=... npx --yes github:AgentsKit-io/code-review-cli \
+  --provider openai --model gpt-4o
 ```
 
-By default, the CLI reviews your local diff against `origin/main`, prints Markdown, and exits with `1` only when a surviving finding reaches the configured blocking severity.
+The CLI reviews the current repository's diff against `origin/main` and prints the report in your terminal. Choose another base with `--base main`.
 
-> The npm package metadata is ready for `@agentskit/code-review`, but the package is not available until the first release is published. Until then, use the cloned repository or the GitHub Action.
+The current command runs directly from GitHub. After the first npm release, the shorter form will be:
+
+```sh
+npx @agentskit/code-review --provider codex-cli
+```
 
 ## Use the GitHub Action
 
@@ -81,7 +83,7 @@ Use `@main` while the project is pre-release. After the first stable release, pi
 | Local model | `ollama` | Usually none | Privacy and predictable cost |
 | Gateway | `openrouter` or a custom `--base-url` | Gateway-specific | Central routing and policy |
 
-Provider names other than the two local CLIs resolve to factories exported by [`@agentskit/adapters`](https://www.npmjs.com/package/@agentskit/adapters). Run `npm run review -- --list-providers` for common choices.
+Provider names other than the two local CLIs resolve to factories exported by [`@agentskit/adapters`](https://www.npmjs.com/package/@agentskit/adapters). Run `npx --yes github:AgentsKit-io/code-review-cli --list-providers` for common choices.
 
 Credentials resolve in this order:
 
@@ -113,21 +115,44 @@ The review agent lives in `agents/code-review/` and is vendored from the [Agents
 
 ```sh
 # Tune verification and severity
-npm run review -- --provider codex-cli --base main --votes 5 --min-severity high
+npx --yes github:AgentsKit-io/code-review-cli --provider codex-cli \
+  --base main --votes 5 --min-severity high
 
 # Review a GitHub PR and post the result
-GITHUB_TOKEN=... npm run review -- --provider openai --model gpt-4o \
+GITHUB_TOKEN=... OPENAI_API_KEY=... \
+  npx --yes github:AgentsKit-io/code-review-cli --provider openai --model gpt-4o \
   --pr owner/repo#42 --post
 
 # Review complete files or directories
-npm run review -- --provider claude-cli --paths src --max-files 30
+npx --yes github:AgentsKit-io/code-review-cli --provider claude-cli \
+  --paths src --max-files 30
 
 # Review piped source and also write SARIF
-echo 'const x = a.b' | npm run review -- --provider ollama --model llama3 \
+echo 'const x = a.b' | npx --yes github:AgentsKit-io/code-review-cli \
+  --provider ollama --model llama3 \
   --base-url http://localhost:11434 --stdin --lang ts --sarif out.sarif
 ```
 
 ## CLI reference
+
+### Providers
+
+Run these commands from the repository you want to review:
+
+| Provider | What you need | Model | Example |
+|---|---|---|---|
+| `codex-cli` | Codex CLI logged in | Optional | `npx --yes github:AgentsKit-io/code-review-cli --provider codex-cli` |
+| `claude-cli` | Claude CLI logged in | Optional | `npx --yes github:AgentsKit-io/code-review-cli --provider claude-cli` |
+| `openai` | `OPENAI_API_KEY` | Required | `... --provider openai --model gpt-4o` |
+| `anthropic` | `ANTHROPIC_API_KEY` | Required | `... --provider anthropic --model <model>` |
+| `gemini` | `GEMINI_API_KEY` | Required | `... --provider gemini --model <model>` |
+| `ollama` | Ollama running locally | Required | `... --provider ollama --model llama3 --base-url http://localhost:11434` |
+| `openrouter` | `OPENROUTER_API_KEY` | Required | `... --provider openrouter --model <model>` |
+| Other adapters | `<PROVIDER>_API_KEY` when applicable | Usually required | `... --provider <name> --model <model>` |
+
+In shortened examples, replace `...` with `npx --yes github:AgentsKit-io/code-review-cli`.
+
+### Options
 
 | Flag | Meaning |
 |---|---|
