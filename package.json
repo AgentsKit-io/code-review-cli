@@ -29,7 +29,10 @@
     "review": "tsx src/cli.ts",
     "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc --noEmit",
-    "check": "npm run typecheck && npm run build && node dist/src/cli.js --help",
+    "test": "npm run build && node --test test/*.test.mjs",
+    "docs:index": "ak-docs index",
+    "docs:gate": "ak-docs gate run && node --test test/documentation.test.mjs",
+    "check": "npm run typecheck && npm run test && npm run docs:gate && node dist/src/cli.js --help",
     "prepare": "npm run build",
     "prepack": "npm run build"
   },
@@ -43,6 +46,7 @@
     "zod-to-json-schema": "^3.24.0"
   },
   "devDependencies": {
+    "@agentskit/doc-bridge": "^1.0.2",
     "@types/json-schema": "^7.0.15",
     "@types/node": "^22.10.0",
     "tsx": "^4.19.0",

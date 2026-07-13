@@ -1,0 +1,93 @@
+{
+  "schemaVersion": 1,
+  "contentHash": "7ed4919c26d431cf1a521a1b26e92b9c8bd64c85376b6719d1e699aac5cd06a5",
+  "contentHashAlgo": "sha256-normalized-v1",
+  "generatedAt": "2026-07-13T22:34:27.670Z",
+  "project": {
+    "name": "AgentsKit Code Review",
+    "root": "."
+  },
+  "knowledge": [
+    {
+      "id": "code-review-cli",
+      "type": "agent-doc",
+      "title": "Code Review CLI handoff",
+      "path": "docs/for-agents/code-review-cli.md",
+      "description": "Provider-neutral, low-noise AI code review for local Git diffs, files/stdin, and GitHub pull requests. Seven focused lenses propose findings; adversarial votes remove weak findings; reporters emit Markdown, GitHub reviews, and SARIF.",
+      "body": "Code Review CLI handoff Purpose Provider-neutral, low-noise AI code review for local Git diffs, files/stdin, and GitHub pull requests. Seven focused lenses propose findings; adversarial votes remove weak findings; reporters emit Markdown, GitHub reviews, and SARIF. Ownership map - src/cli.ts : public flags, source selection, provider selection, exit policy. - src/ -adapter.ts : logged-in local CLI adapters. - agents/code-review/ : review pipeline, lenses, input normalization, reporters. - action.yml : composite GitHub Action contract. - examples/ : copy-ready Action workflows. - README.md and docs/OPERATIONS.md : public adoption and operations guidance. - test/ : credential-free CLI, Action, and documentation contract proofs. Boundaries - Depend on AgentsKit adapter/runtime/tool contracts; do not create a second model abstraction. - Preserve provider neutrality and advisory-by-default Action behavior. - Never expose provider keys in arguments, docs fixtures, logs, or PR output. - This product intentionally has no Fumadocs site and no embedded AgentsChat. - The vendored review agent tracks the AgentsKit Registry source; keep divergences explicit. Change routes - CLI flag/provider behavior: start at src/cli.ts , then update README, operations docs, and tests. - Local CLI subprocess behavior: start at the matching src/ -adapter.ts and add an offline fixture. - Review logic or noise reduction: start at agents/code-review/agent.ts and the relevant lens; prove both survival and rejection behavior. - GitHub comments/SARIF: start at agents/code-review/reporters.ts and verify permissions/failure docs. - Action input: update action.yml , examples/pull-request.yml , README, and contract tests together. Verification npm run check includes typecheck, build, an end-to-end offline stdin review, Action/documentation tests, Doc Bridge gates, and CLI help. Human guide - - - -"
+    },
+    {
+      "id": "index",
+      "type": "agent-doc",
+      "title": "Code Review agent docs",
+      "path": "docs/for-agents/index.md",
+      "body": "Code Review agent docs - — ownership, change routes, security boundaries, and verification."
+    }
+  ],
+  "handoffs": {
+    "code-review-cli": {
+      "type": "agent-handoff",
+      "schemaVersion": 1,
+      "source": ".doc-bridge/index.json",
+      "target": {
+        "type": "package",
+        "id": "code-review-cli",
+        "path": "."
+      },
+      "startHere": "docs/for-agents/code-review-cli.md",
+      "readBeforeEditing": [
+        "docs/for-agents/code-review-cli.md",
+        "AGENTS.md"
+      ],
+      "editRoots": [
+        "."
+      ],
+      "checks": [
+        "npm run check",
+        "npm pack --dry-run"
+      ],
+      "humanDoc": "OPERATIONS",
+      "bridge": {
+        "humanDoc": "linked"
+      },
+      "notes": [
+        "Provider-neutral local and GitHub code review CLI, Action, reporters, and repository documentation."
+      ]
+    }
+  },
+  "lookup": {
+    "packages": [
+      "code-review-cli"
+    ],
+    "ownership": {
+      "code-review-cli": {
+        "id": "code-review-cli",
+        "path": ".",
+        "checks": [
+          "npm run check",
+          "npm pack --dry-run"
+        ],
+        "purpose": "Provider-neutral local and GitHub code review CLI, Action, reporters, and repository documentation.",
+        "humanDoc": "OPERATIONS",
+        "agentDoc": "docs/for-agents/code-review-cli.md"
+      }
+    },
+    "intents": {
+      "understand-or-run-code-review": {
+        "id": "understand-or-run-code-review",
+        "title": "Understand or run Code Review",
+        "paths": [
+          "README.md",
+          "docs/OPERATIONS.md"
+        ]
+      }
+    },
+    "changes": {
+      "change-cli-provider-or-action": {
+        "id": "change-cli-provider-or-action",
+        "title": "Change a CLI provider, flag, reporter, or Action input",
+        "startHere": "docs/for-agents/code-review-cli.md"
+      }
+    }
+  }
+}

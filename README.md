@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/assets/agentskit-mark.svg" width="64" height="57" alt="AgentsKit" />
+</p>
+
 # AgentsKit Code Review
 
 **Deep, low-noise AI code review with the model you already use.**
@@ -5,6 +9,8 @@
 [![CI](https://github.com/AgentsKit-io/code-review-cli/actions/workflows/ci.yml/badge.svg)](https://github.com/AgentsKit-io/code-review-cli/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-0f766e.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/Node.js-%3E%3D20-339933?logo=node.js&logoColor=white)](package.json)
+
+**Tags:** `agentskit` · `ai-code-review` · `github-action` · `typescript` · `sarif` · `codex` · `claude` · `ollama`
 
 Run code review locally or on every pull request. Bring Claude, Codex, OpenAI, Gemini, Ollama, OpenRouter, or another AgentsKit adapter. Seven specialized review lenses find potential problems; adversarial verification filters weak findings before they reach your team.
 
@@ -95,18 +101,14 @@ Secrets passed to the GitHub Action are forwarded through the environment, not i
 
 ## How review works
 
-```text
-diff / PR / paths / stdin
-          ↓
-   normalize targets
-          ↓
-  7 specialized lenses
-          ↓
- adversarial verification
-          ↓
- thresholds + CI policy
-          ↓
-Markdown / GitHub / SARIF
+```mermaid
+flowchart LR
+  A["Diff · PR · paths · stdin"] --> B["Normalize targets"]
+  B --> C["7 focused lenses"]
+  C --> D["Adversarial verification"]
+  D --> E["Thresholds + CI policy"]
+  E --> F["Markdown · GitHub · SARIF"]
+  D -. "weak finding" .-> G["Dropped with audit note"]
 ```
 
 The review agent lives in `agents/code-review/` and is vendored from the [AgentsKit registry](https://github.com/AgentsKit-io/agentskit-registry/tree/main/registry/code-review). The CLI owns provider selection, input sources, policy, and reporting.
@@ -183,6 +185,32 @@ When no conventions path is supplied, the CLI looks for `CONVENTIONS.md`, `CONTR
 ## Cost and privacy
 
 A full review runs seven lenses across selected files and then verifies candidate findings. Control usage with `--max-files`, `--votes`, `--concurrency`, paths, and workflow triggers. For sensitive code, use a local model or an approved private gateway; provider data policies still apply to hosted APIs.
+
+## Operations and machine-readable docs
+
+- [Operations guide](docs/OPERATIONS.md) — providers, permissions, secrets, cost controls, SARIF, failures, releases, and incident-safe defaults.
+- [Agent handoff](docs/for-agents/code-review-cli.md) — ownership, edit roots, verification commands, and change routes.
+- [`llms.txt`](llms.txt) — compact public source map for LLMs and coding agents.
+- [`doc-bridge.config.json`](doc-bridge.config.json) — executable Doc Bridge corpus, ownership, and gate contract.
+
+`npm run check` builds the CLI, executes a full credential-free review fixture, validates the composite Action and documentation contract, runs Doc Bridge gates, and checks CLI help. `npm pack --dry-run` verifies the release payload.
+
+## Maturity
+
+The repository is **pre-v1 (`0.1.x`)**. The CLI and Action are usable today, but immutable `v1` Action tags and npm distribution remain planned. Use the GitHub-source command and `@main` only when that update policy is acceptable; pin a commit SHA for stronger CI reproducibility. See [ROADMAP.md](ROADMAP.md) and the [release guidance](docs/OPERATIONS.md#releases-and-maturity).
+
+## AgentsKit ecosystem
+
+Code Review is the verification step in the broader AgentsKit journey:
+
+| Need | Continue with |
+|---|---|
+| Build the agent or custom review adapter | [AgentsKit](https://www.agentskit.io/docs) |
+| Install the vendored review agent or explore ready agents | [Registry](https://registry.agentskit.io/docs) |
+| Apply engineering patterns before review | [Playbook](https://playbook.agentskit.io/docs) |
+| Generate ownership-aware documentation handoffs | [Doc Bridge](https://github.com/AgentsKit-io/doc-bridge) |
+
+This repository intentionally has **no Fumadocs application and no embedded AgentsChat**. Its public product surface is the CLI, GitHub Action, repository documentation, and machine-readable handoffs.
 
 ## Contributing
 

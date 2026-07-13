@@ -1,0 +1,72 @@
+{
+  "schemaVersion": 1,
+  "project": {
+    "name": "AgentsKit Code Review"
+  },
+  "corpus": {
+    "agent": {
+      "root": "docs/for-agents",
+      "index": "docs/for-agents/index.md",
+      "include": ["**/*.md"]
+    },
+    "human": {
+      "plugin": "plain-markdown",
+      "options": {
+        "root": "docs",
+        "urlPrefix": null
+      }
+    }
+  },
+  "routing": {
+    "options": {
+      "ownership": {
+        "code-review-cli": {
+          "path": ".",
+          "purpose": "Provider-neutral local and GitHub code review CLI, Action, reporters, and repository documentation.",
+          "checks": ["npm run check", "npm pack --dry-run"],
+          "agentDoc": "docs/for-agents/code-review-cli.md",
+          "humanDoc": "OPERATIONS"
+        }
+      },
+      "intents": [
+        {
+          "id": "understand-or-run-code-review",
+          "title": "Understand or run Code Review",
+          "paths": ["README.md", "docs/OPERATIONS.md"]
+        }
+      ],
+      "changes": [
+        {
+          "id": "change-cli-provider-or-action",
+          "title": "Change a CLI provider, flag, reporter, or Action input",
+          "startHere": "docs/for-agents/code-review-cli.md"
+        }
+      ]
+    }
+  },
+  "index": {
+    "outFile": ".doc-bridge/index.json",
+    "llmsTxt": {
+      "enabled": true,
+      "outFile": "llms.txt",
+      "preamble": "AgentsKit Code Review is a pre-v1 provider-neutral CLI and GitHub Action for low-noise review using seven lenses and adversarial verification. It intentionally has no Fumadocs site or embedded chat."
+    },
+    "capabilities": {
+      "enabled": true,
+      "outFile": ".doc-bridge/capabilities.json"
+    }
+  },
+  "gates": {
+    "preset": "standard"
+  },
+  "surfaces": {
+    "cli": {
+      "bin": "ak-docs",
+      "defaultFormat": "text"
+    },
+    "mcp": {
+      "enabled": true,
+      "transport": "stdio"
+    }
+  }
+}

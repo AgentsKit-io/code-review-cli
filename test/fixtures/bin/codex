@@ -1,0 +1,6 @@
+#!/usr/bin/env node
+import { writeFileSync } from 'node:fs'
+
+const outputIndex = process.argv.indexOf('-o')
+if (outputIndex < 0 || !process.argv[outputIndex + 1]) process.exit(2)
+writeFileSync(process.argv[outputIndex + 1], JSON.stringify({ findings: [] }))
