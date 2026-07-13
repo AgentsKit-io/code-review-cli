@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 /**
- * Thin local CLI over the registry `code-review` agent. LLM-agnostic: default is the
- * local `claude -p` (no key); `--provider <name>` selects ANY @agentskit/adapters
+ * Thin local CLI over the registry `code-review` agent. Provider-agnostic:
+ * `--provider <name>` selects a local CLI or any @agentskit/adapters
  * factory (anthropic, openai, gemini, grok, ollama, deepseek, mistral, groq,
  * openrouter, together, …).
  *
- *   code-review                                      # claude -p, git diff vs origin/main
+ *   agentskit-review --provider codex-cli            # local CLI, git diff vs origin/main
  *   code-review --pr owner/repo#42 --post            # post a batched PR review (GITHUB_TOKEN)
  *   code-review --provider openai --model gpt-4o     # any provider (key via --api-key / *_API_KEY / LLM_API_KEY)
  *   code-review --provider ollama --model llama3 --base-url http://localhost:11434
@@ -22,6 +22,52 @@ import { githubInlineReporter, githubSummaryReporter, markdownReporter, sarifRep
 import { claudeCode } from './claude-code-adapter.js'
 import { codexCli } from './codex-adapter.js'
 import type { SourceConfig } from '../agents/code-review/sources.js'
+
+const HELP = `AgentsKit Code Review — deep, low-noise review with your model
+
+Usage:
+  agentskit-review --provider <name> [options]
+
+Providers:
+  codex-cli, claude-cli, or any @agentskit/adapters provider
+  (anthropic, openai, gemini, ollama, openrouter, mistral, groq, ...)
+
+Examples:
+  agentskit-review --provider codex-cli
+  agentskit-review --provider claude-cli --base main
+  agentskit-review --provider openai --model gpt-4o
+  agentskit-review --provider ollama --model llama3 --base-url http://localhost:11434
+
+Sources:
+  --base <ref>            Review the git diff against a base (default: origin/main)
+  --pr <owner/repo#N>     Review a GitHub PR (requires GITHUB_TOKEN)
+  --paths <paths...>      Review complete files or directories
+  --stdin [--lang <ext>]  Review source from stdin
+
+Review options:
+  --votes <n>             Adversarial verification votes (default: 3)
+  --min-severity <level>  Minimum finding severity
+  --min-confidence <n>    Minimum finding confidence
+  --block <level>         CI gate floor (default: blocker)
+  --max-files <n>         File budget
+  --concurrency <n>       Parallel model calls (default: 4)
+  --conventions <path>    Project conventions file
+  --validate-patch        Validate suggested patches with git apply --check
+  --sarif <file>          Also write a SARIF report
+  --post                  Post a PR review (with --pr)
+  --no-fail               Report findings without failing the process
+
+Provider options:
+  --model <id>            Model id (required for API/local-server providers)
+  --api-key <key>         Or use LLM_API_KEY / <PROVIDER>_API_KEY
+  --base-url <url>        Custom endpoint or local gateway
+  --api                   Back-compatible alias for --provider anthropic
+
+  --help                  Show this help
+  --list-providers        List common providers
+`
+
+const PROVIDERS = 'codex-cli\nclaude-cli\nanthropic\nopenai\ngemini\ngrok\nollama\ndeepseek\nmistral\ngroq\nopenrouter\ntogether'
 
 function flag(name: string): string | undefined {
   const i = process.argv.indexOf(`--${name}`)
@@ -59,6 +105,14 @@ async function resolveSource(): Promise<SourceConfig> {
 }
 
 async function main() {
+  if (has('help') || has('h')) {
+    console.log(HELP)
+    return
+  }
+  if (has('list-providers')) {
+    console.log(PROVIDERS)
+    return
+  }
   const source = await resolveSource()
   const adapter = buildAdapter()
 
@@ -93,12 +147,13 @@ async function main() {
 }
 
 /**
- * LLM-agnostic adapter selection. `claude-cli` (default) uses the local `claude -p`;
- * any other name resolves to a `@agentskit/adapters` factory and is given
+ * Provider-neutral adapter selection. Local CLIs are explicit choices; any other
+ * name resolves to a `@agentskit/adapters` factory and is given
  * `{ apiKey, model, baseUrl? }`. `--api` is a back-compat alias for `--provider anthropic`.
  */
 function buildAdapter(): AdapterFactory {
-  const provider = flag('provider') ?? (has('api') ? 'anthropic' : 'claude-cli')
+  const provider = flag('provider') ?? (has('api') ? 'anthropic' : undefined)
+  if (!provider) throw new Error('choose a provider with --provider <name> (run --list-providers for common options)')
   const model = flag('model') ?? (provider === 'anthropic' ? 'claude-opus-4-8' : undefined)
   if (provider === 'claude-cli') return claudeCode({ model })
   if (provider === 'codex-cli') return codexCli({ model })

@@ -1,0 +1,31 @@
+name: Provider support
+description: Propose or improve an LLM provider or local CLI adapter
+labels: [provider]
+body:
+  - type: input
+    id: provider
+    attributes:
+      label: Provider or CLI
+    validations:
+      required: true
+  - type: dropdown
+    id: mode
+    attributes:
+      label: Connection mode
+      options: [Local CLI, Hosted API, Local server, Gateway]
+    validations:
+      required: true
+  - type: textarea
+    id: auth
+    attributes:
+      label: Authentication and configuration
+      description: Explain required keys, login state, model ids, and base URLs without including secrets.
+    validations:
+      required: true
+  - type: textarea
+    id: value
+    attributes:
+      label: Why this belongs in core
+      description: Existing @agentskit/adapters providers usually require documentation rather than a new adapter.
+    validations:
+      required: true

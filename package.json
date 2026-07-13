@@ -1,12 +1,36 @@
 {
-  "name": "code-review-cli",
-  "version": "0.0.0",
-  "private": true,
+  "name": "@agentskit/code-review",
+  "version": "0.1.0",
   "type": "module",
-  "description": "Local CLI over the agentskit code-review agent — runs on claude -p (no API key) or the Anthropic API.",
+  "description": "Provider-agnostic, low-noise AI code review for local development and GitHub Actions.",
+  "license": "MIT",
+  "bin": {
+    "agentskit-review": "dist/src/cli.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/AgentsKit-io/code-review-cli.git"
+  },
+  "homepage": "https://github.com/AgentsKit-io/code-review-cli#readme",
+  "bugs": "https://github.com/AgentsKit-io/code-review-cli/issues",
+  "keywords": [
+    "ai-code-review",
+    "code-review",
+    "github-action",
+    "llm",
+    "ollama"
+  ],
   "scripts": {
     "review": "tsx src/cli.ts",
-    "typecheck": "tsc --noEmit"
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "check": "npm run typecheck && npm run build && node dist/src/cli.js --help",
+    "prepack": "npm run build"
   },
   "dependencies": {
     "@agentskit/adapters": "^0.12.2",
@@ -24,6 +48,6 @@
     "typescript": "^5.7.2"
   },
   "engines": {
-    "node": "22.x"
+    "node": ">=20"
   }
 }

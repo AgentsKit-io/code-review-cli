@@ -1,5 +1,5 @@
 import { writeFileSync } from 'node:fs'
-import type { Finding, Reporter, ReviewResult } from './agent'
+import type { Finding, Reporter, ReviewResult } from './agent.js'
 
 /**
  * Reporters turn a ReviewResult into an output surface. They are orchestration code

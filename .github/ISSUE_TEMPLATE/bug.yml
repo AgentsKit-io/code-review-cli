@@ -1,0 +1,33 @@
+name: Bug report
+description: Report a reproducible problem or false positive
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: Thanks for helping improve the reviewer. Remove private code and secrets from examples.
+  - type: input
+    id: version
+    attributes:
+      label: Version or commit
+      placeholder: v0.1.0 or commit SHA
+    validations:
+      required: true
+  - type: input
+    id: provider
+    attributes:
+      label: Provider and model
+      placeholder: ollama / llama3
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction
+      description: Include the command, minimal sanitized input, observed output, and expected output.
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      placeholder: OS, Node.js version, local CLI version if relevant

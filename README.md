@@ -1,103 +1,174 @@
-# code-review-cli
+# AgentsKit Code Review
 
-A thin local CLI over the agentskit [`code-review`](https://github.com/AgentsKit-io/agentskit-registry/tree/main/registry/code-review) agent. **LLM-agnostic**: two free **local CLI** providers — `claude-cli` (`claude -p`, default) and `codex-cli` (OpenAI `codex exec`, your ChatGPT subscription, no API key) — or `--provider <name>` for any `@agentskit/adapters` provider (anthropic, openai, gemini, ollama, …).
+**Deep, low-noise AI code review with the model you already use.**
 
-The agent is **vendored** under `agents/code-review/` (shadcn-style — copied from the registry, we own it). This repo is just the CLI + the `claude -p` adapter.
+[![CI](https://github.com/AgentsKit-io/code-review-cli/actions/workflows/ci.yml/badge.svg)](https://github.com/AgentsKit-io/code-review-cli/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-0f766e.svg)](LICENSE)
+[![Node.js](https://img.shields.io/badge/Node.js-%3E%3D20-339933?logo=node.js&logoColor=white)](package.json)
 
-## Setup
+Run code review locally or on every pull request. Bring Claude, Codex, OpenAI, Gemini, Ollama, OpenRouter, or another AgentsKit adapter. Seven specialized review lenses find potential problems; adversarial verification filters weak findings before they reach your team.
+
+## Why this exists
+
+Most AI reviewers are easy to start and hard to trust: they produce long lists of stylistic opinions, repeat the same concern, and bury the issue that can actually break production.
+
+AgentsKit Code Review is built around a different contract:
+
+- **Bring your own model.** Use an existing CLI subscription, an API provider, a local model, or your own gateway.
+- **Low noise by design.** Findings are challenged by independent verification votes before they survive.
+- **Local first, CI ready.** Review a diff before pushing, inspect complete paths, read stdin, or comment directly on a GitHub PR.
+- **Control cost and policy.** Set file budgets, concurrency, thresholds, project conventions, and blocking severity.
+
+## Quickstart
+
+Clone the repository and choose the provider you already have:
 
 ```sh
 npm install
-```
 
-## Use
+# Use a logged-in local CLI — no API key
+npm run review -- --provider codex-cli
+npm run review -- --provider claude-cli
 
-```sh
-# review the local diff vs origin/main → Markdown report, exit 1 on a surviving blocker
-npm run review
+# Use an API provider
+OPENAI_API_KEY=... npm run review -- --provider openai --model gpt-4o
 
-# tune
-npm run review -- --base main --votes 5 --min-severity high
-npm run review -- --pr owner/repo#42 --post           # batched PR review (needs GITHUB_TOKEN)
-npm run review -- --paths src --max-files 30 --sarif out.sarif
-echo "const x = a.b" | npm run review -- --stdin --lang ts
-npm run review -- --provider openai --model gpt-4o     # any provider (key: --api-key / OPENAI_API_KEY / LLM_API_KEY)
+# Keep code on your machine with Ollama
 npm run review -- --provider ollama --model llama3 --base-url http://localhost:11434
 ```
 
-### Flags
+By default, the CLI reviews your local diff against `origin/main`, prints Markdown, and exits with `1` only when a surviving finding reaches the configured blocking severity.
 
-| flag | meaning |
-|---|---|
-| `--base <ref>` | git-diff base (default `origin/main`) |
-| `--pr owner/repo#N` | review a GitHub PR (needs `GITHUB_TOKEN`) |
-| `--paths <p…>` | review whole files/dirs (architectural pass; pair with `--max-files`) |
-| `--stdin [--lang ts]` | review piped source |
-| `--post` | (with `--pr`) post a batched inline review + summary comment |
-| `--sarif <file>` | also write SARIF |
-| `--votes <n>` | adversarial verify votes (default 3) |
-| `--min-severity` / `--min-confidence` | thresholds |
-| `--max-files <n>` / `--concurrency <n>` | budget / parallel model calls |
-| `--validate-patch` | `git apply --check` each suggested patch |
-| `--block <severity>` | CI gate floor (default `blocker`) |
-| `--conventions <path>` | inject a conventions doc (else auto-detects CONVENTIONS/CONTRIBUTING/AGENTS) |
-| `--provider <name>` | LLM provider: `claude-cli` (default, `claude -p`), `codex-cli` (OpenAI `codex exec`, ChatGPT login — free, no key), or any `@agentskit/adapters` factory (anthropic, openai, gemini, ollama, …) |
-| `--api-key <key>` | provider key (else `LLM_API_KEY` / `<PROVIDER>_API_KEY` env) |
-| `--base-url <url>` | provider base URL (ollama / openrouter / gateway) |
-| `--api` | back-compat alias for `--provider anthropic` |
+> The npm package metadata is ready for `@agentskit/code-review`, but the package is not available until the first release is published. Until then, use the cloned repository or the GitHub Action.
 
-### CI gate
+## Use the GitHub Action
 
-Exit code is `1` when a finding at/above `--block` survives verify+threshold, `0` otherwise, `2` on error. Drop it in a CI step:
-
-```sh
-npm run review -- --base "$GITHUB_BASE_REF" --api --block high
-```
-
-## Use as a GitHub Action (review every PR)
-
-This repo is also a composite Action. Add a workflow to any repo (`.github/workflows/code-review.yml`):
+Add `.github/workflows/code-review.yml` to any repository:
 
 ```yaml
 name: Code Review
 on:
   pull_request:
     types: [opened, synchronize, reopened]
+
 permissions:
   contents: read
   pull-requests: write
+
 jobs:
   review:
     runs-on: ubuntu-latest
     steps:
       - uses: AgentsKit-io/code-review-cli@main
         with:
-          provider: 'anthropic'      # or openai / gemini / grok / groq / openrouter / ollama / …
-          model: 'claude-opus-4-8'
+          provider: openai
+          model: gpt-4o
           api-key: ${{ secrets.LLM_API_KEY }}
-          # fail-on-block: 'true'    # gate merges (default: advisory — posts only)
-          # block: 'high'
+          # fail-on-block: 'true' # advisory by default
+          # block: high
 ```
 
-**LLM-agnostic.** `provider` is any `@agentskit/adapters` factory (`anthropic`, `openai`, `gemini`, `grok`, `ollama`, `deepseek`, `mistral`, `groq`, `openrouter`, `together`, …) or `claude-cli` for the local `claude -p`. Inputs: `provider`, `api-key` (passed via env, not the command line), `base-url` (for ollama/openrouter/gateways), `model`, `github-token` (default `${{ github.token }}`), `block`, `fail-on-block`, `votes`, `max-files`. It fetches the PR diff via the API and posts a batched inline review + summary. **Advisory by default** — set `fail-on-block: 'true'` to fail the check (and block merge with branch protection).
+The Action fetches the PR diff and posts one batched inline review plus a summary. It is advisory by default. Enable `fail-on-block` and branch protection when you are ready to use it as a merge gate.
 
-> Cost: every PR open/push runs 7 lenses × files × votes against the API. Tune `max-files` / `votes`, or scope the trigger, to control spend.
+Use `@main` while the project is pre-release. After the first stable release, pin `@v1` or a full release tag when reproducibility matters most.
 
-### Run it locally on a self-hosted runner (claude -p, no API cost)
+## Choose how to run
 
-Point a [self-hosted runner](https://docs.github.com/actions/hosting-your-own-runners) at your machine, set `provider: 'claude-cli'` and `runs-on: self-hosted` — the review runs through your local `claude -p` using your **subscription** (no per-call API cost). See `examples/pull-request-selfhosted.yml`.
+| Mode | Provider examples | Credentials | Best for |
+|---|---|---|---|
+| Local CLI | `codex-cli`, `claude-cli` | Existing CLI login | Local development or self-hosted runners |
+| Hosted API | `openai`, `anthropic`, `gemini`, `mistral`, `groq` | Provider API key | Managed CI |
+| Local model | `ollama` | Usually none | Privacy and predictable cost |
+| Gateway | `openrouter` or a custom `--base-url` | Gateway-specific | Central routing and policy |
 
-**Headless auth:** a CI/launchd-spawned `claude` can't use your interactive login session. Generate a long-lived token once and store it as a secret:
+Provider names other than the two local CLIs resolve to factories exported by [`@agentskit/adapters`](https://www.npmjs.com/package/@agentskit/adapters). Run `npm run review -- --list-providers` for common choices.
+
+Credentials resolve in this order:
+
+1. `--api-key`
+2. `LLM_API_KEY`
+3. `<PROVIDER>_API_KEY`, such as `OPENAI_API_KEY`
+
+Secrets passed to the GitHub Action are forwarded through the environment, not included in command-line arguments.
+
+## How review works
+
+```text
+diff / PR / paths / stdin
+          ↓
+   normalize targets
+          ↓
+  7 specialized lenses
+          ↓
+ adversarial verification
+          ↓
+ thresholds + CI policy
+          ↓
+Markdown / GitHub / SARIF
+```
+
+The review agent lives in `agents/code-review/` and is vendored from the [AgentsKit registry](https://github.com/AgentsKit-io/agentskit-registry/tree/main/registry/code-review). The CLI owns provider selection, input sources, policy, and reporting.
+
+## Common commands
 
 ```sh
-claude setup-token   # interactive (browser); requires a Claude subscription
-# → copy the token into the repo secret CLAUDE_CODE_OAUTH_TOKEN
+# Tune verification and severity
+npm run review -- --provider codex-cli --base main --votes 5 --min-severity high
+
+# Review a GitHub PR and post the result
+GITHUB_TOKEN=... npm run review -- --provider openai --model gpt-4o \
+  --pr owner/repo#42 --post
+
+# Review complete files or directories
+npm run review -- --provider claude-cli --paths src --max-files 30
+
+# Review piped source and also write SARIF
+echo 'const x = a.b' | npm run review -- --provider ollama --model llama3 \
+  --base-url http://localhost:11434 --stdin --lang ts --sarif out.sarif
 ```
 
-The example wires `claude-oauth-token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}` (exported as `CLAUDE_CODE_OAUTH_TOKEN`, which `claude` reads). It also adds `$HOME/.local/bin` to `PATH` so a launchd-started runner finds `claude`.
+## CLI reference
 
-## Updating the vendored agent
+| Flag | Meaning |
+|---|---|
+| `--provider <name>` | Required provider: local CLI or `@agentskit/adapters` factory |
+| `--model <id>` | Model id; required for API/local-server providers |
+| `--api-key <key>` | Provider key; environment variables are preferred |
+| `--base-url <url>` | Provider endpoint, local server, or gateway |
+| `--base <ref>` | Git diff base; default `origin/main` |
+| `--pr owner/repo#N` | GitHub PR source; requires `GITHUB_TOKEN` |
+| `--paths <p...>` | Complete files or directories |
+| `--stdin [--lang ts]` | Source read from stdin |
+| `--post` | Post a batched review when the source is a PR |
+| `--sarif <file>` | Also write SARIF |
+| `--votes <n>` | Adversarial verification votes; default `3` |
+| `--min-severity <level>` | Minimum reported severity |
+| `--min-confidence <n>` | Minimum reported confidence |
+| `--max-files <n>` | File budget |
+| `--concurrency <n>` | Parallel model calls; default `4` |
+| `--validate-patch` | Run `git apply --check` on suggested patches |
+| `--block <severity>` | CI gate floor; default `blocker` |
+| `--no-fail` | Keep findings advisory |
+| `--conventions <path>` | Inject project conventions |
+| `--api` | Back-compatible alias for `--provider anthropic` |
+| `--help` | Full command help |
 
-```sh
-cp ../agentskit-registry/registry/code-review/{agent,lenses,sources,reporters}.ts agents/code-review/
-```
+When no conventions path is supplied, the CLI looks for `CONVENTIONS.md`, `CONTRIBUTING.md`, `.cursorrules`, or `AGENTS.md`.
+
+## Cost and privacy
+
+A full review runs seven lenses across selected files and then verifies candidate findings. Control usage with `--max-files`, `--votes`, `--concurrency`, paths, and workflow triggers. For sensitive code, use a local model or an approved private gateway; provider data policies still apply to hosted APIs.
+
+## Contributing
+
+Providers, review lenses, reporters, fixtures, documentation, and false-positive reductions are welcome. Start with [CONTRIBUTING.md](CONTRIBUTING.md), browse issues labeled `good first issue`, or propose a new provider/lens with the issue templates.
+
+Please report vulnerabilities privately as described in [SECURITY.md](SECURITY.md).
+
+## Roadmap
+
+The near-term roadmap focuses on a stable `v1` Action, npm distribution, provider smoke tests, better cost visibility, and more community-owned review lenses. See [ROADMAP.md](ROADMAP.md).
+
+## License
+
+[MIT](LICENSE) © AgentsKit contributors.

@@ -1,0 +1,31 @@
+name: Review lens proposal
+description: Propose a focused class of problems for the reviewer to detect
+labels: [review-lens]
+body:
+  - type: input
+    id: name
+    attributes:
+      label: Lens name
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem class
+      description: What production-relevant defect should this lens detect?
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Required evidence
+      description: What concrete code evidence distinguishes a finding from an opinion?
+    validations:
+      required: true
+  - type: textarea
+    id: false_positives
+    attributes:
+      label: False-positive controls
+      description: List valid patterns the lens must not report.
+    validations:
+      required: true
