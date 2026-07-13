@@ -16,9 +16,9 @@ import {
   securityLens,
   skeptic,
   testsLens,
-} from './lenses'
-import { loadTargets, type SourceConfig } from './sources'
-import { markdownReporter } from './reporters'
+} from './lenses.js'
+import { loadTargets, type SourceConfig } from './sources.js'
+import { markdownReporter } from './reporters.js'
 
 /**
  * code-review — a deep, low-noise code-review agent. It fans out 7 focused lenses over

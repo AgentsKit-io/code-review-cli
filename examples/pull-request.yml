@@ -1,5 +1,5 @@
 # Drop this in any repo at .github/workflows/code-review.yml
-# Requires repo/org secret ANTHROPIC_API_KEY.
+# Requires a repo/org secret containing the selected provider's API key.
 name: Code Review
 
 on:
@@ -16,10 +16,10 @@ jobs:
     steps:
       - uses: AgentsKit-io/code-review-cli@main
         with:
-          # default provider is 'anthropic'; switch to any @agentskit adapter:
-          # provider: 'openai'   (+ model: 'gpt-4o')   /  'gemini' / 'grok' / 'groq' / 'openrouter' / …
-          provider: 'anthropic'
-          model: 'claude-opus-4-8'
+          # Choose any @agentskit adapter. Examples: anthropic, gemini,
+          # grok, groq, openrouter, ollama, mistral, or deepseek.
+          provider: 'openai'
+          model: 'gpt-4o'
           api-key: ${{ secrets.LLM_API_KEY }}   # the selected provider's key
           # advisory by default (posts, never blocks). To gate merges:
           # fail-on-block: 'true'

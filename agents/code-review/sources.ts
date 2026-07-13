@@ -2,7 +2,7 @@ import { execFile } from 'node:child_process'
 import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { extname, join } from 'node:path'
 import { promisify } from 'node:util'
-import type { ReviewTarget } from './agent'
+import type { ReviewTarget } from './agent.js'
 
 const run = promisify(execFile)
 

@@ -6,9 +6,8 @@ branding:
 
 inputs:
   provider:
-    description: 'LLM provider: "claude-cli" (local claude -p, self-hosted, no key/cost) or any @agentskit/adapters factory — anthropic, openai, gemini, grok, ollama, deepseek, mistral, groq, openrouter, together, …'
-    required: false
-    default: 'anthropic'
+    description: 'Provider to use: a local CLI (claude-cli, codex-cli) or any @agentskit/adapters provider such as anthropic, openai, gemini, ollama, or openrouter.'
+    required: true
   api-key:
     description: 'API key for the provider (required unless provider is claude-cli or a keyless local provider). Set as a repo/org secret. Passed via env, never the command line.'
     required: false
@@ -24,9 +23,8 @@ inputs:
     required: false
     default: ${{ github.token }}
   model:
-    description: 'Model id for the provider.'
+    description: 'Model id. Required for API and local-server providers; optional for CLI providers.'
     required: false
-    default: 'claude-opus-4-8'
   block:
     description: 'Severity floor for the gate: blocker | high.'
     required: false
@@ -59,15 +57,24 @@ runs:
         LLM_API_KEY: ${{ inputs.api-key }}
         CLAUDE_CODE_OAUTH_TOKEN: ${{ inputs.claude-oauth-token }}
         GITHUB_TOKEN: ${{ inputs.github-token }}
+        INPUT_PROVIDER: ${{ inputs.provider }}
+        INPUT_MODEL: ${{ inputs.model }}
+        INPUT_BASE_URL: ${{ inputs.base-url }}
+        INPUT_VOTES: ${{ inputs.votes }}
+        INPUT_MAX_FILES: ${{ inputs.max-files }}
+        INPUT_BLOCK: ${{ inputs.block }}
+        INPUT_FAIL_ON_BLOCK: ${{ inputs.fail-on-block }}
       run: |
         cd "$GITHUB_ACTION_PATH"
-        npm run --silent review -- \
+        args=(
           --pr "${{ github.repository }}#${{ github.event.pull_request.number }}" \
           --post \
-          --provider "${{ inputs.provider }}" \
-          --model "${{ inputs.model }}" \
-          ${{ inputs.base-url != '' && format('--base-url {0}', inputs.base-url) || '' }} \
-          --votes "${{ inputs.votes }}" \
-          --max-files "${{ inputs.max-files }}" \
-          --block "${{ inputs.block }}" \
-          ${{ inputs.fail-on-block == 'true' && ' ' || '--no-fail' }}
+          --provider "$INPUT_PROVIDER" \
+          --votes "$INPUT_VOTES" \
+          --max-files "$INPUT_MAX_FILES" \
+          --block "$INPUT_BLOCK"
+        )
+        [[ -n "$INPUT_MODEL" ]] && args+=(--model "$INPUT_MODEL")
+        [[ -n "$INPUT_BASE_URL" ]] && args+=(--base-url "$INPUT_BASE_URL")
+        [[ "$INPUT_FAIL_ON_BLOCK" == "true" ]] || args+=(--no-fail)
+        npm run --silent review -- "${args[@]}"
