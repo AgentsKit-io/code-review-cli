@@ -4,7 +4,11 @@
 
 # AgentsKit Code Review
 
+Profile: <code>top-level-repository</code>
+
 **Deep, low-noise AI code review with the model you already use.**
+
+It is intended for developers and teams who want trusted review feedback without changing their model subscription, and without adopting a separate chat product surface.
 
 [![CI](https://github.com/AgentsKit-io/code-review-cli/actions/workflows/ci.yml/badge.svg)](https://github.com/AgentsKit-io/code-review-cli/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-0f766e.svg)](LICENSE)
@@ -12,7 +16,16 @@
 
 **Tags:** `agentskit` · `ai-code-review` · `github-action` · `typescript` · `sarif` · `codex` · `claude` · `ollama`
 
+**Topics:** `ai-agents` · `code-review` · `developer-experience`
+
 Run code review locally or on every pull request. Bring Claude, Codex, OpenAI, Gemini, Ollama, OpenRouter, or another AgentsKit adapter. Seven specialized review lenses find potential problems; adversarial verification filters weak findings before they reach your team.
+
+## Verified proof
+
+- Offline CLI discovery works without credentials (`--help`, `--list-providers`) — covered by `test/cli-smoke.test.mjs`.
+- A clean local Codex CLI fixture completes an offline stdin review — covered by the same smoke suite.
+- Documentation, Action contract, and Doc Bridge gates run through `npm run check`.
+- Machine-readable public map: [`llms.txt`](llms.txt) and [`docs/for-agents/code-review-cli.md`](docs/for-agents/code-review-cli.md).
 
 ## Why this exists
 
@@ -29,6 +42,7 @@ AgentsKit Code Review is built around a different contract:
 
 Open a terminal inside any Git repository and choose a provider you already use. You do not need to clone or install AgentsKit Code Review:
 
+<!-- readme-example:first-review -->
 ```sh
 # Codex CLI — uses your existing login
 npx --yes github:AgentsKit-io/code-review-cli --provider codex-cli
@@ -193,11 +207,24 @@ A full review runs seven lenses across selected files and then verifies candidat
 - [`llms.txt`](llms.txt) — compact public source map for LLMs and coding agents.
 - [`doc-bridge.config.json`](doc-bridge.config.json) — executable Doc Bridge corpus, ownership, and gate contract.
 
-`npm run check` builds the CLI, executes a full credential-free review fixture, validates the composite Action and documentation contract, runs Doc Bridge gates, and checks CLI help. `npm pack --dry-run` verifies the release payload.
+`npm run check` builds the CLI, executes a full credential-free review fixture, validates the composite Action and documentation contract, runs Doc Bridge gates, checks CLI help, and enforces README Standard v1. Prove credential-free discovery with:
+
+```sh
+node examples/verify-readme.mjs
+```
+
+`npm pack --dry-run` verifies the release payload.
 
 ## Maturity
 
 The repository is **pre-v1 (`0.1.x`)**. The CLI and Action are usable today, but immutable `v1` Action tags and npm distribution remain planned. Use the GitHub-source command and `@main` only when that update policy is acceptable; pin a commit SHA for stronger CI reproducibility. See [ROADMAP.md](ROADMAP.md) and the [release guidance](docs/OPERATIONS.md#releases-and-maturity).
+
+## Compatibility
+
+- **Node.js 20+** (see `engines` in `package.json`)
+- **TypeScript** source and compiled ESM distribution
+- **GitHub Actions** composite Action at repository root (`action.yml`)
+- Providers via local CLIs or [`@agentskit/adapters`](https://www.npmjs.com/package/@agentskit/adapters)
 
 ## AgentsKit ecosystem
 

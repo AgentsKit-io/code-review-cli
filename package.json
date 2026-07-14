@@ -32,9 +32,12 @@
     "test": "npm run build && node --test test/*.test.mjs",
     "docs:index": "ak-docs index",
     "docs:gate": "ak-docs gate run && node --test test/documentation.test.mjs",
-    "check": "npm run typecheck && npm run test && npm run docs:gate && node dist/src/cli.js --help",
+    "check": "npm run typecheck && npm run test && npm run docs:gate && node dist/src/cli.js --help && npm run check:readme-standard",
     "prepare": "npm run build",
-    "prepack": "npm run build"
+    "prepack": "npm run build",
+    "check:readme-standard": "node scripts/check-readme-standard.mjs",
+    "test:readme-standard": "node --test scripts/readme-standard.test.mjs",
+    "readme:standard:refresh": "node scripts/refresh-readme-standard.mjs"
   },
   "dependencies": {
     "@agentskit/adapters": "^0.12.2",
