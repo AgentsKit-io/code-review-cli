@@ -1,0 +1,219 @@
+{
+  "schemaVersion": 1,
+  "standardId": "agentskit-readme-standard-v1",
+  "status": "approved",
+  "approval": {
+    "approvedBy": "EmersonBraun",
+    "approvedOn": "2026-07-13",
+    "record": "https://github.com/AgentsKit-io/agentskit/issues/1203#issuecomment-4963143065"
+  },
+  "profiles": [
+    {
+      "id": "top-level-repository",
+      "description": "Parent or product repository with a full adoption and contribution journey.",
+      "budgets": {
+        "badges": {
+          "max": 12
+        },
+        "images": {
+          "min": 1,
+          "max": 6,
+          "zeroRequiresException": true
+        },
+        "accessibility": {
+          "maxMissingAlt": 0
+        },
+        "darkMode": {
+          "requireStrategy": true
+        },
+        "commandVerification": {
+          "maxUnverifiedPrimary": 0
+        },
+        "freshness": {
+          "reviewCadenceDays": 90,
+          "requireSourceHash": true
+        }
+      }
+    },
+    {
+      "id": "public-app",
+      "description": "Runnable public product or documentation application.",
+      "budgets": {
+        "badges": {
+          "max": 8
+        },
+        "images": {
+          "min": 1,
+          "max": 5,
+          "zeroRequiresException": true
+        },
+        "accessibility": {
+          "maxMissingAlt": 0
+        },
+        "darkMode": {
+          "requireStrategy": true
+        },
+        "commandVerification": {
+          "maxUnverifiedPrimary": 0
+        },
+        "freshness": {
+          "reviewCadenceDays": 90,
+          "requireSourceHash": true
+        }
+      }
+    },
+    {
+      "id": "major-package",
+      "description": "Primary package with its own adoption journey, examples, and compatibility surface.",
+      "budgets": {
+        "badges": {
+          "max": 8
+        },
+        "images": {
+          "min": 1,
+          "max": 4,
+          "zeroRequiresException": true
+        },
+        "accessibility": {
+          "maxMissingAlt": 0
+        },
+        "darkMode": {
+          "requireStrategy": true
+        },
+        "commandVerification": {
+          "maxUnverifiedPrimary": 0
+        },
+        "freshness": {
+          "reviewCadenceDays": 120,
+          "requireSourceHash": true
+        }
+      }
+    },
+    {
+      "id": "concise-package",
+      "description": "Focused package whose README may stay short when the package guide carries depth.",
+      "budgets": {
+        "badges": {
+          "max": 6
+        },
+        "images": {
+          "min": 0,
+          "max": 2,
+          "zeroRequiresException": true
+        },
+        "accessibility": {
+          "maxMissingAlt": 0
+        },
+        "darkMode": {
+          "requireStrategy": true
+        },
+        "commandVerification": {
+          "maxUnverifiedPrimary": 0
+        },
+        "freshness": {
+          "reviewCadenceDays": 180,
+          "requireSourceHash": true
+        }
+      }
+    }
+  ],
+  "surfaces": [
+    {
+      "id": "code-review-root",
+      "path": "README.md",
+      "profileId": "top-level-repository",
+      "dimensions": {
+        "promise": [
+          "Deep, low-noise AI code review",
+          "It is intended for"
+        ],
+        "proof": [
+          "## Verified proof",
+          "test/cli-smoke.test.mjs"
+        ],
+        "examples": [
+          "## Run your first review",
+          "<!-- readme-example:first-review -->"
+        ],
+        "visuals": [
+          "docs/assets/agentskit-mark.svg",
+          "```mermaid"
+        ],
+        "maturity": [
+          "## Maturity",
+          "pre-v1 (`0.1.x`)"
+        ],
+        "compatibility": [
+          "## Compatibility",
+          "Node.js 20+"
+        ],
+        "contribution": [
+          "## Contributing",
+          "CONTRIBUTING.md",
+          "LICENSE"
+        ],
+        "metadata": [
+          "**Tags:**",
+          "`agentskit`",
+          "**Topics:**"
+        ],
+        "ecosystem": [
+          "## AgentsKit ecosystem",
+          "registry.agentskit.io",
+          "playbook.agentskit.io",
+          "Doc Bridge",
+          "no Fumadocs"
+        ]
+      },
+      "visuals": [
+        {
+          "src": "docs/assets/agentskit-mark.svg",
+          "kind": "brand",
+          "darkMode": "neutral"
+        }
+      ],
+      "commands": [
+        {
+          "id": "verify-readme",
+          "command": "node examples/verify-readme.mjs",
+          "test": "examples/verify-readme.mjs",
+          "testCommand": "npm run test:readme-standard"
+        },
+        {
+          "id": "first-review-codex",
+          "command": "npx --yes github:AgentsKit-io/code-review-cli --provider codex-cli",
+          "test": "test/cli-smoke.test.mjs",
+          "testCommand": "npm test"
+        }
+      ],
+      "examples": [
+        {
+          "id": "first-review",
+          "fixture": "examples/first-review.sh",
+          "test": "scripts/readme-standard.test.mjs",
+          "testCommand": "npm run test:readme-standard"
+        }
+      ],
+      "freshness": {
+        "reviewedOn": "2026-07-14",
+        "reviewDueOn": "2026-10-12",
+        "sources": [
+          "README.md",
+          "package.json",
+          "action.yml",
+          "CONTRIBUTING.md",
+          "LICENSE",
+          "llms.txt",
+          "doc-bridge.config.json",
+          "examples/first-review.sh",
+          "examples/verify-readme.mjs",
+          "docs/for-agents/code-review-cli.md",
+          "docs/OPERATIONS.md",
+          "test/cli-smoke.test.mjs"
+        ],
+        "sourceHash": "sha256:7da467b0367ff8b1dabb7e20a9a8a45a183e32963a46f0fb37c8cb37979c7916"
+      },
+      "exceptions": []
+    }
+  ]
+}
