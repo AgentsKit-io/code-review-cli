@@ -8,7 +8,7 @@ Profile: <code>top-level-repository</code>
 
 **Deep, low-noise AI code review with the model you already use.**
 
-It is intended for developers and teams who want trusted review feedback without changing their model subscription, and without adopting a separate chat product surface.
+It is intended for developers and teams who want focused review feedback without changing their model subscription, and without adopting a separate chat product surface.
 
 [![CI](https://github.com/AgentsKit-io/code-review-cli/actions/workflows/ci.yml/badge.svg)](https://github.com/AgentsKit-io/code-review-cli/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-0f766e.svg)](LICENSE)
@@ -18,7 +18,9 @@ It is intended for developers and teams who want trusted review feedback without
 
 **Topics:** `ai-agents` · `code-review` · `developer-experience`
 
-Run code review locally or on every pull request. Bring Claude, Codex, OpenAI, Gemini, Ollama, OpenRouter, or another AgentsKit adapter. Seven specialized review lenses find potential problems; adversarial verification filters weak findings before they reach your team.
+**Ecosystem:** [AgentsKit](https://www.agentskit.io/docs) · [Registry](https://registry.agentskit.io/docs) · [Chat](https://chat.agentskit.io/docs) · [Playbook](https://playbook.agentskit.io/docs) · [Doc Bridge](https://agentskit-io.github.io/doc-bridge/) · **Code Review** · [AKOS](https://akos.agentskit.io/docs)
+
+Run code review locally or on every pull request. Bring Claude, Codex, OpenAI, Gemini, Ollama, OpenRouter, or another supported AgentsKit adapter. Seven focused review lenses propose potential problems; adversarial verification filters weak findings before they reach your team.
 
 ## Verified proof
 
@@ -91,6 +93,8 @@ jobs:
 ```
 
 The Action fetches the PR diff and posts one batched inline review plus a summary. It is advisory by default. Enable `fail-on-block` and branch protection when you are ready to use it as a merge gate.
+
+Building a conversational review experience? Use [AgentsKit Chat](https://chat.agentskit.io/docs) for the cross-framework application layer instead of embedding chat here. Looking for organization-wide orchestration, governance, and production controls? Continue with [AKOS](https://akos.agentskit.io/docs).
 
 Use `@main` while the project is pre-release. After the first stable release, pin `@v1` or a full release tag when reproducibility matters most.
 
@@ -205,6 +209,7 @@ A full review runs seven lenses across selected files and then verifies candidat
 - [Operations guide](docs/OPERATIONS.md) — providers, permissions, secrets, cost controls, SARIF, failures, releases, and incident-safe defaults.
 - [Agent handoff](docs/for-agents/code-review-cli.md) — ownership, edit roots, verification commands, and change routes.
 - [`llms.txt`](llms.txt) — compact public source map for LLMs and coding agents.
+- [`llms-full.txt`](llms-full.txt) — complete README, operations, and agent-handoff corpus.
 - [`doc-bridge.config.json`](doc-bridge.config.json) — executable Doc Bridge corpus, ownership, and gate contract.
 
 `npm run check` builds the CLI, executes a full credential-free review fixture, validates the composite Action and documentation contract, runs Doc Bridge gates, checks CLI help, and enforces README Standard v1. Prove credential-free discovery with:
@@ -217,7 +222,7 @@ node examples/verify-readme.mjs
 
 ## Maturity
 
-The repository is **pre-v1 (`0.1.x`)**. The CLI and Action are usable today, but immutable `v1` Action tags and npm distribution remain planned. Use the GitHub-source command and `@main` only when that update policy is acceptable; pin a commit SHA for stronger CI reproducibility. See [ROADMAP.md](ROADMAP.md) and the [release guidance](docs/OPERATIONS.md#releases-and-maturity).
+The repository is **pre-v1 (`0.1.x`)**. The CLI and Action are available for evaluation and advisory CI, but immutable `v1` Action tags and npm distribution remain planned. Use the GitHub-source command and `@main` only when that update policy is acceptable; pin a commit SHA for stronger CI reproducibility. See [ROADMAP.md](ROADMAP.md) and the [release guidance](docs/OPERATIONS.md#releases-and-maturity).
 
 ## Compatibility
 
@@ -234,8 +239,10 @@ Code Review is the verification step in the broader AgentsKit journey:
 |---|---|
 | Build the agent or custom review adapter | [AgentsKit](https://www.agentskit.io/docs) |
 | Install the vendored review agent or explore ready agents | [Registry](https://registry.agentskit.io/docs) |
+| Deliver review through a conversational application | [AgentsKit Chat](https://chat.agentskit.io/docs) |
 | Apply engineering patterns before review | [Playbook](https://playbook.agentskit.io/docs) |
-| Generate ownership-aware documentation handoffs | [Doc Bridge](https://github.com/AgentsKit-io/doc-bridge) |
+| Generate ownership-aware documentation handoffs | [Doc Bridge](https://agentskit-io.github.io/doc-bridge/) |
+| Add enterprise orchestration and production governance | [AKOS](https://akos.agentskit.io/docs) |
 
 This repository intentionally has **no Fumadocs application and no embedded AgentsChat**. Its public product surface is the CLI, GitHub Action, repository documentation, and machine-readable handoffs.
 

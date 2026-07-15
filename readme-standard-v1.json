@@ -159,9 +159,11 @@
         ],
         "ecosystem": [
           "## AgentsKit ecosystem",
-          "registry.agentskit.io",
+          "registry.agentskit.io/docs",
+          "chat.agentskit.io/docs",
           "playbook.agentskit.io",
           "Doc Bridge",
+          "akos.agentskit.io/docs",
           "no Fumadocs"
         ]
       },
@@ -203,7 +205,9 @@
           "action.yml",
           "CONTRIBUTING.md",
           "LICENSE",
+          "ecosystem.json",
           "llms.txt",
+          "llms-full.txt",
           "doc-bridge.config.json",
           "examples/first-review.sh",
           "examples/verify-readme.mjs",
@@ -211,7 +215,7 @@
           "docs/OPERATIONS.md",
           "test/cli-smoke.test.mjs"
         ],
-        "sourceHash": "sha256:7da467b0367ff8b1dabb7e20a9a8a45a183e32963a46f0fb37c8cb37979c7916"
+        "sourceHash": "sha256:b0215e9cb286657ec48c60b8ac3b4218f2cdcaeaa0f9831a3db7507b2c744804"
       },
       "exceptions": []
     }

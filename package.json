@@ -10,7 +10,28 @@
   "files": [
     "dist",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "AGENTS.md",
+    "action.yml",
+    "examples/pull-request.yml",
+    "SECURITY.md",
+    "CONTRIBUTING.md",
+    "ROADMAP.md",
+    "CHANGELOG.md",
+    "doc-bridge.config.json",
+    ".doc-bridge/index.json",
+    ".doc-bridge/capabilities.json",
+    "ecosystem.json",
+    "ecosystem-claims.json",
+    "llms.txt",
+    "llms-full.txt",
+    "docs/OPERATIONS.md",
+    "docs/for-agents",
+    "docs/plans",
+    "docs/assets",
+    "test/cli-smoke.test.mjs",
+    "test/documentation.test.mjs",
+    "scripts/generate-llms-full.mjs"
   ],
   "repository": {
     "type": "git",
@@ -30,11 +51,13 @@
     "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc --noEmit",
     "test": "npm run build && node --test test/*.test.mjs",
-    "docs:index": "ak-docs index",
-    "docs:gate": "ak-docs gate run && node --test test/documentation.test.mjs",
+    "docs:full": "node scripts/generate-llms-full.mjs",
+    "docs:index": "ak-docs index && npm run docs:full",
+    "docs:gate": "ak-docs gate run && ak-docs conformance run documentation-standard-v1 --text && node scripts/generate-llms-full.mjs --check && node --test test/documentation.test.mjs",
+    "docs:doctor": "ak-docs doctor --text",
     "check": "npm run typecheck && npm run test && npm run docs:gate && node dist/src/cli.js --help && npm run check:readme-standard",
     "prepare": "npm run build",
-    "prepack": "npm run build",
+    "prepack": "npm run build && npm run docs:gate",
     "check:readme-standard": "node scripts/check-readme-standard.mjs",
     "test:readme-standard": "node --test scripts/readme-standard.test.mjs",
     "readme:standard:refresh": "node scripts/refresh-readme-standard.mjs"
@@ -48,8 +71,10 @@
     "zod": "^3.25.0",
     "zod-to-json-schema": "^3.24.0"
   },
+  "optionalDependencies": {
+    "@agentskit/doc-bridge": "^1.1.1"
+  },
   "devDependencies": {
-    "@agentskit/doc-bridge": "^1.0.2",
     "@types/json-schema": "^7.0.15",
     "@types/node": "^22.10.0",
     "tsx": "^4.19.0",

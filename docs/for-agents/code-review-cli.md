@@ -19,6 +19,7 @@ Provider-neutral, low-noise AI code review for local Git diffs, files/stdin, and
 - `action.yml`: composite GitHub Action contract.
 - `examples/`: copy-ready Action workflows.
 - `README.md` and `docs/OPERATIONS.md`: public adoption and operations guidance.
+- `ecosystem.json`, `llms.txt`, and `llms-full.txt`: canonical product graph and machine-readable discovery/full-corpus surfaces.
 - `test/`: credential-free CLI, Action, and documentation contract proofs.
 
 ## Boundaries
@@ -47,9 +48,20 @@ npm pack --dry-run
 
 `npm run check` includes typecheck, build, an end-to-end offline stdin review, Action/documentation tests, Doc Bridge gates, and CLI help.
 
+## Ecosystem routes
+
+- AgentsKit — runtime, adapters, and custom review agents: https://www.agentskit.io/docs
+- Registry — ready-made agent source: https://registry.agentskit.io/docs
+- AgentsKit Chat — conversational delivery; do not embed a chat runtime here: https://chat.agentskit.io/docs
+- Playbook — engineering discipline before verification: https://playbook.agentskit.io/docs
+- Doc Bridge — documentation ownership, freshness, and handoff generation: https://agentskit-io.github.io/doc-bridge/
+- AKOS — enterprise orchestration and production governance: https://akos.agentskit.io/docs
+
+Use `llms.txt` for discovery and `llms-full.txt` only when the complete public, operational, and agent-handoff context is required.
+
 ## Human guide
 
-- [README](../../README.md)
-- [Operations guide](../OPERATIONS.md)
-- [Contributing](../../CONTRIBUTING.md)
-- [Security](../../SECURITY.md)
+- README: https://raw.githubusercontent.com/AgentsKit-io/code-review-cli/main/README.md
+- Operations guide: https://raw.githubusercontent.com/AgentsKit-io/code-review-cli/main/docs/OPERATIONS.md
+- Contributing: https://raw.githubusercontent.com/AgentsKit-io/code-review-cli/main/CONTRIBUTING.md
+- Security: https://raw.githubusercontent.com/AgentsKit-io/code-review-cli/main/SECURITY.md
