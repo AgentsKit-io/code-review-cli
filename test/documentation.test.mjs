@@ -45,7 +45,20 @@ test('machine-readable documentation and Doc Bridge ownership are committed', ()
   const index = JSON.parse(read('.doc-bridge/index.json'))
   const handoff = index.handoffs['code-review-cli']
   for (const path of handoff.readBeforeEditing) assert.ok(existsSync(join(root, path)), `handoff target ${path} is missing`)
-  assert.match(read('llms.txt'), /AgentsKit Code Review/)
+  const llms = read('llms.txt')
+  const ecosystem = [
+    ['AgentsKit', 'https://www.agentskit.io/docs', 'https://www.agentskit.io/llms.txt'],
+    ['AgentsKit Registry', 'https://registry.agentskit.io/docs', 'https://registry.agentskit.io/llms.txt'],
+    ['AgentsKit Chat', 'https://chat.agentskit.io/docs', 'https://chat.agentskit.io/llms.txt'],
+    ['Agents Playbook', 'https://playbook.agentskit.io/docs', 'https://playbook.agentskit.io/llms.txt'],
+    ['Doc Bridge', 'https://agentskit-io.github.io/doc-bridge/', 'https://agentskit-io.github.io/doc-bridge/llms.txt'],
+    ['AgentsKit Code Review', 'https://github.com/AgentsKit-io/code-review-cli#readme', 'https://raw.githubusercontent.com/AgentsKit-io/code-review-cli/main/llms.txt'],
+    ['AgentsKit OS', 'https://akos.agentskit.io/docs', 'https://akos.agentskit.io/llms.txt'],
+  ]
+  for (const [name, docs, machine] of ecosystem) {
+    assert.ok(llms.includes(`[${name}](${docs})`), `llms.txt missing canonical docs for ${name}`)
+    assert.ok(llms.includes(`llms.txt: ${machine}`), `llms.txt missing canonical machine route for ${name}`)
+  }
 })
 
 test('repository-native scope has no Fumadocs or AgentsChat runtime dependency', () => {
