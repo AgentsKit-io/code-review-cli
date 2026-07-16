@@ -52,8 +52,9 @@ async function fromGitDiff(c: Extract<SourceConfig, { kind: 'git-diff' }>): Prom
     let fullContent: string
     try {
       fullContent = await git(['show', `${head}:${file}`]).catch(() => readFileSync(join(cwd, file), 'utf8'))
-    } catch {
-      continue
+    } catch (error) {
+      const detail = error instanceof Error ? error.message.split('\n')[0] : String(error)
+      throw new Error(`Failed to load review target ${file}: ${detail}`)
     }
     targets.push({ file, language: langOf(file), fullContent, changedRanges: changedRanges(block), isChanged: true })
   }
@@ -81,8 +82,7 @@ async function fromGithubPr(c: Extract<SourceConfig, { kind: 'github-pr' }>): Pr
     if (f.status === 'removed' || !CODE_EXT.has(extname(f.filename))) continue
     const content = await api<{ content: string; encoding: string }>(
       `/repos/${c.owner}/${c.repo}/contents/${encodeURIComponent(f.filename)}?ref=${sha}`,
-    ).catch(() => null)
-    if (!content) continue
+    )
     const fullContent = Buffer.from(content.content, content.encoding as BufferEncoding).toString('utf8')
     targets.push({
       file: f.filename,
