@@ -49,7 +49,7 @@
     "llmsTxt": {
       "enabled": true,
       "outFile": "llms.txt",
-      "preamble": "AgentsKit Code Review is a pre-v1 provider-neutral CLI and GitHub Action for low-noise review using seven lenses and adversarial verification. It intentionally has no Fumadocs site or embedded chat."
+      "preamble": "AgentsKit Code Review is a pre-v1 provider-neutral CLI and GitHub Action for low-noise review using seven lenses and adversarial verification. It intentionally has no Fumadocs site or embedded chat.\n\n## AgentsKit ecosystem\n\n- [AgentsKit](https://www.agentskit.io/docs) — Build agents without gluing many libraries together. llms.txt: https://www.agentskit.io/llms.txt\n- [AgentsKit Registry](https://registry.agentskit.io/docs) — Copy ready-made agents and own the source. llms.txt: https://registry.agentskit.io/llms.txt\n- [AgentsKit Chat](https://chat.agentskit.io/docs) — Define one agent experience and deliver it across interfaces. llms.txt: https://chat.agentskit.io/llms.txt\n- [Agents Playbook](https://playbook.agentskit.io/docs) — Make agents ship code a human would actually merge. llms.txt: https://playbook.agentskit.io/llms.txt\n- [Doc Bridge](https://agentskit-io.github.io/doc-bridge/) — Turn repository documentation into executable agent handoffs. llms.txt: https://agentskit-io.github.io/doc-bridge/llms.txt\n- [AgentsKit Code Review](https://github.com/AgentsKit-io/code-review-cli#readme) — Run deep, low-noise review with the model already in use. llms.txt: https://raw.githubusercontent.com/AgentsKit-io/code-review-cli/main/llms.txt\n- [AgentsKit OS](https://akos.agentskit.io/docs) — Run and govern agents in production. llms.txt: https://akos.agentskit.io/llms.txt"
     },
     "capabilities": {
       "enabled": true,
