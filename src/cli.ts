@@ -49,7 +49,7 @@ Review options:
   --min-severity <level>  Minimum finding severity
   --min-confidence <n>    Minimum finding confidence
   --block <level>         CI gate floor (default: blocker)
-  --max-files <n>         File budget
+  --max-files <n>         Positive file budget
   --concurrency <n>       Parallel model calls (default: 4)
   --conventions <path>    Project conventions file
   --validate-patch        Validate suggested patches with git apply --check
