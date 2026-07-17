@@ -2,13 +2,13 @@ AgentsKit Code Review is a pre-v1 provider-neutral CLI and GitHub Action for low
 
 ## AgentsKit ecosystem
 
-- [AgentsKit](https://www.agentskit.io/docs) — Build agents without gluing many libraries together. llms.txt: https://www.agentskit.io/llms.txt
-- [AgentsKit Registry](https://registry.agentskit.io/docs) — Copy ready-made agents and own the source. llms.txt: https://registry.agentskit.io/llms.txt
-- [AgentsKit Chat](https://chat.agentskit.io/docs) — Define one agent experience and deliver it across interfaces. llms.txt: https://chat.agentskit.io/llms.txt
-- [Agents Playbook](https://playbook.agentskit.io/docs) — Make agents ship code a human would actually merge. llms.txt: https://playbook.agentskit.io/llms.txt
-- [Doc Bridge](https://agentskit-io.github.io/doc-bridge/) — Turn repository documentation into executable agent handoffs. llms.txt: https://agentskit-io.github.io/doc-bridge/llms.txt
-- [AgentsKit Code Review](https://github.com/AgentsKit-io/code-review-cli#readme) — Run deep, low-noise review with the model already in use. llms.txt: https://raw.githubusercontent.com/AgentsKit-io/code-review-cli/main/llms.txt
-- [AgentsKit OS](https://akos.agentskit.io/docs) — Run and govern agents in production. llms.txt: https://akos.agentskit.io/llms.txt
+- [AgentsKit](https://www.agentskit.io/docs) — Build agents without gluing many libraries together. Role: `foundation`. Maturity: beta. Machine index: https://www.agentskit.io/llms.txt
+- [AgentsKit Registry](https://registry.agentskit.io/docs) — Copy ready-made agents and own the source. Role: `starting-point`. Maturity: beta. Machine index: https://registry.agentskit.io/llms.txt
+- [AgentsKit Chat](https://chat.agentskit.io/docs) — Define one agent experience and deliver it across interfaces. Role: `experience`. Maturity: alpha. Machine index: https://chat.agentskit.io/llms.txt
+- [Agents Playbook](https://playbook.agentskit.io/docs) — Make agents ship code a human would actually merge. Role: `discipline`. Maturity: stable. Machine index: https://playbook.agentskit.io/llms.txt
+- [Doc Bridge](https://agentskit-io.github.io/doc-bridge/) — Turn repository documentation into executable agent handoffs. Role: `understanding`. Maturity: stable. Machine index: https://agentskit-io.github.io/doc-bridge/llms.txt
+- [AgentsKit Code Review](https://github.com/AgentsKit-io/code-review-cli#readme) **(current)** — Run deep, low-noise review with the model already in use. Role: `verification`. Maturity: alpha. Machine index: https://raw.githubusercontent.com/AgentsKit-io/code-review-cli/main/llms.txt
+- [AgentsKit OS](https://akos.agentskit.io/docs) — Run and govern agents in production. Role: `operation`. Maturity: stable. Machine index: https://akos.agentskit.io/llms.txt
 
 ## Knowledge
 
