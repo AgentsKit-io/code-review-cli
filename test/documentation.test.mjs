@@ -57,8 +57,10 @@ test('machine-readable documentation and Doc Bridge ownership are committed', ()
   ]
   for (const [name, docs, machine] of ecosystem) {
     assert.ok(llms.includes(`[${name}](${docs})`), `llms.txt missing canonical docs for ${name}`)
-    assert.ok(llms.includes(`llms.txt: ${machine}`), `llms.txt missing canonical machine route for ${name}`)
+    assert.ok(llms.includes(`Machine index: ${machine}`), `llms.txt missing canonical machine route for ${name}`)
   }
+  assert.ok(llms.includes('**(current)**'), 'llms.txt must mark code-review as current')
+  assert.ok(llms.includes('Role: `verification`'), 'llms.txt must include product roles')
 })
 
 test('repository-native scope has no Fumadocs or AgentsChat runtime dependency', () => {
