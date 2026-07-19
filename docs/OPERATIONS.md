@@ -92,4 +92,6 @@ Release work updates [`CHANGELOG.md`](../CHANGELOG.md), [`ROADMAP.md`](../ROADMA
 
 Start with [`CONTRIBUTING.md`](../CONTRIBUTING.md). Provider integrations must preserve the AgentsKit adapter contract and keep secrets out of arguments/logs. Review lenses need reproducible evidence and false-positive fixtures. Report vulnerabilities privately through [`SECURITY.md`](../SECURITY.md).
 
-For adjacent work, use [AgentsKit](https://www.agentskit.io/docs) for runtime/adapters, [Registry](https://registry.agentskit.io/docs) for the vendored agent, [Playbook](https://playbook.agentskit.io/docs) for engineering patterns, and [Doc Bridge](https://github.com/AgentsKit-io/doc-bridge) for ownership handoffs.
+For adjacent work, use [AgentsKit](https://www.agentskit.io/docs) for runtime and adapters, [Registry](https://registry.agentskit.io/docs) for the vendored agent, [AgentsKit Chat](https://chat.agentskit.io/docs) when review belongs inside a conversational application, [Playbook](https://playbook.agentskit.io/docs) for engineering patterns, [Doc Bridge](https://agentskit-io.github.io/doc-bridge/) for documentation ownership handoffs, and [AKOS](https://akos.agentskit.io/docs) for enterprise orchestration and production governance.
+
+Machine readers should start with [`llms.txt`](../llms.txt), escalate to [`llms-full.txt`](../llms-full.txt) only when the complete corpus is required, and use [`docs/for-agents`](./for-agents/index.md) before changing an owned module.

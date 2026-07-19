@@ -7,9 +7,7 @@
     "agent": {
       "root": "docs/for-agents",
       "index": "docs/for-agents/index.md",
-      "include": [
-        "**/*.md"
-      ]
+      "include": ["**/*.md"]
     },
     "human": {
       "plugin": "plain-markdown",
@@ -25,10 +23,7 @@
         "code-review-cli": {
           "path": ".",
           "purpose": "Provider-neutral local and GitHub code review CLI, Action, reporters, and repository documentation.",
-          "checks": [
-            "npm run check",
-            "npm pack --dry-run"
-          ],
+          "checks": ["npm run check", "npm pack --dry-run"],
           "agentDoc": "docs/for-agents/code-review-cli.md",
           "humanDoc": "OPERATIONS"
         }
@@ -37,10 +32,7 @@
         {
           "id": "understand-or-run-code-review",
           "title": "Understand or run Code Review",
-          "paths": [
-            "README.md",
-            "docs/OPERATIONS.md"
-          ]
+          "paths": ["README.md", "docs/OPERATIONS.md"]
         }
       ],
       "changes": [
@@ -57,15 +49,59 @@
     "llmsTxt": {
       "enabled": true,
       "outFile": "llms.txt",
-      "preamble": "AgentsKit Code Review is a pre-v1 provider-neutral CLI and GitHub Action for low-noise review using seven lenses and adversarial verification. It intentionally has no Fumadocs site or embedded chat.\n\n## AgentsKit ecosystem\n\n- [AgentsKit](https://www.agentskit.io/docs) — Build agents without gluing many libraries together. Role: `foundation`. Maturity: beta. Machine index: https://www.agentskit.io/llms.txt\n- [AgentsKit Registry](https://registry.agentskit.io/docs) — Copy ready-made agents and own the source. Role: `starting-point`. Maturity: beta. Machine index: https://registry.agentskit.io/llms.txt\n- [AgentsKit Chat](https://chat.agentskit.io/docs) — Define one agent experience and deliver it across interfaces. Role: `experience`. Maturity: alpha. Machine index: https://chat.agentskit.io/llms.txt\n- [Agents Playbook](https://playbook.agentskit.io/docs) — Make agents ship code a human would actually merge. Role: `discipline`. Maturity: stable. Machine index: https://playbook.agentskit.io/llms.txt\n- [Doc Bridge](https://agentskit-io.github.io/doc-bridge/) — Turn repository documentation into executable agent handoffs. Role: `understanding`. Maturity: stable. Machine index: https://agentskit-io.github.io/doc-bridge/llms.txt\n- [AgentsKit Code Review](https://github.com/AgentsKit-io/code-review-cli#readme) **(current)** — Run deep, low-noise review with the model already in use. Role: `verification`. Maturity: alpha. Machine index: https://raw.githubusercontent.com/AgentsKit-io/code-review-cli/main/llms.txt\n- [AgentsKit OS](https://akos.agentskit.io/docs) — Run and govern agents in production. Role: `operation`. Maturity: stable. Machine index: https://akos.agentskit.io/llms.txt\n"
+      "preamble": "AgentsKit Code Review is a pre-v1 provider-neutral CLI and GitHub Action for low-noise review using seven lenses and adversarial verification. It intentionally has no Fumadocs site or embedded chat.\n\n## Documentation surfaces\n\n- Full corpus: llms-full.txt\n- Public README: https://github.com/AgentsKit-io/code-review-cli#readme\n- Operations: docs/OPERATIONS.md\n- For agents: docs/for-agents/index.md\n- Raw sources: https://raw.githubusercontent.com/AgentsKit-io/code-review-cli/main/\n\n## AgentsKit ecosystem\n\n- AgentsKit: https://www.agentskit.io/docs\n- Registry: https://registry.agentskit.io/docs\n- AgentsKit Chat: https://chat.agentskit.io/docs\n- Playbook: https://playbook.agentskit.io/docs\n- Doc Bridge: https://agentskit-io.github.io/doc-bridge/\n- Code Review: https://github.com/AgentsKit-io/code-review-cli#readme\n- AKOS: https://akos.agentskit.io/docs"
     },
     "capabilities": {
       "enabled": true,
       "outFile": ".doc-bridge/capabilities.json"
     }
   },
+  "conformance": {
+    "documentationStandardV1": {
+      "rawSources": [
+        "README.md",
+        "docs/OPERATIONS.md",
+        "docs/for-agents/code-review-cli.md"
+      ],
+      "contributionPaths": ["CONTRIBUTING.md"],
+      "metadata": [
+        {
+          "path": "README.md",
+          "contains": ["# AgentsKit Code Review", "Deep, low-noise AI code review"]
+        }
+      ],
+      "links": [
+        { "url": "https://www.agentskit.io", "paths": ["README.md"] },
+        { "url": "https://registry.agentskit.io/docs", "paths": ["README.md"] },
+        { "url": "https://chat.agentskit.io/docs", "paths": ["README.md"] },
+        { "url": "https://playbook.agentskit.io/docs", "paths": ["README.md"] },
+        { "url": "https://agentskit-io.github.io/doc-bridge/", "paths": ["README.md"] },
+        { "url": "https://akos.agentskit.io/docs", "paths": ["README.md"] }
+      ],
+      "ecosystemContract": {
+        "manifest": "ecosystem.json",
+        "claims": "ecosystem-claims.json",
+        "productId": "code-review"
+      },
+      "quickstarts": [
+        {
+          "id": "first-review",
+          "doc": "README.md",
+          "test": "test/cli-smoke.test.mjs",
+          "command": "npm run build && node --test test/cli-smoke.test.mjs",
+          "testContains": ["a clean local Codex CLI fixture completes an offline stdin review"]
+        }
+      ],
+      "visuals": ["docs/assets/agentskit-mark.svg"],
+      "diagrams": [
+        { "path": "README.md", "contains": ["```mermaid"] }
+      ],
+      "exceptions": []
+    }
+  },
   "gates": {
-    "preset": "standard"
+    "preset": "standard",
+    "include": ["documentation-standard-v1"]
   },
   "surfaces": {
     "cli": {
