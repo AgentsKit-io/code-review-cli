@@ -110,7 +110,7 @@ jobs:
           # block: high
 ```
 
-The Action fetches the PR diff and posts one batched inline review plus a summary. It is advisory by default. Enable `fail-on-block` and branch protection when you are ready to use it as a merge gate.
+The Action fetches the PR diff and posts one batched inline review plus a summary. It is advisory by default. Advisory mode affects findings only: source, provider, or execution failures still fail the check, and any reviewable file with zero successful primary lenses prevents approval. Summaries report successful and failed lens counts so partial degradation stays visible. Enable `fail-on-block` and branch protection when you are ready to use findings as a merge gate.
 
 Building a conversational review experience? Use [AgentsKit Chat](https://chat.agentskit.io/docs) for the cross-framework application layer instead of embedding chat here. Looking for organization-wide orchestration, governance, and production controls? Continue with [AKOS](https://akos.agentskit.io/docs).
 
@@ -207,7 +207,7 @@ In shortened examples, replace `...` with `npx --yes github:AgentsKit-io/code-re
 | `--votes <n>` | Adversarial verification votes; default `3` |
 | `--min-severity <level>` | Minimum reported severity |
 | `--min-confidence <n>` | Minimum reported confidence |
-| `--max-files <n>` | File budget |
+| `--max-files <n>` | Positive file budget |
 | `--concurrency <n>` | Parallel model calls; default `4` |
 | `--validate-patch` | Run `git apply --check` on suggested patches |
 | `--block <severity>` | CI gate floor; default `blocker` |
@@ -259,7 +259,7 @@ Code Review is the verification step in the broader AgentsKit journey:
 | Install the vendored review agent or explore ready agents | [Registry](https://registry.agentskit.io/docs) |
 | Deliver review through a conversational application | [AgentsKit Chat](https://chat.agentskit.io/docs) |
 | Apply engineering patterns before review | [Playbook](https://playbook.agentskit.io/docs) |
-| Generate ownership-aware documentation handoffs | [Doc Bridge](https://agentskit-io.github.io/doc-bridge/) |
+| Generate ownership-aware documentation handoffs | [Doc Bridge](https://agentskit-io.github.io/doc-bridge/) ([source](https://github.com/AgentsKit-io/doc-bridge)) |
 | Add enterprise orchestration and production governance | [AKOS](https://akos.agentskit.io/docs) |
 
 This repository intentionally has **no Fumadocs application and no embedded AgentsChat**. Its public product surface is the CLI, GitHub Action, repository documentation, and machine-readable handoffs.
@@ -314,7 +314,7 @@ Use environment protection or organization secrets for sensitive providers. Rota
 
 ## Advisory and blocking behavior
 
-The Action is advisory by default: `fail-on-block: 'false'` adds `--no-fail`. Findings still post, but surviving blocker/high findings do not fail the job. For enforcement:
+The Action is advisory by default: `fail-on-block: 'false'` adds `--no-fail`. Findings still post, but surviving blocker/high findings do not fail the job. `--no-fail` never suppresses provider, source, reporter, or review-execution errors. For enforcement:
 
 ```yaml
 with:
@@ -330,13 +330,13 @@ Then require the workflow check in branch protection. CLI exit codes are:
 | `1` | A finding at or above `--block` survived | Fix, dismiss with evidence, or change policy intentionally |
 | `2` | Configuration, provider, source, or reporter failure | Inspect stderr; do not interpret as a clean review |
 
-A model response that is malformed may drop one lens while other lenses continue; progress output reports the failed lens. Provider-wide failures surface as execution errors. Treat missing output or exit `2` as unavailable review, not approval.
+A model response that is malformed may drop one lens while other lenses continue; progress output and the final summary report successful and failed primary-lens counts. If any reviewable file cannot be ingested or has zero successful primary lenses, the pipeline stops before reporters run and exits `2`, including in advisory mode. Treat missing output or exit `2` as unavailable review, not approval.
 
 ## Cost and latency controls
 
 Seven lenses fan out over selected files; candidate findings then receive adversarial votes. The primary controls are:
 
-- `--max-files`: hard file budget;
+- `--max-files`: positive hard file budget;
 - `--votes`: verification depth and cost;
 - `--concurrency`: simultaneous model/subprocess calls;
 - `--paths` or workflow path filters: narrow scope;
@@ -554,6 +554,8 @@ All notable changes will be documented here. This project follows Semantic Versi
 
 ### Changed
 
+- Made reviews fail closed when any reviewable file has no successful primary lens or cannot be ingested; advisory mode now suppresses finding-based failures only, never source/provider/execution failures.
+- Added primary-lens execution coverage to review summaries so partial provider degradation is visible.
 - Repositioned the CLI and GitHub Action as provider-neutral.
 - Made provider selection explicit and removed provider-specific model defaults.
 - Added package metadata, CLI help, open-source governance, and contribution guidance.

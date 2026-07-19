@@ -241,7 +241,7 @@ Code Review is the verification step in the broader AgentsKit journey:
 | Install the vendored review agent or explore ready agents | [Registry](https://registry.agentskit.io/docs) |
 | Deliver review through a conversational application | [AgentsKit Chat](https://chat.agentskit.io/docs) |
 | Apply engineering patterns before review | [Playbook](https://playbook.agentskit.io/docs) |
-| Generate ownership-aware documentation handoffs | [Doc Bridge](https://agentskit-io.github.io/doc-bridge/) |
+| Generate ownership-aware documentation handoffs | [Doc Bridge](https://agentskit-io.github.io/doc-bridge/) ([source](https://github.com/AgentsKit-io/doc-bridge)) |
 | Add enterprise orchestration and production governance | [AKOS](https://akos.agentskit.io/docs) |
 
 This repository intentionally has **no Fumadocs application and no embedded AgentsChat**. Its public product surface is the CLI, GitHub Action, repository documentation, and machine-readable handoffs.
