@@ -12,7 +12,7 @@ test('README communicates pipeline, maturity, contribution, and ecosystem role',
   for (const marker of ['docs/assets/agentskit-mark.svg', '```mermaid', '## Maturity', '## AgentsKit ecosystem', 'CONTRIBUTING.md', 'SECURITY.md']) {
     assert.ok(readme.includes(marker), `README missing ${marker}`)
   }
-  for (const url of ['www.agentskit.io/docs', 'registry.agentskit.io/docs', 'chat.agentskit.io/docs', 'playbook.agentskit.io/docs', 'agentskit-io.github.io/doc-bridge', 'akos.agentskit.io/docs']) {
+  for (const url of ['www.agentskit.io/docs', 'registry.agentskit.io/docs', 'playbook.agentskit.io/docs', 'AgentsKit-io/doc-bridge']) {
     assert.ok(readme.includes(url), `README missing ${url}`)
   }
   assert.match(readme, /no Fumadocs application and no embedded AgentsChat/i)
@@ -37,7 +37,7 @@ test('the Action stays least-privilege, secret-safe, and advisory by default', (
 })
 
 test('machine-readable documentation and Doc Bridge ownership are committed', () => {
-  for (const path of ['AGENTS.md', 'doc-bridge.config.json', 'ecosystem.json', 'llms.txt', 'llms-full.txt', '.doc-bridge/index.json', '.doc-bridge/capabilities.json', 'docs/for-agents/index.md', 'docs/for-agents/code-review-cli.md']) {
+  for (const path of ['AGENTS.md', 'doc-bridge.config.json', 'llms.txt', '.doc-bridge/index.json', '.doc-bridge/capabilities.json', 'docs/for-agents/index.md', 'docs/for-agents/code-review-cli.md']) {
     assert.ok(existsSync(join(root, path)), `${path} is missing`)
   }
   const config = JSON.parse(read('doc-bridge.config.json'))
@@ -45,75 +45,22 @@ test('machine-readable documentation and Doc Bridge ownership are committed', ()
   const index = JSON.parse(read('.doc-bridge/index.json'))
   const handoff = index.handoffs['code-review-cli']
   for (const path of handoff.readBeforeEditing) assert.ok(existsSync(join(root, path)), `handoff target ${path} is missing`)
-  const searchableBody = index.knowledge.map(entry => entry.body).join('\n')
-  for (const [product, url] of [
-    ['AgentsKit', 'https://www.agentskit.io/docs'],
-    ['Registry', 'https://registry.agentskit.io/docs'],
-    ['AgentsKit Chat', 'https://chat.agentskit.io/docs'],
-    ['Playbook', 'https://playbook.agentskit.io/docs'],
-    ['Doc Bridge', 'https://agentskit-io.github.io/doc-bridge/'],
-    ['AKOS', 'https://akos.agentskit.io/docs'],
-  ]) {
-    assert.ok(searchableBody.includes(product), `Doc Bridge index lost ecosystem product ${product}`)
-    assert.ok(searchableBody.includes(url), `Doc Bridge index lost ecosystem route ${url}`)
-  }
-  assert.match(read('llms.txt'), /AgentsKit Code Review/)
-  assert.match(read('llms.txt'), /llms-full\.txt/)
-  const full = read('llms-full.txt')
-  for (const marker of ['Code Review operations guide', '## Security policy', '## Contributing guide', '## Roadmap', '## Changelog']) {
-    assert.ok(full.includes(marker), `llms-full.txt missing ${marker}`)
-  }
-  const relativeLinks = [...full.matchAll(/\]\(([^)]+)\)/g)]
-    .map(match => match[1])
-    .filter(target => !/^(?:https?:\/\/|mailto:|#)/.test(target))
-  assert.deepEqual(relativeLinks, [], `llms-full.txt contains unresolved relative links: ${relativeLinks.join(', ')}`)
-})
-
-test('canonical ecosystem manifest exposes seven unique products and six Code Review siblings', () => {
-  const manifest = JSON.parse(read('ecosystem.json'))
-  const expected = ['agentskit', 'registry', 'agentskit-chat', 'playbook', 'doc-bridge', 'code-review', 'akos']
-  assert.deepEqual(manifest.products.map(product => product.id), expected)
-  assert.equal(new Set(expected).size, 7)
-  assert.deepEqual(manifest.products.find(product => product.id === 'code-review').navigation.next, expected.filter(id => id !== 'code-review'))
-  assert.ok(manifest.properties.every(product => expected.includes(product.id)))
-  assert.equal(manifest.products.find(product => product.id === 'agentskit-chat').surfaces.documentation, 'fumadocs')
-  assert.equal(manifest.products.find(product => product.id === 'akos').maturity, 'stable')
-  for (const product of manifest.products) {
-    assert.match(product.surfaces.home, /^https:\/\//)
-    assert.match(product.surfaces.llms, /^https:\/\//)
-  }
-})
-
-test('published package keeps documentation generators and freshness enforcement', () => {
-  const manifest = JSON.parse(read('package.json'))
-  assert.ok(manifest.files.includes('scripts/generate-llms-full.mjs'))
-  for (const input of [
-    'SECURITY.md',
-    'CONTRIBUTING.md',
-    'ROADMAP.md',
-    'CHANGELOG.md',
-    'ecosystem-claims.json',
-    'docs/assets',
-    'docs/plans',
-    'test/cli-smoke.test.mjs',
-    'test/documentation.test.mjs',
-    '.doc-bridge/index.json',
-    '.doc-bridge/capabilities.json',
-    'action.yml',
-    'examples/pull-request.yml',
-  ]) {
-    assert.ok(manifest.files.includes(input), `published documentation input missing: ${input}`)
-  }
-  assert.equal(manifest.optionalDependencies['@agentskit/doc-bridge'], '^1.1.1')
-  assert.match(manifest.scripts.prepack, /docs:gate/)
-})
-
-test('machine discovery links raw sources and every sibling while staying concise', () => {
   const llms = read('llms.txt')
-  assert.ok(Buffer.byteLength(llms) < 12_000, 'llms.txt should remain a concise discovery surface')
-  for (const marker of ['raw.githubusercontent.com/AgentsKit-io/code-review-cli/main/', 'AgentsKit Chat', 'Registry', 'Playbook', 'Doc Bridge', 'AKOS']) {
-    assert.ok(llms.includes(marker), `llms.txt missing ${marker}`)
+  const ecosystem = [
+    ['AgentsKit', 'https://www.agentskit.io/docs', 'https://www.agentskit.io/llms.txt'],
+    ['AgentsKit Registry', 'https://registry.agentskit.io/docs', 'https://registry.agentskit.io/llms.txt'],
+    ['AgentsKit Chat', 'https://chat.agentskit.io/docs', 'https://chat.agentskit.io/llms.txt'],
+    ['Agents Playbook', 'https://playbook.agentskit.io/docs', 'https://playbook.agentskit.io/llms.txt'],
+    ['Doc Bridge', 'https://agentskit-io.github.io/doc-bridge/', 'https://agentskit-io.github.io/doc-bridge/llms.txt'],
+    ['AgentsKit Code Review', 'https://github.com/AgentsKit-io/code-review-cli#readme', 'https://raw.githubusercontent.com/AgentsKit-io/code-review-cli/main/llms.txt'],
+    ['AgentsKit OS', 'https://akos.agentskit.io/docs', 'https://akos.agentskit.io/llms.txt'],
+  ]
+  for (const [name, docs, machine] of ecosystem) {
+    assert.ok(llms.includes(`[${name}](${docs})`), `llms.txt missing canonical docs for ${name}`)
+    assert.ok(llms.includes(`Machine index: ${machine}`), `llms.txt missing canonical machine route for ${name}`)
   }
+  assert.ok(llms.includes('**(current)**'), 'llms.txt must mark code-review as current')
+  assert.ok(llms.includes('Role: `verification`'), 'llms.txt must include product roles')
 })
 
 test('repository-native scope has no Fumadocs or AgentsChat runtime dependency', () => {

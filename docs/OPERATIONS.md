@@ -31,7 +31,7 @@ Use environment protection or organization secrets for sensitive providers. Rota
 
 ## Advisory and blocking behavior
 
-The Action is advisory by default: `fail-on-block: 'false'` adds `--no-fail`. Findings still post, but surviving blocker/high findings do not fail the job. For enforcement:
+The Action is advisory by default: `fail-on-block: 'false'` adds `--no-fail`. Findings still post, but surviving blocker/high findings do not fail the job. `--no-fail` never suppresses provider, source, reporter, or review-execution errors. For enforcement:
 
 ```yaml
 with:
@@ -47,13 +47,13 @@ Then require the workflow check in branch protection. CLI exit codes are:
 | `1` | A finding at or above `--block` survived | Fix, dismiss with evidence, or change policy intentionally |
 | `2` | Configuration, provider, source, or reporter failure | Inspect stderr; do not interpret as a clean review |
 
-A model response that is malformed may drop one lens while other lenses continue; progress output reports the failed lens. Provider-wide failures surface as execution errors. Treat missing output or exit `2` as unavailable review, not approval.
+A model response that is malformed may drop one lens while other lenses continue; progress output and the final summary report successful and failed primary-lens counts. If any reviewable file cannot be ingested or has zero successful primary lenses, the pipeline stops before reporters run and exits `2`, including in advisory mode. Treat missing output or exit `2` as unavailable review, not approval.
 
 ## Cost and latency controls
 
 Seven lenses fan out over selected files; candidate findings then receive adversarial votes. The primary controls are:
 
-- `--max-files`: hard file budget;
+- `--max-files`: positive hard file budget;
 - `--votes`: verification depth and cost;
 - `--concurrency`: simultaneous model/subprocess calls;
 - `--paths` or workflow path filters: narrow scope;

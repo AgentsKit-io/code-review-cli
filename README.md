@@ -92,7 +92,7 @@ jobs:
           # block: high
 ```
 
-The Action fetches the PR diff and posts one batched inline review plus a summary. It is advisory by default. Enable `fail-on-block` and branch protection when you are ready to use it as a merge gate.
+The Action fetches the PR diff and posts one batched inline review plus a summary. It is advisory by default. Advisory mode affects findings only: source, provider, or execution failures still fail the check, and any reviewable file with zero successful primary lenses prevents approval. Summaries report successful and failed lens counts so partial degradation stays visible. Enable `fail-on-block` and branch protection when you are ready to use findings as a merge gate.
 
 Building a conversational review experience? Use [AgentsKit Chat](https://chat.agentskit.io/docs) for the cross-framework application layer instead of embedding chat here. Looking for organization-wide orchestration, governance, and production controls? Continue with [AKOS](https://akos.agentskit.io/docs).
 
@@ -189,7 +189,7 @@ In shortened examples, replace `...` with `npx --yes github:AgentsKit-io/code-re
 | `--votes <n>` | Adversarial verification votes; default `3` |
 | `--min-severity <level>` | Minimum reported severity |
 | `--min-confidence <n>` | Minimum reported confidence |
-| `--max-files <n>` | File budget |
+| `--max-files <n>` | Positive file budget |
 | `--concurrency <n>` | Parallel model calls; default `4` |
 | `--validate-patch` | Run `git apply --check` on suggested patches |
 | `--block <severity>` | CI gate floor; default `blocker` |

@@ -1,6 +1,16 @@
 #!/usr/bin/env node
 import { writeFileSync } from 'node:fs'
 
+const prompt = process.argv.at(-1) ?? ''
+if (
+  process.env.CODEX_FIXTURE_FAIL_ALL === '1' ||
+  (process.env.CODEX_FIXTURE_FAIL_FILE && prompt.includes(`FILE: ${process.env.CODEX_FIXTURE_FAIL_FILE} `)) ||
+  (process.env.CODEX_FIXTURE_FAIL_CATEGORY && prompt.includes(`SINGLE dimension: ${process.env.CODEX_FIXTURE_FAIL_CATEGORY}`))
+) {
+  process.stderr.write('fixture provider authentication failed\n')
+  process.exit(1)
+}
+
 const outputIndex = process.argv.indexOf('-o')
 if (outputIndex < 0 || !process.argv[outputIndex + 1]) process.exit(2)
 writeFileSync(process.argv[outputIndex + 1], JSON.stringify({ findings: [] }))
