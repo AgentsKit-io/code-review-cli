@@ -29,7 +29,7 @@ Profile: <code>top-level-repository</code>
 It is intended for developers and teams who want focused review feedback without changing their model subscription, and without adopting a separate chat product surface.
 
 [![CI](https://github.com/AgentsKit-io/code-review-cli/actions/workflows/ci.yml/badge.svg)](https://github.com/AgentsKit-io/code-review-cli/actions/workflows/ci.yml)
-[![OpenSSF Baseline](https://www.bestpractices.dev/projects/13866/baseline)](https://www.bestpractices.dev/projects/13866)
+[![OpenSSF Best Practices](https://www.bestpractices.dev/projects/13866/baseline)](https://www.bestpractices.dev/projects/13866)
 [![License: MIT](https://img.shields.io/badge/License-MIT-0f766e.svg)](https://github.com/AgentsKit-io/code-review-cli/blob/main/LICENSE)
 [![Node.js](https://img.shields.io/badge/Node.js-%3E%3D20-339933?logo=node.js&logoColor=white)](https://github.com/AgentsKit-io/code-review-cli/blob/main/package.json)
 
