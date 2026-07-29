@@ -251,6 +251,8 @@ This repository intentionally has **no Fumadocs application and no embedded Agen
 Providers, review lenses, reporters, fixtures, documentation, and false-positive reductions are welcome. Start with [CONTRIBUTING.md](CONTRIBUTING.md), browse issues labeled `good first issue`, or propose a new provider/lens with the issue templates.
 
 Please report vulnerabilities privately as described in [SECURITY.md](SECURITY.md).
+Maintainer responsibilities, public decision-making, and the release process are
+documented in [GOVERNANCE.md](GOVERNANCE.md).
 
 ## Roadmap
 

@@ -34,8 +34,12 @@ Please open an issue before a large architectural change. Small fixes and docume
 
 - Keep one concern per PR.
 - Explain the user-visible behavior and how you tested it.
+- Add or update tests for behavior changes.
 - Preserve provider neutrality: provider-specific behavior belongs in its adapter.
 - Never commit API keys, model output containing private code, or review tokens.
 - Update README or examples when changing the public CLI or Action interface.
+
+Project decisions, maintainer responsibilities, and the release process are
+documented in [GOVERNANCE.md](GOVERNANCE.md).
 
 By participating, you agree to follow the [Code of Conduct](CODE_OF_CONDUCT.md).
