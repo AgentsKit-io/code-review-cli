@@ -66,6 +66,29 @@ The current command runs directly from GitHub. After the first npm release, the 
 npx @agentskit/code-review --provider codex-cli
 ```
 
+## Run through pre-commit
+
+The repository publishes a [`pre-commit`](https://pre-commit.com/) hook for teams that already use that framework. It is manual by default because a full adversarial review is slower and more expensive than a formatter or linter.
+
+Add this to `.pre-commit-config.yaml`:
+
+```yaml
+repos:
+  - repo: https://github.com/AgentsKit-io/code-review-cli
+    rev: main # pre-release; pin a release tag when one contains the hook
+    hooks:
+      - id: agentskit-review
+        args: [--provider, codex-cli, --no-fail, --max-files, "20"]
+```
+
+Then run it when a change is ready for review:
+
+```sh
+pre-commit run --hook-stage manual agentskit-review
+```
+
+The hook reviews the repository diff against `origin/main`; it does not claim to review only staged files. Override `--base` when your integration branch differs. To run on every push, override the hook with `stages: [pre-push]` and install that hook type explicitly, but first choose cost, latency, provider, and blocking policies appropriate for the repository.
+
 ## Use the GitHub Action
 
 Add `.github/workflows/code-review.yml` to any repository:

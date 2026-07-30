@@ -84,6 +84,29 @@ The current command runs directly from GitHub. After the first npm release, the 
 npx @agentskit/code-review --provider codex-cli
 ```
 
+## Run through pre-commit
+
+The repository publishes a [`pre-commit`](https://pre-commit.com/) hook for teams that already use that framework. It is manual by default because a full adversarial review is slower and more expensive than a formatter or linter.
+
+Add this to `.pre-commit-config.yaml`:
+
+```yaml
+repos:
+  - repo: https://github.com/AgentsKit-io/code-review-cli
+    rev: main # pre-release; pin a release tag when one contains the hook
+    hooks:
+      - id: agentskit-review
+        args: [--provider, codex-cli, --no-fail, --max-files, "20"]
+```
+
+Then run it when a change is ready for review:
+
+```sh
+pre-commit run --hook-stage manual agentskit-review
+```
+
+The hook reviews the repository diff against `origin/main`; it does not claim to review only staged files. Override `--base` when your integration branch differs. To run on every push, override the hook with `stages: [pre-push]` and install that hook type explicitly, but first choose cost, latency, provider, and blocking policies appropriate for the repository.
+
 ## Use the GitHub Action
 
 Add `.github/workflows/code-review.yml` to any repository:
@@ -300,6 +323,14 @@ This guide is the repository-native reference for running AgentsKit Code Review 
 Credential precedence is `--api-key`, `LLM_API_KEY`, then `<PROVIDER>_API_KEY`. Prefer environment variables and GitHub secrets: process arguments may be visible to other processes or captured by diagnostics. The composite Action forwards its secret through `LLM_API_KEY` and never adds it to CLI arguments.
 
 Do not run hosted review on code whose policy forbids external processing. A local model reduces external disclosure but does not remove the need to secure the runner, logs, cache, and generated SARIF.
+
+## pre-commit integration
+
+The root `.pre-commit-hooks.yaml` exposes `agentskit-review` as a Node hook. It uses `pass_filenames: false` because the CLI reviews a Git diff, explicit paths, a pull request, or stdin rather than interpreting positional filenames. It is confined to the `manual` stage by default so cloning the hook does not silently add model calls to every commit.
+
+Consumer configuration must select a provider through `args`. Keep credentials in the provider login or environment; never place API keys in `.pre-commit-config.yaml`. Before overriding the hook to `stages: [pre-push]`, decide whether findings are advisory, set a file budget, and confirm that provider latency and data handling are appropriate for every contributor.
+
+The default diff base remains `origin/main`. A pre-commit invocation does not mean the input is limited to the Git staging area. Set `--base` explicitly when the repository uses another integration branch.
 
 ## GitHub Action permissions
 
