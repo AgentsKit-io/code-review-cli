@@ -78,6 +78,8 @@ OPENAI_API_KEY=... npx --yes github:AgentsKit-io/code-review-cli \
 
 The CLI reviews the current repository's diff against `origin/main` and prints the report in your terminal. Choose another base with `--base main`.
 
+![AgentsKit Code Review showing an APPROVE result after seven review lenses complete](https://raw.githubusercontent.com/AgentsKit-io/code-review-cli/main/docs/assets/code-review-terminal.png)
+
 The current command runs directly from GitHub. After the first npm release, the shorter form will be:
 
 ```sh
