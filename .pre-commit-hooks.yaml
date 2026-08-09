@@ -1,0 +1,9 @@
+- id: agentskit-review
+  name: AgentsKit Code Review
+  description: Run provider-neutral, adversarial code review over the repository diff.
+  entry: agentskit-review
+  language: node
+  pass_filenames: false
+  always_run: true
+  require_serial: true
+  stages: [manual]

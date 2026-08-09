@@ -12,6 +12,7 @@
     "README.md",
     "LICENSE",
     "AGENTS.md",
+    ".pre-commit-hooks.yaml",
     "action.yml",
     "examples/pull-request.yml",
     "SECURITY.md",

@@ -20,9 +20,29 @@ test('README communicates pipeline, maturity, contribution, and ecosystem role',
 
 test('operations guide covers every required security and release topic', () => {
   const operations = read('docs/OPERATIONS.md')
-  for (const marker of ['## Provider and credential choices', '## GitHub Action permissions', '## Advisory and blocking behavior', '## Cost and latency controls', '## SARIF', '## Failure scenarios', '## Releases and maturity', '## Contribution and security', 'pull_request_target', 'security-events: write']) {
+  for (const marker of ['## Provider and credential choices', '## pre-commit integration', '## GitHub Action permissions', '## Advisory and blocking behavior', '## Cost and latency controls', '## SARIF', '## Failure scenarios', '## Releases and maturity', '## Contribution and security', 'pull_request_target', 'security-events: write']) {
     assert.ok(operations.includes(marker), `operations guide missing ${marker}`)
   }
+})
+
+test('pre-commit hook is manual, provider-neutral, and reviews the repository diff', () => {
+  const hook = read('.pre-commit-hooks.yaml')
+  const readme = read('README.md')
+  for (const marker of [
+    'id: agentskit-review',
+    'entry: agentskit-review',
+    'language: node',
+    'pass_filenames: false',
+    'always_run: true',
+    'require_serial: true',
+    'stages: [manual]',
+  ]) {
+    assert.ok(hook.includes(marker), `pre-commit hook missing ${marker}`)
+  }
+  assert.match(readme, /pre-commit run --hook-stage manual agentskit-review/)
+  assert.match(readme, /does not claim to review only staged files/)
+  assert.match(readme, /args: \[--provider, codex-cli, --no-fail/)
+  assert.doesNotMatch(hook, /api[_-]?key/i)
 })
 
 test('the Action stays least-privilege, secret-safe, and advisory by default', () => {
@@ -100,6 +120,7 @@ test('published package keeps documentation generators and freshness enforcement
     '.doc-bridge/index.json',
     '.doc-bridge/capabilities.json',
     'action.yml',
+    '.pre-commit-hooks.yaml',
     'examples/pull-request.yml',
   ]) {
     assert.ok(manifest.files.includes(input), `published documentation input missing: ${input}`)
