@@ -109,6 +109,27 @@ pre-commit run --hook-stage manual agentskit-review
 
 The hook reviews the repository diff against `origin/main`; it does not claim to review only staged files. Override `--base` when your integration branch differs. To run on every push, override the hook with `stages: [pre-push]` and install that hook type explicitly, but first choose cost, latency, provider, and blocking policies appropriate for the repository.
 
+### Review locally with Ollama
+
+Use Ollama when repository policy requires model inference to stay on a machine or self-hosted runner. Pull a tool-capable coding model that fits the available memory, start Ollama, and review a small branch diff first:
+
+```sh
+ollama pull qwen2.5-coder:7b
+
+npx --yes github:AgentsKit-io/code-review-cli \
+  --provider ollama \
+  --model qwen2.5-coder:7b \
+  --base main \
+  --base-url http://localhost:11434 \
+  --max-files 10 \
+  --concurrency 1 \
+  --no-fail
+```
+
+This reviews committed changes between `main` and `HEAD`; it is not a staged-files-only hook. The selected model must support Ollama tool calling because every review lens submits a structured result. `--no-fail` keeps findings advisory, but connection, source, and execution errors still exit nonzero. No provider key is required. Local inference reduces code disclosure, but logs, SARIF files, caches, optional gateways, and observability exporters still need their own access and retention policy.
+
+See the [operations guide](https://github.com/AgentsKit-io/code-review-cli/blob/main/docs/OPERATIONS.md#local-ollama-review) for model sizing, health checks, failure handling, and self-hosted CI guidance.
+
 ## Use the GitHub Action
 
 Add `.github/workflows/code-review.yml` to any repository:
@@ -345,6 +366,47 @@ The root `.pre-commit-hooks.yaml` exposes `agentskit-review` as a Node hook. It 
 Consumer configuration must select a provider through `args`. Keep credentials in the provider login or environment; never place API keys in `.pre-commit-config.yaml`. Before overriding the hook to `stages: [pre-push]`, decide whether findings are advisory, set a file budget, and confirm that provider latency and data handling are appropriate for every contributor.
 
 The default diff base remains `origin/main`. A pre-commit invocation does not mean the input is limited to the Git staging area. Set `--base` explicitly when the repository uses another integration branch.
+
+## Local Ollama review
+
+Ollama serves its local API at `http://localhost:11434` by default. Verify the service without sending repository content:
+
+```sh
+curl --fail --silent http://localhost:11434/api/tags >/dev/null
+```
+
+Choose a tool-capable model that fits the host; tool calling is required because every lens submits a structured result. `qwen2.5-coder:7b` is a practical starting point for machines that cannot run the larger `qwen3-coder:30b`; model quality, context capacity, latency, and memory requirements vary. Pulling a model downloads several gigabytes and does not start a review:
+
+```sh
+ollama pull qwen2.5-coder:7b
+```
+
+Start with a bounded, advisory branch review:
+
+```sh
+npx --yes github:AgentsKit-io/code-review-cli \
+  --provider ollama \
+  --model qwen2.5-coder:7b \
+  --base main \
+  --base-url http://localhost:11434 \
+  --max-files 10 \
+  --concurrency 1 \
+  --no-fail
+```
+
+The default source is the committed Git diff from `--base` to `HEAD`. It does not mean “only staged files,” even when invoked by a Git hook. Use `--paths` when complete files are the intended source. Avoid piping a unified Git patch through `--stdin`: stdin is treated as one source file rather than parsed into per-file changed ranges.
+
+Seven primary lenses plus adversarial votes can be expensive for a local model, and each structured result can require more than one model turn. Begin with `--max-files 10`, `--concurrency 1`, and the default three votes. Reduce the file set before reducing verification depth. `--no-fail` makes surviving findings advisory; it does not hide an unavailable model, malformed response, unreadable source, or failed lens coverage.
+
+For a self-hosted runner, bind Ollama only to the network interfaces required by the job, isolate the runner per repository trust boundary, and protect job logs and artifacts. Do not set a hosted gateway as `--base-url` and describe the run as local. Any optional telemetry or observability exporter creates a separate network boundary that must be approved explicitly.
+
+Troubleshooting:
+
+- **Connection refused:** start Ollama and repeat the `/api/tags` health check.
+- **Model not found:** run `ollama pull <exact-model-id>` and pass the same id to `--model`.
+- **Slow or out-of-memory:** choose a smaller model, reduce `--max-files`, and keep `--concurrency 1`.
+- **Context overflow:** review narrower paths or a smaller branch diff; unreviewed files must remain visibly outside the result.
+- **No findings with exit 0:** inspect the summary and successful/failed lens counts; advisory output is not proof that every file was reviewed.
 
 ## GitHub Action permissions
 

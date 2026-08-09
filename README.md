@@ -91,6 +91,27 @@ pre-commit run --hook-stage manual agentskit-review
 
 The hook reviews the repository diff against `origin/main`; it does not claim to review only staged files. Override `--base` when your integration branch differs. To run on every push, override the hook with `stages: [pre-push]` and install that hook type explicitly, but first choose cost, latency, provider, and blocking policies appropriate for the repository.
 
+### Review locally with Ollama
+
+Use Ollama when repository policy requires model inference to stay on a machine or self-hosted runner. Pull a tool-capable coding model that fits the available memory, start Ollama, and review a small branch diff first:
+
+```sh
+ollama pull qwen2.5-coder:7b
+
+npx --yes github:AgentsKit-io/code-review-cli \
+  --provider ollama \
+  --model qwen2.5-coder:7b \
+  --base main \
+  --base-url http://localhost:11434 \
+  --max-files 10 \
+  --concurrency 1 \
+  --no-fail
+```
+
+This reviews committed changes between `main` and `HEAD`; it is not a staged-files-only hook. The selected model must support Ollama tool calling because every review lens submits a structured result. `--no-fail` keeps findings advisory, but connection, source, and execution errors still exit nonzero. No provider key is required. Local inference reduces code disclosure, but logs, SARIF files, caches, optional gateways, and observability exporters still need their own access and retention policy.
+
+See the [operations guide](docs/OPERATIONS.md#local-ollama-review) for model sizing, health checks, failure handling, and self-hosted CI guidance.
+
 ## Use the GitHub Action
 
 Add `.github/workflows/code-review.yml` to any repository:
