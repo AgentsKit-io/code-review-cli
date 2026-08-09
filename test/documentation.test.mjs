@@ -45,6 +45,31 @@ test('pre-commit hook is manual, provider-neutral, and reviews the repository di
   assert.doesNotMatch(hook, /api[_-]?key/i)
 })
 
+test('reviewdog interoperability stays converter-free and explicit about policy ownership', () => {
+  const readme = read('README.md')
+  const operations = read('docs/OPERATIONS.md')
+  const reviewdogSection = operations.split('### Route findings through reviewdog')[1].split('## Failure scenarios')[0]
+  for (const marker of ['reviewdog -f=sarif', '-filter-mode=added', '-fail-level=error', 'REPORT_FILE="$(mktemp)"']) {
+    assert.ok(readme.includes(marker), `README reviewdog recipe missing ${marker}`)
+    assert.ok(operations.includes(marker), `operations reviewdog recipe missing ${marker}`)
+  }
+  assert.match(operations, /no AgentsKit-specific reporter or converter is required/i)
+  assert.match(operations, /REVIEWDOG_GITHUB_API_TOKEN/)
+  assert.match(operations, /blocker and high findings to SARIF `error`/)
+  assert.match(operations, /actions\/checkout@[0-9a-f]{40}/)
+  assert.match(operations, /reviewdog\/action-setup@[0-9a-f]{40}/)
+  assert.match(operations, /reviewdog_version: v0\.21\.0/)
+  assert.match(operations, /fetch-depth: 0/)
+  assert.match(operations, /BASE_REF: \$\{\{ github\.base_ref \}\}/)
+  assert.match(operations, /LLM_API_KEY: \$\{\{ secrets\.LLM_API_KEY \}\}/)
+  assert.match(operations, /--provider openai --model gpt-4o/)
+  assert.match(operations, /--no-fail &&/)
+  assert.match(operations, /trap 'rm -f/)
+  assert.match(reviewdogSection, /github:AgentsKit-io\/code-review-cli#[0-9a-f]{40}/)
+  assert.doesNotMatch(reviewdogSection, /--base origin\/main/)
+  assert.doesNotMatch(reviewdogSection, /--provider codex-cli/)
+})
+
 test('the Action stays least-privilege, secret-safe, and advisory by default', () => {
   const action = read('action.yml')
   const workflow = read('examples/pull-request.yml')

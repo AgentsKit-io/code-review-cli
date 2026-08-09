@@ -75,6 +75,50 @@ Start advisory with a small file budget, measure provider usage, and raise depth
 
 SARIF can contain source paths and model-generated explanations. Apply the same retention and access policy as CI logs.
 
+### Route findings through reviewdog
+
+[reviewdog](https://github.com/reviewdog/reviewdog) accepts SARIF directly, so no AgentsKit-specific reporter or converter is required. This complete pull-request job installs reviewdog, fetches the base history, generates the report in advisory mode, and lets reviewdog own diff filtering, annotations, and the final CI threshold:
+
+```yaml
+name: AgentsKit reviewdog
+on: pull_request
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+      - uses: reviewdog/action-setup@d8edfce3dd5e1ec6978745e801f9c50b5ef80252 # v1.4.0
+        with:
+          reviewdog_version: v0.21.0
+      - name: Review changed code
+        env:
+          BASE_REF: ${{ github.base_ref }}
+          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+          REVIEWDOG_GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          REPORT_FILE="$(mktemp)"
+          trap 'rm -f "${REPORT_FILE}"' EXIT
+          npx --yes github:AgentsKit-io/code-review-cli#3dfd7427640148281454d52846d369e5ddf85b11 \
+            --provider openai --model gpt-4o --base "origin/${BASE_REF}" \
+            --sarif "${REPORT_FILE}" --no-fail &&
+          reviewdog -f=sarif -name=agentskit-review \
+            -reporter=github-pr-review -filter-mode=added -fail-level=error \
+            < "${REPORT_FILE}"
+```
+
+The hosted-runner example uses an API provider because local CLI providers require their executable and an existing authenticated session. Replace the provider and model with your approved adapter. The base comes from the pull-request event rather than assuming `main`, and `fetch-depth: 0` makes its remote-tracking ref available to `git diff`. Pass the provider secret through `LLM_API_KEY`, pass the workflow token through `REVIEWDOG_GITHUB_API_TOKEN`, and grant only `contents: read` plus `pull-requests: write`.
+
+The temporary report and `&&` prevent reviewdog from reading stale output when the producer fails. Keep `--no-fail` on the producer so reviewdog receives the complete report when review succeeds; `-fail-level=error` then makes SARIF `error` findings fail the reviewdog step. AgentsKit maps blocker and high findings to SARIF `error`, medium to `warning`, and nit to `note`.
+
+The default `added` filter limits inline feedback to changed lines. Choose a broader reviewdog filter deliberately; broader modes can move findings outside the PR diff into checks, annotations, or console output depending on the reporter. Pin both Code Review and reviewdog to reviewed immutable versions in enforcement workflows.
+
 ## Failure scenarios
 
 - **Unknown provider or missing model:** validate with `--list-providers`; API/local-server adapters require `--model`.
