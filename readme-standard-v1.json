@@ -137,6 +137,7 @@
         ],
         "visuals": [
           "docs/assets/agentskit-mark.svg",
+          "docs/assets/code-review-terminal.png",
           "```mermaid"
         ],
         "maturity": [
@@ -171,6 +172,11 @@
         {
           "src": "docs/assets/agentskit-mark.svg",
           "kind": "brand",
+          "darkMode": "neutral"
+        },
+        {
+          "src": "docs/assets/code-review-terminal.png",
+          "kind": "screenshot",
           "darkMode": "neutral"
         }
       ],
@@ -215,7 +221,7 @@
           "docs/OPERATIONS.md",
           "test/cli-smoke.test.mjs"
         ],
-        "sourceHash": "sha256:9b6b6c25a9ccdde85eb1f5eb39b484a8b4ca726a783584d4c8606a3342baaa5c"
+        "sourceHash": "sha256:a5e91e2e53b23297102dfd01e9c203028873abce0fd84c17cb92206204f0df49"
       },
       "exceptions": []
     }

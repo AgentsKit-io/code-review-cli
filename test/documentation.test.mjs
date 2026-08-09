@@ -80,6 +80,8 @@ test('machine-readable documentation and Doc Bridge ownership are committed', ()
   assert.match(read('llms.txt'), /AgentsKit Code Review/)
   assert.match(read('llms.txt'), /llms-full\.txt/)
   const full = read('llms-full.txt')
+  assert.match(full, /!\[[^\]]+\]\(https:\/\/raw\.githubusercontent\.com\/AgentsKit-io\/code-review-cli\/main\/docs\/assets\/code-review-terminal\.png\)/)
+  assert.doesNotMatch(full, /!\[[^\]]*\]\(https:\/\/github\.com\/AgentsKit-io\/code-review-cli\/blob\/main\//)
   for (const marker of ['Code Review operations guide', '## Security policy', '## Contributing guide', '## Roadmap', '## Changelog']) {
     assert.ok(full.includes(marker), `llms-full.txt missing ${marker}`)
   }

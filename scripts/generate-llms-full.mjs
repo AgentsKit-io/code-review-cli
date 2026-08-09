@@ -19,10 +19,15 @@ const sources = [
   ['Changelog', 'CHANGELOG.md'],
 ]
 
-const rebaseRelativeLinks = (markdown, sourcePath) => markdown.replace(
-  /\]\((?!https?:\/\/|mailto:|#)([^)]+)\)/g,
-  (_match, target) => `](${new URL(target, `${blobBase}${sourcePath}`).href})`,
-)
+const rebaseRelativeLinks = (markdown, sourcePath) => markdown
+  .replace(
+    /!\[([^\]]*)\]\((?!https?:\/\/|mailto:|#)([^)]+)\)/g,
+    (_match, alt, target) => `![${alt}](${new URL(target, `${rawBase}${sourcePath}`).href})`,
+  )
+  .replace(
+    /\]\((?!https?:\/\/|mailto:|#)([^)]+)\)/g,
+    (_match, target) => `](${new URL(target, `${blobBase}${sourcePath}`).href})`,
+  )
 
 const ecosystem = JSON.parse(readFileSync(resolve(root, 'ecosystem.json'), 'utf8'))
 const productLines = ecosystem.products
