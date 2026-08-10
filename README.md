@@ -177,7 +177,19 @@ npx --yes github:AgentsKit-io/code-review-cli --provider claude-cli \
 echo 'const x = a.b' | npx --yes github:AgentsKit-io/code-review-cli \
   --provider ollama --model llama3 \
   --base-url http://localhost:11434 --stdin --lang ts --sarif out.sarif
+
+# After fetching the PR base and installing reviewdog, reuse its annotation transport
+REPORT_FILE="$(mktemp)"
+trap 'rm -f "${REPORT_FILE}"' EXIT
+npx --yes github:AgentsKit-io/code-review-cli#3dfd7427640148281454d52846d369e5ddf85b11 \
+  --provider openai --model gpt-4o \
+  --base "origin/${BASE_REF}" --sarif "${REPORT_FILE}" --no-fail &&
+reviewdog -f=sarif -name=agentskit-review \
+  -reporter=github-pr-review -filter-mode=added -fail-level=error \
+  < "${REPORT_FILE}"
 ```
+
+The reviewdog recipe needs no custom converter: Code Review emits SARIF 2.1.0 and reviewdog consumes SARIF natively. See the [complete GitHub Actions job](docs/OPERATIONS.md#route-findings-through-reviewdog) for pinned installation, base-branch checkout, permissions, severity mapping, and CI ownership of the failure threshold.
 
 ## CLI reference
 
