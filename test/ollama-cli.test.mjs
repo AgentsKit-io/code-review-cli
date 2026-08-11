@@ -40,14 +40,18 @@ test('the built CLI completes a structured local Ollama review', async () => {
       const body = JSON.parse(raw)
       requests.push(body)
       response.writeHead(200, { 'content-type': 'application/x-ndjson' })
-      response.end(`${JSON.stringify({
-        message: {
-          role: 'assistant',
-          content: '',
-          tool_calls: [{ function: { name: 'submit_findings', arguments: { findings: [] } } }],
-        },
-        done: false,
-      })}\n${JSON.stringify({ done: true, prompt_eval_count: 8, eval_count: 2 })}\n`)
+      response.end([
+        JSON.stringify({
+          message: {
+            role: 'assistant',
+            content: '',
+            tool_calls: [{ function: { name: 'submit_findings', arguments: { findings: [] } } }],
+          },
+          done: false,
+        }),
+        JSON.stringify({ done: true, prompt_eval_count: 8, eval_count: 2 }),
+        '',
+      ].join('\n'))
     })
   })
   const address = await listen(server)
