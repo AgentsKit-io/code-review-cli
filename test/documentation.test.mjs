@@ -20,7 +20,7 @@ test('README communicates pipeline, maturity, contribution, and ecosystem role',
 
 test('operations guide covers every required security and release topic', () => {
   const operations = read('docs/OPERATIONS.md')
-  for (const marker of ['## Provider and credential choices', '## pre-commit integration', '## GitHub Action permissions', '## Advisory and blocking behavior', '## Cost and latency controls', '## SARIF', '## Failure scenarios', '## Releases and maturity', '## Contribution and security', 'pull_request_target', 'security-events: write']) {
+  for (const marker of ['## Provider and credential choices', '## pre-commit integration', '## Local Ollama review', '## GitHub Action permissions', '## Advisory and blocking behavior', '## Cost and latency controls', '## SARIF', '## Failure scenarios', '## Releases and maturity', '## Contribution and security', 'pull_request_target', 'security-events: write']) {
     assert.ok(operations.includes(marker), `operations guide missing ${marker}`)
   }
 })
@@ -68,6 +68,31 @@ test('reviewdog interoperability stays converter-free and explicit about policy 
   assert.match(reviewdogSection, /github:AgentsKit-io\/code-review-cli#[0-9a-f]{40}/)
   assert.doesNotMatch(reviewdogSection, /--base origin\/main/)
   assert.doesNotMatch(reviewdogSection, /--provider codex-cli/)
+})
+
+test('Ollama recipe is local, bounded, advisory, and honest about its source boundary', () => {
+  const readme = read('README.md')
+  const operations = read('docs/OPERATIONS.md')
+  const readmeRecipe = readme.split('### Review locally with Ollama')[1]?.split('\n## ')[0] ?? ''
+  const operationsRecipe = operations.split('## Local Ollama review')[1]?.split('\n## ')[0] ?? ''
+  for (const marker of [
+    '--provider ollama',
+    '--model qwen2.5-coder:7b',
+    '--base-url http://localhost:11434',
+    '--max-files 10',
+    '--concurrency 1',
+    '--no-fail',
+  ]) {
+    assert.ok(readme.includes(marker), `README Ollama recipe missing ${marker}`)
+    assert.ok(operations.includes(marker), `operations Ollama recipe missing ${marker}`)
+  }
+  assert.match(readme, /not a staged-files-only hook/i)
+  assert.match(readme, /model must support Ollama tool calling/i)
+  assert.match(operations, /tool calling is required/i)
+  assert.match(operations, /does not mean “only staged files,”/i)
+  assert.match(operations, /stdin is treated as one source file/i)
+  assert.match(operations, /Do not set a hosted gateway.*describe the run as local/i)
+  assert.doesNotMatch(`${readmeRecipe}\n${operationsRecipe}`, /OLLAMA_API_KEY|--api-key\s+\S+/)
 })
 
 test('the Action stays least-privilege, secret-safe, and advisory by default', () => {

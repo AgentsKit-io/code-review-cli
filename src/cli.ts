@@ -21,6 +21,7 @@ import { createCodeReviewAgent, type CodeReviewConfig, type Reporter, type Sever
 import { githubInlineReporter, githubSummaryReporter, markdownReporter, sarifReporter } from '../agents/code-review/reporters.js'
 import { claudeCode } from './claude-code-adapter.js'
 import { codexCli } from './codex-adapter.js'
+import { ollamaReview } from './ollama-adapter.js'
 import type { SourceConfig } from '../agents/code-review/sources.js'
 
 const HELP = `AgentsKit Code Review — deep, low-noise review with your model
@@ -157,6 +158,10 @@ function buildAdapter(): AdapterFactory {
   const model = flag('model') ?? (has('api') ? 'claude-opus-4-8' : undefined)
   if (provider === 'claude-cli') return claudeCode({ model })
   if (provider === 'codex-cli') return codexCli({ model })
+  if (provider === 'ollama') {
+    if (!model) throw new Error('--model is required for provider "ollama"')
+    return ollamaReview({ model, ...(flag('base-url') ? { baseUrl: flag('base-url') } : {}) })
+  }
 
   const make = (adapters as Record<string, unknown>)[provider]
   if (typeof make !== 'function') {
