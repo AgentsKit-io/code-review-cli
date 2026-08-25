@@ -60,6 +60,8 @@ OPENAI_API_KEY=... npx --yes github:AgentsKit-io/code-review-cli \
 
 The CLI reviews the current repository's diff against `origin/main` and prints the report in your terminal. Choose another base with `--base main`.
 
+Local `codex-cli` and `claude-cli` subprocesses have a 120-second deadline per model call. Set `AGENTSKIT_REVIEW_SUBPROCESS_TIMEOUT_MS` to a positive integer when a provider needs a different limit; timed-out lenses fail explicitly and cannot turn an unreviewed file into an approval.
+
 ![AgentsKit Code Review showing an APPROVE result after seven review lenses complete](docs/assets/code-review-terminal.png)
 
 The current command runs directly from GitHub. After the first npm release, the shorter form will be:

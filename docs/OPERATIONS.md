@@ -164,7 +164,7 @@ The default `added` filter limits inline feedback to changed lines. Choose a bro
 
 - **Unknown provider or missing model:** validate with `--list-providers`; API/local-server adapters require `--model`.
 - **Authentication failure:** verify only the provider-specific secret/login and avoid printing its value.
-- **Rate limit or timeout:** reduce concurrency/file budget or use an approved gateway; retry only when provider policy makes the operation safe.
+- **Rate limit or timeout:** local `codex-cli` and `claude-cli` calls stop after 120 seconds by default. Set `AGENTSKIT_REVIEW_SUBPROCESS_TIMEOUT_MS` to a positive millisecond value when needed, reduce concurrency/file budget, or use an approved gateway; retry only when provider policy makes the operation safe.
 - **No PR comments:** confirm `pull-requests: write`, token availability, and fork restrictions. The Markdown report still appears in logs.
 - **Inline comment rejected:** the reporter falls back to a non-approving comment for GitHub 422 restrictions.
 - **Large diff:** cap `--max-files` and split review by paths; unreviewed files must not be described as reviewed.

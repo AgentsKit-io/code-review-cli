@@ -78,6 +78,8 @@ OPENAI_API_KEY=... npx --yes github:AgentsKit-io/code-review-cli \
 
 The CLI reviews the current repository's diff against `origin/main` and prints the report in your terminal. Choose another base with `--base main`.
 
+Local `codex-cli` and `claude-cli` subprocesses have a 120-second deadline per model call. Set `AGENTSKIT_REVIEW_SUBPROCESS_TIMEOUT_MS` to a positive integer when a provider needs a different limit; timed-out lenses fail explicitly and cannot turn an unreviewed file into an approval.
+
 ![AgentsKit Code Review showing an APPROVE result after seven review lenses complete](https://raw.githubusercontent.com/AgentsKit-io/code-review-cli/main/docs/assets/code-review-terminal.png)
 
 The current command runs directly from GitHub. After the first npm release, the shorter form will be:
@@ -508,7 +510,7 @@ The default `added` filter limits inline feedback to changed lines. Choose a bro
 
 - **Unknown provider or missing model:** validate with `--list-providers`; API/local-server adapters require `--model`.
 - **Authentication failure:** verify only the provider-specific secret/login and avoid printing its value.
-- **Rate limit or timeout:** reduce concurrency/file budget or use an approved gateway; retry only when provider policy makes the operation safe.
+- **Rate limit or timeout:** local `codex-cli` and `claude-cli` calls stop after 120 seconds by default. Set `AGENTSKIT_REVIEW_SUBPROCESS_TIMEOUT_MS` to a positive millisecond value when needed, reduce concurrency/file budget, or use an approved gateway; retry only when provider policy makes the operation safe.
 - **No PR comments:** confirm `pull-requests: write`, token availability, and fork restrictions. The Markdown report still appears in logs.
 - **Inline comment rejected:** the reporter falls back to a non-approving comment for GitHub 422 restrictions.
 - **Large diff:** cap `--max-files` and split review by paths; unreviewed files must not be described as reviewed.

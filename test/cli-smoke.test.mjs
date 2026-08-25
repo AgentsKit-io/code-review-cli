@@ -47,6 +47,33 @@ test('advisory mode fails closed when every lens execution fails', () => {
   assert.doesNotMatch(run.stdout, /Code review — APPROVE/)
 })
 
+test('a local Codex subprocess timeout fails fast instead of hanging the review', () => {
+  const fixtureBin = join(root, 'test/fixtures/bin')
+  const run = spawnSync(process.execPath, [
+    'dist/src/cli.js',
+    '--provider', 'codex-cli',
+    '--stdin',
+    '--lang', 'ts',
+    '--concurrency', '1',
+    '--no-fail',
+  ], {
+    cwd: root,
+    input: 'export const answer = 42\n',
+    encoding: 'utf8',
+    timeout: 3000,
+    env: {
+      ...process.env,
+      CODEX_FIXTURE_HANG: '1',
+      AGENTSKIT_REVIEW_SUBPROCESS_TIMEOUT_MS: '50',
+      PATH: `${fixtureBin}:${process.env.PATH ?? ''}`,
+    },
+  })
+
+  assert.equal(run.status, 2, `stdout:\n${run.stdout}\nstderr:\n${run.stderr}`)
+  assert.match(`${run.stdout}\n${run.stderr}`, /codex timed out after 50ms/i)
+  assert.match(run.stderr, /review execution failed: 0 of 7 lens executions succeeded/i)
+})
+
 test('a partially degraded review stays advisory and reports execution coverage', () => {
   const fixtureBin = join(root, 'test/fixtures/bin')
   const run = spawnSync(process.execPath, [
