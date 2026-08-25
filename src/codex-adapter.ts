@@ -5,11 +5,11 @@
  * prompt goes in as an arg, the final message is written to a temp file via
  * `-o`, sandbox is read-only (the agent only emits JSON, runs no tools).
  */
-import { execFile } from "node:child_process";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { AdapterFactory, AdapterRequest, StreamChunk, StreamSource } from "@agentskit/core";
+import { runLocalCli } from "./local-cli-process.js";
 
 /** Pull the JSON object out of a reply: first `{` to last `}` over the whole output. */
 function extractJson(text: string): string {
@@ -22,38 +22,28 @@ function extractJson(text: string): string {
 }
 
 /** Run `codex exec` and return its final message (captured via -o). */
-function runCodex(prompt: string, model?: string): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const dir = mkdtempSync(join(tmpdir(), "cr-codex-"));
-    const outFile = join(dir, "out.txt");
-    const args = [
-      "exec",
-      "--skip-git-repo-check",
-      "-s",
-      "read-only",
-      "-C",
-      process.env.HOME ?? process.cwd(),
-      "-o",
-      outFile,
-    ];
-    if (model) args.push("-m", model);
-    args.push(prompt);
-    const child = execFile("codex", args, { maxBuffer: 20 * 1024 * 1024 }, (err, _stdout, stderr) => {
-      let message = "";
-      try {
-        message = readFileSync(outFile, "utf8");
-      } catch {
-        /* no output file */
-      }
-      rmSync(dir, { recursive: true, force: true });
-      if (message.trim()) return resolve(message);
-      const e = (err ?? new Error("codex produced no output")) as { stderr?: string; stdout?: string };
-      e.stderr = stderr;
-      e.stdout = _stdout;
-      reject(e);
-    });
-    child.stdin?.end(); // headless: don't let codex wait on stdin
-  });
+async function runCodex(prompt: string, model?: string): Promise<string> {
+  const dir = mkdtempSync(join(tmpdir(), "cr-codex-"));
+  const outFile = join(dir, "out.txt");
+  const args = [
+    "exec",
+    "--skip-git-repo-check",
+    "-s",
+    "read-only",
+    "-C",
+    process.env.HOME ?? process.cwd(),
+    "-o",
+    outFile,
+  ];
+  if (model) args.push("-m", model);
+  args.push(prompt);
+
+  try {
+    await runLocalCli("codex", args);
+    return readFileSync(outFile, "utf8");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 }
 
 export function codexCli(opts: { model?: string } = {}): AdapterFactory {
@@ -84,8 +74,8 @@ export function codexCli(opts: { model?: string } = {}): AdapterFactory {
           }
           yield { type: "done" };
         } catch (err) {
-          const e = err as { message?: string; stderr?: string; stdout?: string };
-          const detail = [e.stderr, e.stdout].filter(Boolean).join(" ").trim();
+          const e = err as { code?: string; message?: string; stderr?: string; stdout?: string };
+          const detail = e.code === "ETIMEDOUT" ? e.message : [e.stderr, e.stdout].filter(Boolean).join(" ").trim();
           yield { type: "error", content: `codex exec failed${detail ? `: ${detail.slice(0, 400)}` : ` (no output): ${(e.message ?? "").split("\n")[0]}`}` };
         }
       },

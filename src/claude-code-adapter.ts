@@ -5,8 +5,8 @@
  * stage offers exactly ONE tool, so we tell Claude to emit only that tool's JSON
  * args and synthesize the `tool_call` stream chunk the runtime expects.
  */
-import { execFile } from "node:child_process";
 import type { AdapterFactory, AdapterRequest, StreamChunk, StreamSource } from "@agentskit/core";
+import { runLocalCli } from "./local-cli-process.js";
 
 /**
  * Run `claude` and capture stdout. Crucially we CLOSE the child's stdin: in a
@@ -14,23 +14,12 @@ import type { AdapterFactory, AdapterRequest, StreamChunk, StreamSource } from "
  * stdin ("no stdin data received in 3s …") and fails. Locally stdin is a TTY so it
  * never showed. stderr is attached to the error for diagnosis.
  */
-function runClaude(args: string[]): Promise<string> {
-  return new Promise((resolve, reject) => {
-    // Run from HOME (a trusted dir): the runner's checkout dir is untrusted and can
-    // make claude exit without output (folder-trust). The file under review is in the
-    // prompt, not read from cwd, so cwd is irrelevant to the result.
-    const child = execFile("claude", args, { maxBuffer: 20 * 1024 * 1024, cwd: process.env.HOME }, (err, stdout, stderr) => {
-      if (err) {
-        const e = err as { stderr?: string; stdout?: string };
-        e.stderr = stderr;
-        e.stdout = stdout;
-        reject(err);
-      } else {
-        resolve(stdout);
-      }
-    });
-    child.stdin?.end();
-  });
+async function runClaude(args: string[]): Promise<string> {
+  // Run from HOME (a trusted dir): the runner's checkout dir is untrusted and can
+  // make claude exit without output (folder-trust). The file under review is in the
+  // prompt, not read from cwd, so cwd is irrelevant to the result.
+  const { stdout } = await runLocalCli("claude", args, { cwd: process.env.HOME });
+  return stdout;
 }
 
 /**
@@ -79,8 +68,8 @@ export function claudeCode(opts: { model?: string } = {}): AdapterFactory {
         } catch (err) {
           // Surface claude's own stderr/stdout (e.g. "Not logged in · Please run
           // /login"). The default execFile message embeds the whole prompt — drop it.
-          const e = err as { message?: string; stderr?: string; stdout?: string };
-          const detail = [e.stderr, e.stdout].filter(Boolean).join(" ").trim();
+          const e = err as { code?: string; message?: string; stderr?: string; stdout?: string };
+          const detail = e.code === "ETIMEDOUT" ? e.message : [e.stderr, e.stdout].filter(Boolean).join(" ").trim();
           yield { type: "error", content: `claude -p failed${detail ? `: ${detail.slice(0, 400)}` : ` (no output): ${(e.message ?? "").split("\n")[0]}`}` };
         }
       },
