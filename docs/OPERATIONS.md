@@ -53,11 +53,12 @@ sequence, then emits one `submit_findings` tool call. The worker accepts only a
 `schemaVersion: 1` envelope with valid findings; malformed output gets one
 bounded retry.
 
-Use `grok login` for the provider's cached session, or provide `XAI_API_KEY`
-through the environment. In `isolated` mode the key is copied only into the
-temporary worker environment. Filesystem writes, terminal, MCP, plugin, and
-subagent requests are denied, and the worker never uses the checkout as its
-working directory. `doctor --provider grok-cli` checks executable/version
+In the default `isolated` mode, provide `XAI_API_KEY` through the environment
+or `--api-key`; the selected key is copied only into the temporary worker
+environment. Existing `grok login` state is available only with explicit
+local-only `--mode trusted-local`. Filesystem writes, terminal, MCP, plugin,
+and subagent requests are denied, and the worker never uses the checkout as
+its working directory. `doctor --provider grok-cli` checks executable/version
 availability without making a model request. Headless mode is documented below
 and must be selected explicitly.
 
@@ -70,9 +71,11 @@ call. When `--model` is provided it is passed as OpenCode's `--model` option.
 The worker allows no filesystem writes, terminal, MCP, plugin, or subagent
 requests and retries malformed output once.
 
-Use OpenCode's normal authentication flow, or provide `OPENCODE_API_KEY` through
-the environment. The key is copied only into the temporary worker environment
-in `isolated` mode. The CLI does not install OpenCode automatically.
+In the default `isolated` mode, provide `OPENCODE_API_KEY` through the
+environment or `--api-key`; the selected key is copied only into the temporary
+worker environment. Existing OpenCode login/configuration state is available
+only with explicit local-only `--mode trusted-local`. The CLI does not install
+OpenCode automatically.
 `doctor --provider opencode-cli` checks executable/version availability without
 making a model request. Headless mode is documented below and must be selected
 explicitly.

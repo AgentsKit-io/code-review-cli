@@ -79,13 +79,13 @@ OPENAI_API_KEY=... npx --yes github:AgentsKit-io/code-review-cli \
 
 The CLI reviews the current repository's diff against `origin/main` and prints the report in your terminal. Choose another base with `--base main`.
 
-For the Grok Build ACP worker, authenticate with `grok login` and run `npx --yes github:AgentsKit-io/code-review-cli --provider grok-cli`.
+For the Grok Build ACP worker, use `XAI_API_KEY` (or `--api-key`) in the default isolated mode. To reuse `grok login`, opt in explicitly with `--mode trusted-local`.
 
 Local `codex-cli` and `claude-cli` subprocesses have a 120-second deadline per model call. Set `AGENTSKIT_REVIEW_SUBPROCESS_TIMEOUT_MS` to a positive integer when a provider needs a different limit; timed-out lenses fail explicitly and cannot turn an unreviewed file into an approval.
 
-`grok-cli` is stable and uses Grok Build's ACP transport (`grok agent stdio`) by default. Authenticate with `grok login` or pass `XAI_API_KEY`/`--api-key`; the key is injected into the isolated worker environment, never into command arguments. Isolated workers grant no filesystem write, terminal, MCP, plugin, or subagent capability and use a temporary working directory. `--transport headless` is available for explicit non-interactive runs, while `--transport auto` is local-only and reports an ACP fallback before trying headless.
+`grok-cli` is stable and uses Grok Build's ACP transport (`grok agent stdio`) by default. In the default isolated mode, pass `XAI_API_KEY`/`--api-key`; the key is injected into the isolated worker environment, never into command arguments. Existing `grok login` state is available only with explicit local-only `--mode trusted-local`. Isolated workers grant no filesystem write, terminal, MCP, plugin, or subagent capability and use a temporary working directory. `--transport headless` is available for explicit non-interactive runs, while `--transport auto` is local-only and reports an ACP fallback before trying headless.
 
-`opencode-cli` is stable and uses OpenCode's ACP transport (`opencode acp`) by default. Authenticate OpenCode through its normal login/configuration or pass `OPENCODE_API_KEY`/`--api-key`; the selected key is injected into the isolated worker environment, never into command arguments. OpenCode is not installed automatically. `--transport headless` is available for explicit non-interactive runs, while `--transport auto` is local-only and reports an ACP fallback before trying headless.
+`opencode-cli` is stable and uses OpenCode's ACP transport (`opencode acp`) by default. In the default isolated mode, pass `OPENCODE_API_KEY`/`--api-key`; the selected key is injected into the isolated worker environment, never into command arguments. Existing OpenCode login/configuration state is available only with explicit local-only `--mode trusted-local`. OpenCode is not installed automatically. `--transport headless` is available for explicit non-interactive runs, while `--transport auto` is local-only and reports an ACP fallback before trying headless.
 
 Preflight refuses an over-budget run before the first provider call. `--dry-run` and `--plan` print the refusal and concrete reductions; `--json` makes the plan machine-readable. CLI providers default to concurrency `1`, while API providers retain concurrency `4`. Required-lens or source coverage failures always exit `2`, even with `--no-fail`.
 
@@ -460,11 +460,12 @@ sequence, then emits one `submit_findings` tool call. The worker accepts only a
 `schemaVersion: 1` envelope with valid findings; malformed output gets one
 bounded retry.
 
-Use `grok login` for the provider's cached session, or provide `XAI_API_KEY`
-through the environment. In `isolated` mode the key is copied only into the
-temporary worker environment. Filesystem writes, terminal, MCP, plugin, and
-subagent requests are denied, and the worker never uses the checkout as its
-working directory. `doctor --provider grok-cli` checks executable/version
+In the default `isolated` mode, provide `XAI_API_KEY` through the environment
+or `--api-key`; the selected key is copied only into the temporary worker
+environment. Existing `grok login` state is available only with explicit
+local-only `--mode trusted-local`. Filesystem writes, terminal, MCP, plugin,
+and subagent requests are denied, and the worker never uses the checkout as
+its working directory. `doctor --provider grok-cli` checks executable/version
 availability without making a model request. Headless mode is documented below
 and must be selected explicitly.
 
@@ -477,9 +478,11 @@ call. When `--model` is provided it is passed as OpenCode's `--model` option.
 The worker allows no filesystem writes, terminal, MCP, plugin, or subagent
 requests and retries malformed output once.
 
-Use OpenCode's normal authentication flow, or provide `OPENCODE_API_KEY` through
-the environment. The key is copied only into the temporary worker environment
-in `isolated` mode. The CLI does not install OpenCode automatically.
+In the default `isolated` mode, provide `OPENCODE_API_KEY` through the
+environment or `--api-key`; the selected key is copied only into the temporary
+worker environment. Existing OpenCode login/configuration state is available
+only with explicit local-only `--mode trusted-local`. The CLI does not install
+OpenCode automatically.
 `doctor --provider opencode-cli` checks executable/version availability without
 making a model request. Headless mode is documented below and must be selected
 explicitly.
