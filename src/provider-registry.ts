@@ -53,14 +53,7 @@ const LOCAL_PROVIDERS: readonly ProviderEntry[] = [
     transports: ['acp', 'headless'],
     defaultTransport: 'acp',
   },
-  {
-    ...cli('ollama', 'Ollama local model server', 'ollama', 'stable'),
-    kind: 'local-server',
-    transports: ['http'],
-    defaultTransport: 'http',
-    model: 'required',
-    credentialMode: 'none',
-  },
+  localServer('ollama', 'Ollama local model server', 'stable'),
 ]
 
 const FACTORY_EXCLUSIONS = /(?:Adapter|Embedder)$|^(?:bail|chunkText|create|fetch|inMemorySink|mock|recording|replay|simulate|langchain|langgraph)/i
@@ -79,6 +72,14 @@ function cli(id: string, description: string, executable: string, support: Suppo
     id, aliases: [], kind: 'cli', support, description, executable, versionArgs: ['--version'], minimumVersion: '0.1.0',
     transports: ['headless'], defaultTransport: 'headless', model: 'optional', dataBoundary: 'local',
     credentialEnv: [], credentialMode: 'login', capabilities: { streaming: false, tools: true, structuredOutput: true },
+  }
+}
+
+function localServer(id: string, description: string, support: SupportLevel): ProviderEntry {
+  return {
+    id, aliases: [], kind: 'local-server', support, description,
+    transports: ['http'], defaultTransport: 'http', model: 'required', dataBoundary: 'local',
+    credentialEnv: [], credentialMode: 'none', capabilities: { streaming: true, tools: true, structuredOutput: true },
   }
 }
 

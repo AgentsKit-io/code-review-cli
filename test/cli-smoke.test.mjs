@@ -195,7 +195,7 @@ test('unknown local CLI versions warn locally and fail in CI', () => {
   const args = ['dist/src/cli.js', 'doctor', '--provider', 'codex-cli', '--json']
   const local = spawnSync(process.execPath, args, {
     cwd: root, encoding: 'utf8',
-    env: { ...process.env, CODEX_FIXTURE_VERSION: 'codex development build', PATH: `${fixtureBin}:${process.env.PATH ?? ''}` },
+    env: { ...process.env, CI: '', CODEX_FIXTURE_VERSION: 'codex development build', PATH: `${fixtureBin}:${process.env.PATH ?? ''}` },
   })
   assert.equal(local.status, 0)
   assert.equal(JSON.parse(local.stdout).checks.find(check => check.name === 'version').status, 'warn')
