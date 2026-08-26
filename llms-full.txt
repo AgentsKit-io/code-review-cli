@@ -85,6 +85,8 @@ Local `codex-cli` and `claude-cli` subprocesses have a 120-second deadline per m
 
 `grok-cli` is experimental and currently uses Grok Build's ACP transport (`grok agent stdio`). Authenticate with `grok login` or pass `XAI_API_KEY`/`--api-key`; the key is injected into the isolated worker environment, never into command arguments. Isolated workers grant no filesystem write, terminal, MCP, plugin, or subagent capability and use a temporary working directory. Headless transport is tracked separately.
 
+`opencode-cli` is experimental and currently uses OpenCode's ACP transport (`opencode acp`). Authenticate OpenCode through its normal login/configuration or pass `OPENCODE_API_KEY`/`--api-key`; the selected key is injected into the isolated worker environment, never into command arguments. OpenCode is not installed automatically, and headless transport is tracked separately.
+
 Preflight refuses an over-budget run before the first provider call. `--dry-run` and `--plan` print the refusal and concrete reductions; `--json` makes the plan machine-readable. CLI providers default to concurrency `1`, while API providers retain concurrency `4`. Required-lens or source coverage failures always exit `2`, even with `--no-fail`.
 
 ![AgentsKit Code Review showing an APPROVE result after seven review lenses complete](https://raw.githubusercontent.com/AgentsKit-io/code-review-cli/main/docs/assets/code-review-terminal.png)
@@ -447,6 +449,22 @@ subagent requests are denied, and the worker never uses the checkout as its
 working directory. `doctor --provider grok-cli` checks executable/version
 availability without making a model request. Headless support is not enabled
 by this provider entry yet.
+
+## OpenCode CLI via ACP
+
+`opencode-cli` is experimental and currently supports only `--transport acp`.
+It starts `opencode acp`, performs the ACP initialize, session, prompt, update,
+shutdown, and exit sequence, then emits one validated `submit_findings` tool
+call. When `--model` is provided it is passed as OpenCode's `--model` option.
+The worker allows no filesystem writes, terminal, MCP, plugin, or subagent
+requests and retries malformed output once.
+
+Use OpenCode's normal authentication flow, or provide `OPENCODE_API_KEY` through
+the environment. The key is copied only into the temporary worker environment
+in `isolated` mode. The CLI does not install OpenCode automatically.
+`doctor --provider opencode-cli` checks executable/version availability without
+making a model request. Headless support is not enabled by this provider entry
+yet.
 
 ## pre-commit integration
 
@@ -862,4 +880,5 @@ All notable changes will be documented here. This project follows Semantic Versi
 - Made provider selection explicit and removed provider-specific model defaults.
 - Added bounded GitHub review reconciliation with SHA/policy fingerprints, incremental compare scope when the prior SHA is an ancestor, fork-safe skip behavior, and idempotent summary updates.
 - Added experimental Grok Build CLI ACP support with isolated capability denial, versioned output validation, bounded invalid-output retry, and offline lifecycle fixtures.
+- Added experimental OpenCode CLI ACP support with the same isolated, versioned, bounded worker contract and offline lifecycle fixtures.
 - Added package metadata, CLI help, open-source governance, and contribution guidance.

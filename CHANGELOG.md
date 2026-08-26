@@ -16,4 +16,5 @@ All notable changes will be documented here. This project follows Semantic Versi
 - Made provider selection explicit and removed provider-specific model defaults.
 - Added bounded GitHub review reconciliation with SHA/policy fingerprints, incremental compare scope when the prior SHA is an ancestor, fork-safe skip behavior, and idempotent summary updates.
 - Added experimental Grok Build CLI ACP support with isolated capability denial, versioned output validation, bounded invalid-output retry, and offline lifecycle fixtures.
+- Added experimental OpenCode CLI ACP support with the same isolated, versioned, bounded worker contract and offline lifecycle fixtures.
 - Added package metadata, CLI help, open-source governance, and contribution guidance.

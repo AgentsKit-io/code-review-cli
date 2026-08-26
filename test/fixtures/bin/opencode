@@ -1,0 +1,8 @@
+#!/usr/bin/env node
+
+if (process.argv.includes('--version')) {
+  process.stdout.write('opencode 1.0.0\n')
+  process.exit(0)
+}
+
+await import(new URL('./grok', import.meta.url))
