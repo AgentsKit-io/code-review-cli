@@ -192,8 +192,8 @@ test('the built CLI exposes provider and usage discovery without credentials', (
   assert.equal(providers.status, 0, providers.stderr)
   assert.match(providers.stdout, /codex-cli/)
   assert.match(providers.stdout, /ollama/)
-  assert.match(providers.stdout, /grok-cli.*support=experimental/)
-  assert.match(providers.stdout, /opencode-cli.*support=experimental/)
+  assert.match(providers.stdout, /grok-cli.*support=stable/)
+  assert.match(providers.stdout, /opencode-cli.*support=stable/)
   assert.match(providers.stdout, /grok\tkind=api/)
 })
 

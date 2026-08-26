@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 
+process.env.CODEX_FIXTURE_PROVIDER = 'OPENCODE'
+
 if (process.argv.includes('--version')) {
   process.stdout.write('opencode 1.0.0\n')
   process.exit(0)

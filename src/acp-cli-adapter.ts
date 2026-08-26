@@ -9,29 +9,30 @@ const FindingSchema = z.object({
   confidence: z.number().min(0).max(1), title: z.string(), rationale: z.string(), suggestion: z.string(), suggestedPatch: z.string().optional(),
 })
 const ReviewEnvelope = z.object({ schemaVersion: z.literal(1), findings: z.array(FindingSchema) }).strict()
-export class InvalidAcpOutputError extends Error {}
+export class InvalidReviewOutputError extends Error {}
+export class InvalidAcpOutputError extends InvalidReviewOutputError {}
 
 type RpcMessage = { readonly id?: string | number; readonly method?: string; readonly result?: unknown; readonly error?: { readonly message?: string } }
 
 function extractJson(text: string): string {
   const start = text.indexOf('{')
   const end = text.lastIndexOf('}')
-  if (start < 0 || end < start) throw new InvalidAcpOutputError('ACP returned no JSON envelope')
+  if (start < 0 || end < start) throw new InvalidReviewOutputError('ACP returned no JSON envelope')
   return text.slice(start, end + 1)
 }
 
-function reviewPrompt(request: AdapterRequest): string {
+export function buildReviewPrompt(request: AdapterRequest): string {
   const system = request.messages.find((message) => message.role === 'system')?.content ?? request.context?.systemPrompt ?? ''
   const convo = request.messages.filter((message) => message.role !== 'system').map((message) => `${message.role.toUpperCase()}: ${message.content}`).join('\n\n')
   const tool = request.context?.tools?.[0]
   return `${system}\n\n${convo}\n\nYou are one isolated code-review lens. Review only the supplied source and do not delegate, execute tools, edit files, use MCP, or use a terminal. Return ONLY JSON matching this envelope: {"schemaVersion":1,"findings":[]} . Each finding must match this schema: ${JSON.stringify(tool?.schema ?? {})}`
 }
 
-function parseEnvelope(text: string, label: string): string {
+export function parseReviewEnvelope(text: string, label: string): string {
   let value: unknown
-  try { value = JSON.parse(extractJson(text)) as unknown } catch { throw new InvalidAcpOutputError(`${label} returned malformed JSON`) }
+  try { value = JSON.parse(extractJson(text)) as unknown } catch { throw new InvalidReviewOutputError(`${label} returned malformed JSON`) }
   const parsed = ReviewEnvelope.safeParse(value)
-  if (!parsed.success) throw new InvalidAcpOutputError(`${label} returned an invalid schemaVersion: 1 envelope`)
+  if (!parsed.success) throw new InvalidReviewOutputError(`${label} returned an invalid schemaVersion: 1 envelope`)
   return JSON.stringify({ findings: parsed.data.findings })
 }
 
@@ -85,10 +86,10 @@ async function runAcp(adapterRequest: AdapterRequest, options: AcpCliOptions, si
     if (authMethod) await rpcRequest(channel, 'authenticate', { methodId: authMethod, _meta: { headless: true } }, text)
     const session = await rpcRequest(channel, 'session/new', { cwd: channel.cwd, mcpServers: [] }, text) as { sessionId?: string }
     if (!session.sessionId) throw new Error(`${options.label} did not return a session id`)
-    await rpcRequest(channel, 'session/prompt', { sessionId: session.sessionId, prompt: [{ type: 'text', text: reviewPrompt(adapterRequest) }] }, text)
+    await rpcRequest(channel, 'session/prompt', { sessionId: session.sessionId, prompt: [{ type: 'text', text: buildReviewPrompt(adapterRequest) }] }, text)
     await rpcRequest(channel, 'shutdown', {}, text)
     channel.send({ jsonrpc: '2.0', method: 'exit', params: {} })
-    return parseEnvelope(text.value, options.outputLabel ?? options.label)
+    return parseReviewEnvelope(text.value, options.outputLabel ?? options.label)
   }, { mode: options.mode, signal, providerCredential: options.apiKey ? { name: options.credentialEnv ?? 'API_KEY', value: options.apiKey } : undefined, ...options.worker })
 }
 
@@ -109,7 +110,7 @@ export function createAcpCliAdapter(options: AcpCliOptions): AdapterFactory {
                 yield { type: 'done' }
                 return
               } catch (error) {
-                if (!(error instanceof InvalidAcpOutputError) || attempt === 1) throw error
+                if (!(error instanceof InvalidReviewOutputError) || attempt === 1) throw error
               }
             }
           } catch (error) {

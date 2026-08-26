@@ -61,13 +61,13 @@ OPENAI_API_KEY=... npx --yes github:AgentsKit-io/code-review-cli \
 
 The CLI reviews the current repository's diff against `origin/main` and prints the report in your terminal. Choose another base with `--base main`.
 
-For the experimental Grok Build ACP worker, authenticate with `grok login` and run `npx --yes github:AgentsKit-io/code-review-cli --provider grok-cli`.
+For the Grok Build ACP worker, authenticate with `grok login` and run `npx --yes github:AgentsKit-io/code-review-cli --provider grok-cli`.
 
 Local `codex-cli` and `claude-cli` subprocesses have a 120-second deadline per model call. Set `AGENTSKIT_REVIEW_SUBPROCESS_TIMEOUT_MS` to a positive integer when a provider needs a different limit; timed-out lenses fail explicitly and cannot turn an unreviewed file into an approval.
 
-`grok-cli` is experimental and currently uses Grok Build's ACP transport (`grok agent stdio`). Authenticate with `grok login` or pass `XAI_API_KEY`/`--api-key`; the key is injected into the isolated worker environment, never into command arguments. Isolated workers grant no filesystem write, terminal, MCP, plugin, or subagent capability and use a temporary working directory. Headless transport is tracked separately.
+`grok-cli` is stable and uses Grok Build's ACP transport (`grok agent stdio`) by default. Authenticate with `grok login` or pass `XAI_API_KEY`/`--api-key`; the key is injected into the isolated worker environment, never into command arguments. Isolated workers grant no filesystem write, terminal, MCP, plugin, or subagent capability and use a temporary working directory. `--transport headless` is available for explicit non-interactive runs, while `--transport auto` is local-only and reports an ACP fallback before trying headless.
 
-`opencode-cli` is experimental and currently uses OpenCode's ACP transport (`opencode acp`). Authenticate OpenCode through its normal login/configuration or pass `OPENCODE_API_KEY`/`--api-key`; the selected key is injected into the isolated worker environment, never into command arguments. OpenCode is not installed automatically, and headless transport is tracked separately.
+`opencode-cli` is stable and uses OpenCode's ACP transport (`opencode acp`) by default. Authenticate OpenCode through its normal login/configuration or pass `OPENCODE_API_KEY`/`--api-key`; the selected key is injected into the isolated worker environment, never into command arguments. OpenCode is not installed automatically. `--transport headless` is available for explicit non-interactive runs, while `--transport auto` is local-only and reports an ACP fallback before trying headless.
 
 Preflight refuses an over-budget run before the first provider call. `--dry-run` and `--plan` print the refusal and concrete reductions; `--json` makes the plan machine-readable. CLI providers default to concurrency `1`, while API providers retain concurrency `4`. Required-lens or source coverage failures always exit `2`, even with `--no-fail`.
 
@@ -233,8 +233,8 @@ Run these commands from the repository you want to review:
 |---|---|---|---|
 | `codex-cli` | Codex CLI logged in | Optional | `npx --yes github:AgentsKit-io/code-review-cli --provider codex-cli` |
 | `claude-cli` | Claude CLI logged in | Optional | `npx --yes github:AgentsKit-io/code-review-cli --provider claude-cli` |
-| `grok-cli` | Grok Build CLI; experimental | Optional | `... --provider grok-cli` |
-| `opencode-cli` | OpenCode CLI; experimental | Optional | `... --provider opencode-cli` |
+| `grok-cli` | Grok Build CLI; stable ACP/headless | Optional | `... --provider grok-cli` |
+| `opencode-cli` | OpenCode CLI; stable ACP/headless | Optional | `... --provider opencode-cli` |
 | `openai` | `OPENAI_API_KEY` | Required | `... --provider openai --model gpt-4o` |
 | `anthropic` | `ANTHROPIC_API_KEY` | Required | `... --provider anthropic --model <model>` |
 | `gemini` | `GEMINI_API_KEY` | Required | `... --provider gemini --model <model>` |
@@ -252,6 +252,7 @@ In shortened examples, replace `...` with `npx --yes github:AgentsKit-io/code-re
 | `--model <id>` | Model id; required for API/local-server providers |
 | `--api-key <key>` | Provider key; environment variables are preferred |
 | `--base-url <url>` | Provider endpoint, local server, or gateway |
+| `--transport <name>` | Provider transport: `acp`, `headless`, or local-only `auto` where supported |
 | `--base <ref>` | Git diff base; default `origin/main` |
 | `--pr owner/repo#N` | GitHub PR source; requires `GITHUB_TOKEN` |
 | `--paths <p...>` | Complete files or directories |
@@ -327,6 +328,7 @@ A full review runs seven lenses across selected files and then verifies candidat
 ## Operations and machine-readable docs
 
 - [Operations guide](docs/OPERATIONS.md) — providers, permissions, secrets, cost controls, SARIF, failures, releases, and incident-safe defaults.
+- [Provider compatibility matrix](docs/provider-compatibility.json) — stable CLI transports and their offline fixtures.
 - [Agent handoff](docs/for-agents/code-review-cli.md) — ownership, edit roots, verification commands, and change routes.
 - [`llms.txt`](llms.txt) — compact public source map for LLMs and coding agents.
 - [`llms-full.txt`](llms-full.txt) — complete README, operations, and agent-handoff corpus.

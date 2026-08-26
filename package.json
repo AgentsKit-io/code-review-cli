@@ -27,6 +27,7 @@
     "llms.txt",
     "llms-full.txt",
     "docs/OPERATIONS.md",
+    "docs/provider-compatibility.json",
     "docs/for-agents",
     "docs/plans",
     "docs/assets",

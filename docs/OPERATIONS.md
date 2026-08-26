@@ -17,7 +17,7 @@ Do not run hosted review on code whose policy forbids external processing. A loc
 
 ## Provider registry and doctor
 
-Provider IDs are versioned registry entries. `grok` is the xAI API adapter, while `grok-cli` is the experimental Grok Build CLI; `opencode-cli` is the experimental OpenCode CLI. `--list-providers` prints registry metadata and dynamically discovered API factories, including each support level (`stable`, `experimental`, or `unsupported`), transport, and model requirement.
+Provider IDs are versioned registry entries. `grok` is the xAI API adapter, while `grok-cli` and `opencode-cli` are stable local CLI providers. `--list-providers` prints registry metadata and dynamically discovered API factories, including each support level (`stable`, `experimental`, or `unsupported`), transport, and model requirement.
 
 Use the offline doctor before execution:
 
@@ -28,9 +28,25 @@ npx --yes github:AgentsKit-io/code-review-cli doctor --provider openai --model g
 
 It checks the named executable and version, transport, model requirement, configuration mode, and credential presence without making a model request. API keys are represented only as `configured` or `missing`; they are never printed. Local CLI credentials are represented as login-managed because login storage is provider-specific. `doctor --live` is the explicit provider smoke-test path. Unknown local CLI versions warn during local runs and fail in CI. Doctor exits `0` when checks pass, `1` when a provider check fails, and `2` for invalid usage.
 
+## First local setup
+
+```sh
+git clone https://github.com/AgentsKit-io/code-review-cli.git
+cd code-review-cli
+npm install
+npm run check
+npx --yes github:AgentsKit-io/code-review-cli --provider opencode-cli --transport acp --model openai/gpt-4o --no-fail
+```
+
+The last command requires an installed and authenticated OpenCode CLI. For a
+credential-free verification, `npm run check` uses only the committed offline
+fixtures. Precedence is explicit CLI flags, then the repository's
+`.agentskit-review.json` policy, then safe defaults; the project file never
+selects a trusted execution mode or carries credentials.
+
 ## Grok Build CLI via ACP
 
-`grok-cli` is experimental and currently supports only `--transport acp`. It
+`grok-cli` is stable and uses `--transport acp` by default. It
 starts `grok agent stdio --no-auto-update`, performs the ACP initialize,
 authentication (when advertised), session, prompt, update, shutdown, and exit
 sequence, then emits one `submit_findings` tool call. The worker accepts only a
@@ -42,12 +58,12 @@ through the environment. In `isolated` mode the key is copied only into the
 temporary worker environment. Filesystem writes, terminal, MCP, plugin, and
 subagent requests are denied, and the worker never uses the checkout as its
 working directory. `doctor --provider grok-cli` checks executable/version
-availability without making a model request. Headless support is not enabled
-by this provider entry yet.
+availability without making a model request. Headless mode is documented below
+and must be selected explicitly.
 
 ## OpenCode CLI via ACP
 
-`opencode-cli` is experimental and currently supports only `--transport acp`.
+`opencode-cli` is stable and uses `--transport acp` by default.
 It starts `opencode acp`, performs the ACP initialize, session, prompt, update,
 shutdown, and exit sequence, then emits one validated `submit_findings` tool
 call. When `--model` is provided it is passed as OpenCode's `--model` option.
@@ -58,8 +74,30 @@ Use OpenCode's normal authentication flow, or provide `OPENCODE_API_KEY` through
 the environment. The key is copied only into the temporary worker environment
 in `isolated` mode. The CLI does not install OpenCode automatically.
 `doctor --provider opencode-cli` checks executable/version availability without
-making a model request. Headless support is not enabled by this provider entry
-yet.
+making a model request. Headless mode is documented below and must be selected
+explicitly.
+
+## Grok and OpenCode headless transport
+
+Headless mode is explicit with `--transport headless`. Grok uses
+`grok --no-auto-update -p <prompt> --output-format json`; OpenCode uses
+`opencode run --format json [--model provider/model] <prompt>`. Their output
+framings are parsed separately and normalized to the same strict
+`schemaVersion: 1` envelope. Surrounding logs are bounded and tolerated only
+when the validated envelope can still be recovered.
+
+`--transport auto` is a local convenience for these two providers:
+it tries ACP first, reports the reason on stderr, then tries the provider's
+headless command. It is rejected in CI so a pipeline cannot silently change
+transport. Both paths use the same isolated worker timeout, output cap,
+cancellation, temporary working directory, selected-credential injection, and
+redacted diagnostics. Neither path installs a provider CLI automatically.
+
+The executable compatibility source of truth is
+[`provider-compatibility.json`](./provider-compatibility.json). It lists the
+stable providers, every supported transport, required lenses, minimum version,
+and the offline fixture that proves each cell. A provider remains experimental
+until its registry entry, matrix, fixtures, and doctor checks are all green.
 
 ## pre-commit integration
 
@@ -256,7 +294,7 @@ The default `added` filter limits inline feedback to changed lines. Choose a bro
 
 - **Unknown provider or missing model:** validate with `--list-providers`; API/local-server adapters require `--model`.
 - **Authentication failure:** verify only the provider-specific secret/login and avoid printing its value.
-- **Rate limit or timeout:** local `codex-cli` and `claude-cli` calls stop after 120 seconds by default. Set `AGENTSKIT_REVIEW_SUBPROCESS_TIMEOUT_MS` to a positive millisecond value when needed, reduce concurrency/file budget, or use an approved gateway; retry only when provider policy makes the operation safe.
+- **Rate limit or timeout:** local CLI calls stop after 120 seconds by default. Set `AGENTSKIT_REVIEW_SUBPROCESS_TIMEOUT_MS` to a positive millisecond value when needed, reduce concurrency/file budget, or use an approved gateway; retry only when provider policy makes the operation safe.
 - **No PR comments:** confirm `pull-requests: write`, token availability, and fork restrictions. The Markdown report still appears in logs.
 - **Inline comment rejected:** the reporter falls back to a non-approving comment for GitHub 422 restrictions.
 - **Large diff:** cap `--max-files` and split review by paths; unreviewed files must not be described as reviewed.
