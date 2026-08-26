@@ -57,6 +57,18 @@ request and diagnostics do not print config values.
 Keep policy-only configuration in the file. Use trusted workflow flags or the
 runner environment for provider selection, credentials, and execution mode.
 
+`prompt` is the default context mode. To review an explicit repository snapshot,
+set `context.mode` to `isolated-snapshot` and provide repository-relative
+patterns such as `src/**` or `!src/generated/**`. Sensitive directories/files,
+symlink escapes, binaries, and over-limit inputs are excluded and shown as
+`UNREVIEWED`. The default snapshot ceiling is 100 files/5 MiB; the absolute
+ceiling is 500 files/25 MiB. Prompt files default to 256 KiB with a 1 MiB
+absolute per-file ceiling.
+
+Remote and unknown provider boundaries receive high-confidence credential
+redaction while preserving file and line context. `--allow-unredacted` is a
+local-only escape hatch and is rejected in CI; never use it for untrusted code.
+
 ## Local Ollama review
 
 Ollama serves its local API at `http://localhost:11434` by default. Verify the service without sending repository content:

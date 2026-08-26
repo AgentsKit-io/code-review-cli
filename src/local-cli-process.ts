@@ -31,11 +31,16 @@ const SECRET_PATTERNS = [
   /-----BEGIN [^-]*PRIVATE KEY-----[\s\S]*?-----END [^-]*PRIVATE KEY-----/g,
 ]
 
-export function redactDiagnostic(value: string, secrets: readonly string[] = []): string {
+export function redactSecrets(value: string, secrets: readonly string[] = []): string {
   let redacted = value
   for (const secret of secrets.filter(Boolean)) redacted = redacted.split(secret).join('[REDACTED]')
   for (const pattern of SECRET_PATTERNS) redacted = redacted.replace(pattern, '[REDACTED]')
-  return redacted.slice(0, 4000)
+  redacted = redacted.replace(/((?:api[_-]?key|secret|token|password)\s*[:=]\s*["']?)[A-Za-z0-9._~+/=-]{12,}/gi, '$1[REDACTED]')
+  return redacted
+}
+
+export function redactDiagnostic(value: string, secrets: readonly string[] = []): string {
+  return redactSecrets(value, secrets).slice(0, 4000)
 }
 
 function terminateProcessTree(child: ChildProcess): void {

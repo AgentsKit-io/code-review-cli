@@ -56,6 +56,8 @@ test('CI cannot accept trusted execution inputs or secrets from the project file
   assert.throws(() => resolveReviewConfig({ configVersion: 1, provider: 'openai' }, { ci: true }), /provider/)
   assert.throws(() => resolveReviewConfig({ configVersion: 1, apiKey: 'secret-value' }), /apiKey/)
   assert.doesNotThrow(() => resolveReviewConfig({ configVersion: 1, context: { mode: 'prompt' } }))
+  assert.doesNotThrow(() => resolveReviewConfig({ configVersion: 1, context: { mode: 'isolated-snapshot', patterns: ['src/**'] } }, { ci: true }))
+  assert.throws(() => resolveReviewConfig({ configVersion: 1, context: { mode: 'isolated-snapshot', patterns: ['../**'] } }), /repository-relative/)
 })
 
 test('invalid config exits 2 before provider execution and does not echo secret values', () => {

@@ -259,6 +259,7 @@ In shortened examples, replace `...` with `npx --yes github:AgentsKit-io/code-re
 | `--no-fail` | Keep findings advisory |
 | `--conventions <path>` | Inject project conventions |
 | `--allow-incomplete` | Local-only exception for a config that declares incomplete lens coverage |
+| `--allow-unredacted` | Local-only exception; rejected in CI |
 | `--api` | Back-compatible alias for `--provider anthropic` |
 | `doctor --provider <name>` | Offline provider diagnostics; no model request |
 | `doctor --live` | Explicit provider smoke-test mode |
@@ -295,6 +296,9 @@ never accepted in CI.
 Provider, model, transport, context trust, redaction, and permissions are
 trusted execution inputs; a project config cannot set them in CI. Put provider
 credentials only in the environment or provider login, never in this file.
+Remote and unknown provider boundaries redact high-confidence credential
+patterns before the model sees source. Unsafe, oversized, binary, or excluded
+paths are reported as `UNREVIEWED`; content is never silently truncated.
 
 ### Doctor
 

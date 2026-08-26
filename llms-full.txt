@@ -277,6 +277,7 @@ In shortened examples, replace `...` with `npx --yes github:AgentsKit-io/code-re
 | `--no-fail` | Keep findings advisory |
 | `--conventions <path>` | Inject project conventions |
 | `--allow-incomplete` | Local-only exception for a config that declares incomplete lens coverage |
+| `--allow-unredacted` | Local-only exception; rejected in CI |
 | `--api` | Back-compatible alias for `--provider anthropic` |
 | `doctor --provider <name>` | Offline provider diagnostics; no model request |
 | `doctor --live` | Explicit provider smoke-test mode |
@@ -313,6 +314,9 @@ never accepted in CI.
 Provider, model, transport, context trust, redaction, and permissions are
 trusted execution inputs; a project config cannot set them in CI. Put provider
 credentials only in the environment or provider login, never in this file.
+Remote and unknown provider boundaries redact high-confidence credential
+patterns before the model sees source. Unsafe, oversized, binary, or excluded
+paths are reported as `UNREVIEWED`; content is never silently truncated.
 
 ### Doctor
 
@@ -446,6 +450,18 @@ request and diagnostics do not print config values.
 
 Keep policy-only configuration in the file. Use trusted workflow flags or the
 runner environment for provider selection, credentials, and execution mode.
+
+`prompt` is the default context mode. To review an explicit repository snapshot,
+set `context.mode` to `isolated-snapshot` and provide repository-relative
+patterns such as `src/**` or `!src/generated/**`. Sensitive directories/files,
+symlink escapes, binaries, and over-limit inputs are excluded and shown as
+`UNREVIEWED`. The default snapshot ceiling is 100 files/5 MiB; the absolute
+ceiling is 500 files/25 MiB. Prompt files default to 256 KiB with a 1 MiB
+absolute per-file ceiling.
+
+Remote and unknown provider boundaries receive high-confidence credential
+redaction while preserving file and line context. `--allow-unredacted` is a
+local-only escape hatch and is rejected in CI; never use it for untrusted code.
 
 ## Local Ollama review
 
@@ -799,6 +815,7 @@ All notable changes will be documented here. This project follows Semantic Versi
 
 - Added strict versioned `.agentskit-review.json` policy with lens coverage, budgets, thresholds, context, and safe CI precedence; incomplete profiles require explicit local opt-in.
 - Hardened the shared local CLI worker with cancellation, process-tree cleanup, isolated temporary environments, bounded output, and redacted diagnostics.
+- Added bounded source snapshots with infrastructure/configuration file support, denylisted sensitive paths, symlink checks, input limits, and data-boundary-aware secret redaction.
 - Made reviews fail closed when any reviewable file has no successful primary lens or cannot be ingested; advisory mode now suppresses finding-based failures only, never source/provider/execution failures.
 - Added primary-lens execution coverage to review summaries so partial provider degradation is visible.
 - Repositioned the CLI and GitHub Action as provider-neutral.

@@ -53,6 +53,9 @@ export interface ReviewTarget {
   isChanged: boolean
   /** Head commit SHA, for github-pr (needed to anchor inline comments). */
   commitId?: string
+  /** Source normalization could not safely review this path. */
+  reviewStatus?: 'UNREVIEWED'
+  unreviewedReason?: string
 }
 
 export interface Finding {
@@ -106,6 +109,7 @@ export interface ReviewResult {
   droppedNote?: string
   /** Provider execution coverage for primary review lenses. */
   execution: LensExecutionStats
+  unreviewed?: Array<{ file: string; reason: string }>
   summary: string
 }
 
@@ -420,6 +424,7 @@ export function createCodeReviewAgent(config: CodeReviewConfig) {
     reviewed: number,
     droppedFiles: number,
     execution: LensExecutionStats,
+    unreviewedCount: number,
   ): ReviewResult {
     const counts = (['blocker', 'high', 'med', 'nit'] as Severity[]).map((s) => ({ s, n: kept.filter((f) => f.severity === s).length }))
     const worst = kept.length ? Math.min(...kept.map((f) => SEV_RANK[f.severity])) : 3
@@ -432,6 +437,7 @@ export function createCodeReviewAgent(config: CodeReviewConfig) {
     const summary =
       `${kept.length} finding(s) (${breakdown}) across ${reviewed} file(s)` +
       (config.incompleteProfile ? ' Incomplete profile; this review is not an approval.' : '') +
+      (unreviewedCount ? ` ${unreviewedCount} file(s) UNREVIEWED.` : '') +
       (droppedFiles ? `, ${droppedFiles} file(s) skipped for budget` : '') +
       `. ${executionSummary}.`
     return { verdict, blocking, findings: kept, dropped, execution, summary }
@@ -444,8 +450,10 @@ export function createCodeReviewAgent(config: CodeReviewConfig) {
     emit('ingest', 'start')
     const t0 = Date.now()
     const all = await loadTargets(config.source)
+    const unreviewed = all.filter((target) => target.reviewStatus === 'UNREVIEWED')
+    for (const target of unreviewed) emit('ingest', 'skip', `${target.file}: ${target.unreviewedReason ?? 'unreviewed'}`)
     // Prioritise: changed first, then by amount of change, then size.
-    const ranked = [...all].sort(
+    const ranked = all.filter((target) => target.reviewStatus !== 'UNREVIEWED').sort(
       (a, b) =>
         Number(b.isChanged) - Number(a.isChanged) ||
         (b.changedRanges?.length ?? 0) - (a.changedRanges?.length ?? 0) ||
@@ -462,7 +470,8 @@ export function createCodeReviewAgent(config: CodeReviewConfig) {
         findings: [],
         dropped: [],
         execution: { attempted: 0, succeeded: 0, failed: 0 },
-        summary: 'Nothing to review.',
+        unreviewed: unreviewed.map((target) => ({ file: target.file, reason: target.unreviewedReason ?? 'unreviewed' })),
+        summary: unreviewed.length ? `${unreviewed.length} file(s) UNREVIEWED; nothing else to review.` : 'Nothing to review.',
       }
     }
 
@@ -518,7 +527,8 @@ export function createCodeReviewAgent(config: CodeReviewConfig) {
       emit('validate-patch', 'ok', undefined, Date.now() - t3)
     }
 
-    const result = synthesize(kept, dropped, targets.length, droppedFiles, execution)
+    const result = synthesize(kept, dropped, targets.length, droppedFiles, execution, unreviewed.length)
+    result.unreviewed = unreviewed.map((target) => ({ file: target.file, reason: target.unreviewedReason ?? 'unreviewed' }))
     result.droppedNote =
       `${refuted.length} refuted by skeptics; ${belowThreshold.length} below threshold` +
       (thresholded.length - kept.length ? `; ${thresholded.length - kept.length} merged as duplicates` : '') + '.'
