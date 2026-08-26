@@ -58,7 +58,7 @@ type FileConfig = z.infer<typeof ReviewConfigSchema>
 
 export interface ReviewConfigOverrides {
   provider?: string; model?: string; transport?: string; votes?: number; retries?: number
-  minSeverity?: Severity; minConfidence?: number; maxFiles?: number; concurrency?: number; conventions?: string
+  minSeverity?: Severity; minConfidence?: number; maxFiles?: number; maxCalls?: number; concurrency?: number; conventions?: string
 }
 
 export interface ResolvedReviewConfig {
@@ -126,11 +126,18 @@ export function resolveReviewConfig(
   if (incompleteProfile && !options.allowIncomplete) throw new ReviewConfigError('incomplete profile requires explicit --allow-incomplete for a local run')
 
   const thresholds = { ...file?.thresholds, ...(overrides.minSeverity === undefined ? {} : { minSeverity: overrides.minSeverity }), ...(overrides.minConfidence === undefined ? {} : { minConfidence: overrides.minConfidence }) }
-  const budget = { ...file?.budget, ...(overrides.maxFiles === undefined ? {} : { maxFiles: overrides.maxFiles }), ...(overrides.concurrency === undefined ? {} : { concurrency: overrides.concurrency }) }
+  const budget = {
+    ...file?.budget,
+    ...(overrides.maxFiles === undefined ? {} : { maxFiles: overrides.maxFiles }),
+    ...(overrides.maxCalls === undefined ? {} : { maxCalls: overrides.maxCalls }),
+    ...(overrides.concurrency === undefined ? {} : { concurrency: overrides.concurrency }),
+  }
+  const provider = overrides.provider ?? file?.provider
+  const defaultConcurrency = provider?.endsWith('-cli') ? 1 : 4
   const effective = {
     configVersion: 1 as const, lenses, incompleteProfile,
     votes: overrides.votes ?? file?.votes ?? 3, retries: overrides.retries ?? file?.retries ?? 1,
-    thresholds, budget: { ...budget, concurrency: budget.concurrency ?? 4 },
+    thresholds, budget: { ...budget, concurrency: budget.concurrency ?? defaultConcurrency, maxCalls: budget.maxCalls ?? 1000 },
     worker: { timeoutMs: file?.worker?.timeoutMs ?? localCliTimeoutMs(), maxOutputBytes: file?.worker?.maxOutputBytes ?? DEFAULT_LOCAL_CLI_OUTPUT_BYTES },
     conventions: overrides.conventions ?? file?.conventions,
     context: { mode: file?.context?.mode ?? 'prompt', patterns: file?.context?.patterns ?? [] },
@@ -142,7 +149,7 @@ export function resolveReviewConfig(
   const validation = z.object({
     votes: positiveInt.max(25), retries: nonNegativeInt.max(1),
     thresholds: z.object({ minSeverity: z.enum(['blocker', 'high', 'med', 'nit']).optional(), minConfidence: z.number().min(0).max(1).optional() }),
-    budget: z.object({ maxFiles: positiveInt.max(500).optional(), concurrency: positiveInt.max(32) }),
+    budget: z.object({ maxFiles: positiveInt.max(500).optional(), maxBytes: positiveInt.max(25 * 1024 * 1024).optional(), maxCalls: positiveInt.max(1000), concurrency: positiveInt.max(32) }),
   }).safeParse(effective)
   if (!validation.success) throw new ReviewConfigError(`invalid effective review config: ${diagnostic(validation.error)}`)
   return effective

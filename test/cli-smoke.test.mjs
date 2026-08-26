@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
+import { mkdtempSync, rmSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join, resolve } from 'node:path'
+import { tmpdir } from 'node:os'
 import test from 'node:test'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
@@ -74,7 +76,7 @@ test('a local Codex subprocess timeout fails fast instead of hanging the review'
   assert.match(run.stderr, /review execution failed: 0 of 7 lens executions succeeded/i)
 })
 
-test('a partially degraded review stays advisory and reports execution coverage', () => {
+test('a required-lens failure is incomplete even in advisory mode', () => {
   const fixtureBin = join(root, 'test/fixtures/bin')
   const run = spawnSync(process.execPath, [
     'dist/src/cli.js',
@@ -89,9 +91,57 @@ test('a partially degraded review stays advisory and reports execution coverage'
     env: { ...process.env, CODEX_FIXTURE_FAIL_CATEGORY: 'security', PATH: `${fixtureBin}:${process.env.PATH ?? ''}` },
   })
 
-  assert.equal(run.status, 0, run.stderr)
+  assert.equal(run.status, 2, run.stderr)
   assert.match(run.stdout, /6\/7 lens executions succeeded; 1 failed/)
-  assert.match(run.stdout, /Code review — APPROVE/)
+  assert.match(run.stdout, /Code review — COMMENT/)
+  assert.match(run.stdout, /INCOMPLETE/)
+})
+
+test('plan is provider-free and machine-readable', () => {
+  const run = spawnSync(process.execPath, [
+    'dist/src/cli.js', '--provider', 'codex-cli', '--stdin', '--dry-run', '--json',
+  ], {
+    cwd: root, input: 'export const answer = 42\n', encoding: 'utf8',
+    env: { ...process.env, PATH: '/usr/bin:/bin' },
+  })
+
+  assert.equal(run.status, 0, run.stderr)
+  const plan = JSON.parse(run.stdout)
+  assert.equal(plan.files, 1)
+  assert.deepEqual(plan.requiredLenses, ['correctness', 'security', 'tests'])
+  assert.equal(plan.concurrency, 1)
+  assert.ok(plan.estimatedProviderCalls > 0)
+  assert.equal(plan.overBudget.length, 0)
+})
+
+test('preflight refuses an over-call-budget run before the provider starts', () => {
+  const fixtureBin = join(root, 'test/fixtures/bin')
+  const run = spawnSync(process.execPath, [
+    'dist/src/cli.js', '--provider', 'codex-cli', '--stdin', '--max-calls', '1', '--no-fail',
+  ], {
+    cwd: root, input: 'export const answer = 42\n', encoding: 'utf8',
+    env: { ...process.env, PATH: `${fixtureBin}:${process.env.PATH ?? ''}` },
+  })
+
+  assert.equal(run.status, 2, run.stderr)
+  assert.match(run.stderr, /review preflight refused/i)
+  assert.doesNotMatch(run.stdout, /Code review —/)
+})
+
+test('retries one invalid structured response but not provider failures', () => {
+  const fixtureBin = join(root, 'test/fixtures/bin')
+  const cwd = mkdtempSync(join(tmpdir(), 'agentskit-review-retry-'))
+  const stateFile = join(cwd, 'retry-state')
+  try {
+    const run = spawnSync(process.execPath, [
+      join(root, 'dist/src/cli.js'), '--provider', 'codex-cli', '--stdin', '--no-fail',
+    ], {
+      cwd: root, input: 'export const answer = 42\n', encoding: 'utf8',
+      env: { ...process.env, CODEX_FIXTURE_INVALID_ONCE_FILE: stateFile, PATH: `${fixtureBin}:${process.env.PATH ?? ''}` },
+    })
+    assert.equal(run.status, 0, run.stderr)
+    assert.match(run.stdout, /7\/7 lens executions succeeded/)
+  } finally { rmSync(cwd, { recursive: true, force: true }) }
 })
 
 test('one reviewed file cannot hide a second file with zero successful lenses', () => {
