@@ -14,7 +14,7 @@
         "headless": { "status": "supported", "fixture": "test/headless-cli-adapter.test.mjs" },
         "auto": { "status": "local-only", "fixture": "test/headless-cli-adapter.test.mjs" }
       },
-      "auth": "XAI_API_KEY or provider login",
+      "auth": "isolated: XAI_API_KEY or --api-key; trusted-local: provider login",
       "failureSemantics": ["strict-envelope", "one-invalid-output-retry", "bounded-timeout", "cancel", "redacted-diagnostics"]
     },
     {
@@ -28,7 +28,7 @@
         "headless": { "status": "supported", "fixture": "test/headless-cli-adapter.test.mjs" },
         "auto": { "status": "local-only", "fixture": "test/headless-cli-adapter.test.mjs" }
       },
-      "auth": "OPENCODE_API_KEY or provider login",
+      "auth": "isolated: OPENCODE_API_KEY or --api-key; trusted-local: provider login/configuration",
       "failureSemantics": ["strict-envelope", "one-invalid-output-retry", "bounded-timeout", "cancel", "redacted-diagnostics"]
     }
   ]
