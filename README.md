@@ -40,6 +40,7 @@ AgentsKit Code Review is built around a different contract:
 - **Low noise by design.** Findings are challenged by independent verification votes before they survive.
 - **Local first, CI ready.** Review a diff before pushing, inspect complete paths, read stdin, or comment directly on a GitHub PR.
 - **Control cost and policy.** Set file budgets, concurrency, thresholds, project conventions, and blocking severity.
+- **See the cost before execution.** Use `--plan --json` to inspect files, lenses, retries, concurrency, and estimated provider calls without a model request.
 
 ## Run your first review
 
@@ -61,6 +62,8 @@ OPENAI_API_KEY=... npx --yes github:AgentsKit-io/code-review-cli \
 The CLI reviews the current repository's diff against `origin/main` and prints the report in your terminal. Choose another base with `--base main`.
 
 Local `codex-cli` and `claude-cli` subprocesses have a 120-second deadline per model call. Set `AGENTSKIT_REVIEW_SUBPROCESS_TIMEOUT_MS` to a positive integer when a provider needs a different limit; timed-out lenses fail explicitly and cannot turn an unreviewed file into an approval.
+
+Preflight refuses an over-budget run before the first provider call. `--dry-run` and `--plan` print the refusal and concrete reductions; `--json` makes the plan machine-readable. CLI providers default to concurrency `1`, while API providers retain concurrency `4`. Required-lens or source coverage failures always exit `2`, even with `--no-fail`.
 
 ![AgentsKit Code Review showing an APPROVE result after seven review lenses complete](docs/assets/code-review-terminal.png)
 
@@ -252,8 +255,10 @@ In shortened examples, replace `...` with `npx --yes github:AgentsKit-io/code-re
 | `--votes <n>` | Adversarial verification votes; default `3` |
 | `--min-severity <level>` | Minimum reported severity |
 | `--min-confidence <n>` | Minimum reported confidence |
-| `--max-files <n>` | Positive file budget |
-| `--concurrency <n>` | Parallel model calls; default `4` |
+| `--max-files <n>` | Positive file budget; over-budget runs are refused before the provider |
+| `--max-calls <n>` | Provider-call budget; absolute ceiling `1000` |
+| `--concurrency <n>` | Parallel model calls; default `1` for CLI providers, `4` for API providers |
+| `--plan`, `--dry-run` | Print provider-free preflight; add `--json` for machine output |
 | `--validate-patch` | Run `git apply --check` on suggested patches |
 | `--block <severity>` | CI gate floor; default `blocker` |
 | `--no-fail` | Keep findings advisory |

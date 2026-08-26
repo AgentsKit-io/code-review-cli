@@ -35,6 +35,9 @@ test('merges independent lens policy and flags override file values', () => {
   assert.equal(config.votes, 1)
   assert.equal(config.thresholds.minSeverity, 'med')
   assert.equal(config.worker.timeoutMs, 120000)
+  assert.equal(config.budget.maxCalls, 1000)
+  assert.equal(resolveReviewConfig({ configVersion: 1, provider: 'codex-cli' }).budget.concurrency, 1)
+  assert.equal(resolveReviewConfig({ configVersion: 1, provider: 'openai' }).budget.concurrency, 4)
 })
 
 test('rejects unknown fields, unsupported versions, and impossible required lenses', () => {
@@ -43,6 +46,7 @@ test('rejects unknown fields, unsupported versions, and impossible required lens
     { configVersion: 2 },
     { configVersion: 1, lenses: { security: { enabled: false, required: true } } },
   ]) assert.throws(() => resolveReviewConfig(config), ReviewConfigError)
+  assert.throws(() => resolveReviewConfig({ configVersion: 1, budget: { maxCalls: 1001 } }), ReviewConfigError)
 })
 
 test('requires an explicit local exception for an incomplete profile and rejects it in CI', () => {

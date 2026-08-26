@@ -16,7 +16,7 @@
 import type { AdapterFactory } from '@agentskit/core'
 import { createProgressObserver } from '@agentskit/ink'
 import { readFileSync } from 'node:fs'
-import { builtInLenses, createCodeReviewAgent, type Category, type CodeReviewConfig, type Reporter, type Severity } from '../agents/code-review/agent.js'
+import { builtInLenses, createCodeReviewAgent, type Category, type CodeReviewConfig, type Reporter, type ReviewPlan, type Severity } from '../agents/code-review/agent.js'
 import { githubInlineReporter, githubSummaryReporter, markdownReporter, sarifReporter } from '../agents/code-review/reporters.js'
 import { claudeCode } from './claude-code-adapter.js'
 import { codexCli } from './codex-adapter.js'
@@ -52,7 +52,8 @@ Review options:
   --min-confidence <n>    Minimum finding confidence
   --block <level>         CI gate floor (default: blocker)
   --max-files <n>         Positive file budget
-  --concurrency <n>       Parallel model calls (default: 4)
+  --max-calls <n>         Provider-call budget (absolute ceiling: 1000)
+  --concurrency <n>       Parallel model calls (default: 1 for CLI, 4 for API)
   --conventions <path>    Project conventions file
   --allow-incomplete      Local-only exception for an explicitly incomplete profile
   --allow-unredacted      Local-only exception for secret redaction
@@ -60,6 +61,8 @@ Review options:
   --sarif <file>          Also write a SARIF report
   --post                  Post a PR review (with --pr)
   --no-fail               Report findings without failing the process
+  --dry-run, --plan       Print the provider-free preflight plan without model calls
+  --json                  Emit machine-readable plan output with --plan/--dry-run
 
 Provider options:
   --model <id>            Model id (required for API/local-server providers)
@@ -148,14 +151,12 @@ async function main() {
       minSeverity: flag('min-severity') as Severity | undefined,
       minConfidence: flag('min-confidence') === undefined ? undefined : Number(flag('min-confidence')),
       maxFiles: flag('max-files') === undefined ? undefined : Number(flag('max-files')),
+      maxCalls: flag('max-calls') === undefined ? undefined : Number(flag('max-calls')),
       concurrency: flag('concurrency') === undefined ? undefined : Number(flag('concurrency')),
       conventions: flag('conventions'),
     },
   })
   const source = await resolveSource(reviewConfig)
-  await preflightProvider(reviewConfig)
-  const adapter = buildAdapter(reviewConfig)
-
   const reporters: Reporter[] = [markdownReporter()]
   const sarif = flag('sarif')
   if (sarif) reporters.push(sarifReporter({ file: sarif }))
@@ -165,7 +166,6 @@ async function main() {
   }
 
   const config: CodeReviewConfig = {
-    adapter,
     source,
     reporters,
     observers: [createProgressObserver()],
@@ -174,15 +174,27 @@ async function main() {
     auditVotes: reviewConfig.votes,
     validatePatch: has('validate-patch'),
     blockingSeverity: (flag('block') as Severity) ?? 'blocker',
-    budget: { maxFiles: reviewConfig.budget.maxFiles, concurrency: reviewConfig.budget.concurrency },
+    requiredLenses: Object.entries(reviewConfig.lenses).filter(([, policy]) => policy.required).map(([key]) => key as Category),
+    retries: reviewConfig.retries,
+    budget: { maxFiles: reviewConfig.budget.maxFiles, maxBytes: reviewConfig.budget.maxBytes, maxCalls: reviewConfig.budget.maxCalls, concurrency: reviewConfig.budget.concurrency },
     conventions: reviewConfig.conventions ? { path: reviewConfig.conventions } : autoConventions(),
     thresholds: reviewConfig.thresholds,
   }
 
-  const review = await createCodeReviewAgent(config).run()
+  const agent = createCodeReviewAgent(config)
+  const plan = await agent.plan()
+  if (has('dry-run') || has('plan')) {
+    if (has('json')) console.log(JSON.stringify(plan))
+    else console.log(formatPlan(plan))
+    if (plan.overBudget.length) process.exitCode = 2
+    return
+  }
+  await preflightProvider(reviewConfig)
+  agent.setAdapter(buildAdapter(reviewConfig))
+  const review = await agent.run()
   // --no-fail = advisory: post the review but never fail the job (exit 0). Real errors
   // still surface via the catch below (exit 2).
-  process.exit(reviewConfig.incompleteProfile ? 2 : review.blocking && !has('no-fail') ? 1 : 0)
+  process.exit(review.incomplete ? 2 : review.blocking && !has('no-fail') ? 1 : 0)
 }
 
 /**
@@ -256,6 +268,21 @@ function formatDoctor(report: DoctorReport): string {
   const lines = [`Provider doctor: ${report.provider} (${report.support})`]
   for (const check of report.checks) lines.push(`  ${check.name}: ${check.status.toUpperCase()} — ${check.detail}`)
   lines.push(`Result: ${report.ok ? 'PASS' : 'FAIL'}`)
+  return lines.join('\n')
+}
+
+function formatPlan(plan: ReviewPlan): string {
+  const status = plan.overBudget.length ? 'REFUSED' : 'READY'
+  const lines = [
+    `Review preflight — ${status}`,
+    `Files: ${plan.files} · Bytes: ${plan.bytes} · Unreviewed: ${plan.unreviewedFiles}`,
+    `Lenses: ${plan.enabledLenses.join(', ') || 'none'}`,
+    `Required: ${plan.requiredLenses.join(', ') || 'none'}`,
+    `Votes: ${plan.votes} · Retries: ${plan.retries} · Concurrency: ${plan.concurrency}`,
+    `Estimated provider calls: ${plan.estimatedProviderCalls}/${plan.maxCalls}`,
+  ]
+  for (const reason of plan.overBudget) lines.push(`Refusal: ${reason}`)
+  for (const suggestion of plan.suggestions) lines.push(`Suggestion: ${suggestion}`)
   return lines.join('\n')
 }
 

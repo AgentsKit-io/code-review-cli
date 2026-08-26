@@ -58,6 +58,7 @@ AgentsKit Code Review is built around a different contract:
 - **Low noise by design.** Findings are challenged by independent verification votes before they survive.
 - **Local first, CI ready.** Review a diff before pushing, inspect complete paths, read stdin, or comment directly on a GitHub PR.
 - **Control cost and policy.** Set file budgets, concurrency, thresholds, project conventions, and blocking severity.
+- **See the cost before execution.** Use `--plan --json` to inspect files, lenses, retries, concurrency, and estimated provider calls without a model request.
 
 ## Run your first review
 
@@ -79,6 +80,8 @@ OPENAI_API_KEY=... npx --yes github:AgentsKit-io/code-review-cli \
 The CLI reviews the current repository's diff against `origin/main` and prints the report in your terminal. Choose another base with `--base main`.
 
 Local `codex-cli` and `claude-cli` subprocesses have a 120-second deadline per model call. Set `AGENTSKIT_REVIEW_SUBPROCESS_TIMEOUT_MS` to a positive integer when a provider needs a different limit; timed-out lenses fail explicitly and cannot turn an unreviewed file into an approval.
+
+Preflight refuses an over-budget run before the first provider call. `--dry-run` and `--plan` print the refusal and concrete reductions; `--json` makes the plan machine-readable. CLI providers default to concurrency `1`, while API providers retain concurrency `4`. Required-lens or source coverage failures always exit `2`, even with `--no-fail`.
 
 ![AgentsKit Code Review showing an APPROVE result after seven review lenses complete](https://raw.githubusercontent.com/AgentsKit-io/code-review-cli/main/docs/assets/code-review-terminal.png)
 
@@ -270,8 +273,10 @@ In shortened examples, replace `...` with `npx --yes github:AgentsKit-io/code-re
 | `--votes <n>` | Adversarial verification votes; default `3` |
 | `--min-severity <level>` | Minimum reported severity |
 | `--min-confidence <n>` | Minimum reported confidence |
-| `--max-files <n>` | Positive file budget |
-| `--concurrency <n>` | Parallel model calls; default `4` |
+| `--max-files <n>` | Positive file budget; over-budget runs are refused before the provider |
+| `--max-calls <n>` | Provider-call budget; absolute ceiling `1000` |
+| `--concurrency <n>` | Parallel model calls; default `1` for CLI providers, `4` for API providers |
+| `--plan`, `--dry-run` | Print provider-free preflight; add `--json` for machine output |
 | `--validate-patch` | Run `git apply --check` on suggested patches |
 | `--block <severity>` | CI gate floor; default `blocker` |
 | `--no-fail` | Keep findings advisory |
@@ -538,13 +543,16 @@ Then require the workflow check in branch protection. CLI exit codes are:
 
 A model response that is malformed may drop one lens while other lenses continue; progress output and the final summary report successful and failed primary-lens counts. If any reviewable file cannot be ingested or has zero successful primary lenses, the pipeline stops before reporters run and exits `2`, including in advisory mode. Treat missing output or exit `2` as unavailable review, not approval.
 
+Use `--plan --json` (or `--dry-run`) to run the source and budget preflight without a model request. The plan reports files, bytes, enabled and required lenses, votes, retries, concurrency, estimated provider calls, and concrete reductions when a limit would be exceeded. The preflight refuses before the provider starts; `maxCalls` is capped at 1000 and unlimited mode is not supported. A required-lens failure is `INCOMPLETE` and exits `2`, including with `--no-fail`.
+
 ## Cost and latency controls
 
 Seven lenses fan out over selected files; candidate findings then receive adversarial votes. The primary controls are:
 
 - `--max-files`: positive hard file budget;
+- `--max-calls`: bounded provider-call budget (absolute ceiling 1000);
 - `--votes`: verification depth and cost;
-- `--concurrency`: simultaneous model/subprocess calls;
+- `--concurrency`: simultaneous model/subprocess calls (default 1 for CLI providers, 4 for API providers);
 - `--paths` or workflow path filters: narrow scope;
 - `--min-severity` and `--min-confidence`: output noise, not input-token cost.
 
@@ -816,6 +824,7 @@ All notable changes will be documented here. This project follows Semantic Versi
 - Added strict versioned `.agentskit-review.json` policy with lens coverage, budgets, thresholds, context, and safe CI precedence; incomplete profiles require explicit local opt-in.
 - Hardened the shared local CLI worker with cancellation, process-tree cleanup, isolated temporary environments, bounded output, and redacted diagnostics.
 - Added bounded source snapshots with infrastructure/configuration file support, denylisted sensitive paths, symlink checks, input limits, and data-boundary-aware secret redaction.
+- Added provider-free `--plan`/`--dry-run` preflight with explicit file/byte/call budgets, bounded retries, CLI concurrency defaults, and fail-closed required-lens coverage.
 - Made reviews fail closed when any reviewable file has no successful primary lens or cannot be ingested; advisory mode now suppresses finding-based failures only, never source/provider/execution failures.
 - Added primary-lens execution coverage to review summaries so partial provider degradation is visible.
 - Repositioned the CLI and GitHub Action as provider-neutral.

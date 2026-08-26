@@ -144,13 +144,16 @@ Then require the workflow check in branch protection. CLI exit codes are:
 
 A model response that is malformed may drop one lens while other lenses continue; progress output and the final summary report successful and failed primary-lens counts. If any reviewable file cannot be ingested or has zero successful primary lenses, the pipeline stops before reporters run and exits `2`, including in advisory mode. Treat missing output or exit `2` as unavailable review, not approval.
 
+Use `--plan --json` (or `--dry-run`) to run the source and budget preflight without a model request. The plan reports files, bytes, enabled and required lenses, votes, retries, concurrency, estimated provider calls, and concrete reductions when a limit would be exceeded. The preflight refuses before the provider starts; `maxCalls` is capped at 1000 and unlimited mode is not supported. A required-lens failure is `INCOMPLETE` and exits `2`, including with `--no-fail`.
+
 ## Cost and latency controls
 
 Seven lenses fan out over selected files; candidate findings then receive adversarial votes. The primary controls are:
 
 - `--max-files`: positive hard file budget;
+- `--max-calls`: bounded provider-call budget (absolute ceiling 1000);
 - `--votes`: verification depth and cost;
-- `--concurrency`: simultaneous model/subprocess calls;
+- `--concurrency`: simultaneous model/subprocess calls (default 1 for CLI providers, 4 for API providers);
 - `--paths` or workflow path filters: narrow scope;
 - `--min-severity` and `--min-confidence`: output noise, not input-token cost.
 
