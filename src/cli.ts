@@ -24,6 +24,7 @@ import { ollamaReview } from './ollama-adapter.js'
 import type { SourceConfig } from '../agents/code-review/sources.js'
 import { diagnoseProvider, factoryFor, providerEntry, providerRegistry, resolveProviderId, type DoctorReport, type ProviderEntry } from './provider-registry.js'
 import { loadReviewConfig, type ResolvedReviewConfig } from './review-config.js'
+import { getGithubReviewState, reviewFingerprint } from './github-review-state.js'
 
 const HELP = `AgentsKit Code Review — deep, low-noise review with your model
 
@@ -156,13 +157,47 @@ async function main() {
       conventions: flag('conventions'),
     },
   })
-  const source = await resolveSource(reviewConfig)
+  let source = await resolveSource(reviewConfig)
+  const githubState = source.kind === 'github-pr' && has('post')
+    ? await getGithubReviewState({
+      ...source,
+      fingerprint: reviewFingerprint({
+        engine: '@agentskit/code-review@0.1.0',
+        provider: reviewConfig.provider,
+        model: reviewConfig.model,
+        transport: reviewConfig.transport,
+        lenses: reviewConfig.lenses,
+        votes: reviewConfig.votes,
+        retries: reviewConfig.retries,
+        thresholds: reviewConfig.thresholds,
+        budget: reviewConfig.budget,
+        context: reviewConfig.context,
+        redaction: reviewConfig.redaction,
+        conventions: reviewConfig.conventions ?? 'auto',
+      }),
+    })
+    : undefined
+  if (githubState?.fork) {
+    console.error(`SKIPPED: fork PR ${githubState.owner}/${githubState.repo}#${githubState.number} cannot be posted from this workflow boundary`)
+    process.exitCode = 2
+    return
+  }
+  if (githubState?.alreadyReviewed) {
+    console.log(`SKIPPED: ${githubState.owner}/${githubState.repo}#${githubState.number} already reviewed at ${githubState.sha} with the same fingerprint`)
+    return
+  }
+  if (githubState?.scope === 'incremental' && githubState.baselineSha && source.kind === 'github-pr') {
+    source = { ...source, baselineSha: githubState.baselineSha }
+  }
   const reporters: Reporter[] = [markdownReporter()]
   const sarif = flag('sarif')
   if (sarif) reporters.push(sarifReporter({ file: sarif }))
   if (has('post') && source.kind === 'github-pr') {
     const { owner, repo, number, token } = source
-    reporters.push(githubInlineReporter({ owner, repo, number, token }), githubSummaryReporter({ owner, repo, number, token }))
+    reporters.push(
+      githubInlineReporter({ owner, repo, number, token, commitId: githubState?.sha, marker: githubState?.marker }),
+      githubSummaryReporter({ owner, repo, number, token, marker: githubState?.marker }),
+    )
   }
 
   const config: CodeReviewConfig = {

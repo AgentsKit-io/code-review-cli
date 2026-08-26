@@ -22,7 +22,7 @@ export interface SourceLimits {
 
 export type SourceConfig =
   | { kind: 'git-diff'; base: string; head?: string; cwd?: string; redact?: boolean; limits?: SourceLimits }
-  | { kind: 'github-pr'; owner: string; repo: string; number: number; token: string; redact?: boolean; limits?: SourceLimits }
+  | { kind: 'github-pr'; owner: string; repo: string; number: number; token: string; baselineSha?: string; redact?: boolean; limits?: SourceLimits }
   | { kind: 'paths'; paths: string[]; cwd?: string; redact?: boolean; limits?: SourceLimits }
   | { kind: 'stdin'; content: string; filename?: string; redact?: boolean; limits?: SourceLimits }
   | { kind: 'isolated-snapshot'; cwd: string; patterns: string[]; redact?: boolean; limits?: SourceLimits }
@@ -162,7 +162,15 @@ async function fromGithubPr(c: Extract<SourceConfig, { kind: 'github-pr' }>): Pr
   }
   const pr = await api<{ head: { sha: string } }>(`/repos/${c.owner}/${c.repo}/pulls/${c.number}`); const sha = pr.head.sha
   const files: Array<{ filename: string; patch?: string; status: string }> = []
-  for (let page = 1; ; page++) { const batch = await api<typeof files>(`/repos/${c.owner}/${c.repo}/pulls/${c.number}/files?per_page=100&page=${page}`); files.push(...batch); if (batch.length < 100) break }
+  const filesPath = c.baselineSha
+    ? `/repos/${c.owner}/${c.repo}/compare/${c.baselineSha}...${sha}`
+    : `/repos/${c.owner}/${c.repo}/pulls/${c.number}/files?per_page=100&page=1`
+  if (c.baselineSha) {
+    const comparison = await api<{ files?: typeof files }>(filesPath)
+    files.push(...(comparison.files ?? []))
+  } else {
+    for (let page = 1; ; page++) { const batch = await api<typeof files>(`/repos/${c.owner}/${c.repo}/pulls/${c.number}/files?per_page=100&page=${page}`); files.push(...batch); if (batch.length < 100) break }
+  }
   const targets: ReviewTarget[] = []
   for (const f of files) {
     if (f.status === 'removed') continue

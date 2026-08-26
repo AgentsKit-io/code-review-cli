@@ -1,5 +1,6 @@
 import { writeFileSync } from 'node:fs'
 import type { Finding, Reporter, ReviewResult } from './agent.js'
+import { githubGet } from '../../src/github-review-state.js'
 
 /**
  * Reporters turn a ReviewResult into an output surface. They are orchestration code
@@ -106,17 +107,44 @@ async function githubPost(token: string, path: string, body: unknown): Promise<{
       'content-type': 'application/json',
     },
     body: JSON.stringify(body),
+    signal: AbortSignal.timeout(10_000),
   })
   if (!res.ok) throw new Error(`GitHub POST ${path} → ${res.status}: ${await res.text()}`)
   return res.json() as Promise<{ html_url?: string }>
 }
 
+async function githubPatch(token: string, path: string, body: unknown): Promise<void> {
+  const res = await fetch(`https://api.github.com${path}`, {
+    method: 'PATCH',
+    headers: {
+      authorization: `Bearer ${token}`,
+      accept: 'application/vnd.github+json',
+      'user-agent': 'agentskit-code-review',
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(10_000),
+  })
+  if (!res.ok) throw new Error(`GitHub PATCH ${path} → ${res.status}: ${await res.text()}`)
+}
+
 /** One summary comment on the PR thread (uses the issues endpoint — always available). */
-export function githubSummaryReporter(c: { owner: string; repo: string; number: number; token: string }): Reporter {
+export function githubSummaryReporter(c: { owner: string; repo: string; number: number; token: string; marker?: string }): Reporter {
   return {
     name: 'github-summary',
     async emit(review: ReviewResult) {
-      await githubPost(c.token, `/repos/${c.owner}/${c.repo}/issues/${c.number}/comments`, { body: renderMarkdown(review) })
+      const body = `${c.marker ? `${c.marker}\n` : ''}${renderMarkdown(review)}`
+      if (!c.marker) {
+        await githubPost(c.token, `/repos/${c.owner}/${c.repo}/issues/${c.number}/comments`, { body })
+        return
+      }
+      const comments = await githubGet<Array<{ id: number; body?: string }>>(
+        c.token,
+        `/repos/${c.owner}/${c.repo}/issues/${c.number}/comments?per_page=100`,
+      )
+      const existing = comments.find((comment) => comment.body?.includes(c.marker!))
+      if (existing) await githubPatch(c.token, `/repos/${c.owner}/${c.repo}/issues/comments/${existing.id}`, { body })
+      else await githubPost(c.token, `/repos/${c.owner}/${c.repo}/issues/${c.number}/comments`, { body })
     },
   }
 }
@@ -126,7 +154,7 @@ export function githubSummaryReporter(c: { owner: string; repo: string; number: 
  * overall verdict + summary body. Findings outside the diff are folded into the body
  * (GitHub rejects review comments on unchanged lines).
  */
-export function githubInlineReporter(c: { owner: string; repo: string; number: number; token: string; commitId?: string }): Reporter {
+export function githubInlineReporter(c: { owner: string; repo: string; number: number; token: string; commitId?: string; marker?: string }): Reporter {
   // Never emit APPROVE — a GitHub Actions token and your own PR both reject it (422).
   const eventFor = (v: ReviewResult['verdict']) => (v === 'REQUEST CHANGES' ? 'REQUEST_CHANGES' : 'COMMENT')
   return {
@@ -140,7 +168,7 @@ export function githubInlineReporter(c: { owner: string; repo: string; number: n
         body: `**${SEV_EMOJI[f.severity]} ${f.severity} · ${f.category}** — ${f.title}\n\n${f.rationale}\n\n💡 ${f.suggestion}${f.suggestedPatch ? `\n\n\`\`\`diff\n${f.suggestedPatch}\n\`\`\`` : ''}`,
       }))
       const body =
-        `## Code review — ${review.verdict}\n\n${review.summary}` +
+        `${c.marker ? `${c.marker}\n` : ''}## Code review — ${review.verdict}\n\n${review.summary}` +
         (outOfDiff.length ? `\n\n### Findings outside the diff\n${groupBySeverity(outOfDiff)}` : '')
       const payload = {
         body,
