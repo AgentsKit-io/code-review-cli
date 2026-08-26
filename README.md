@@ -252,6 +252,7 @@ In shortened examples, replace `...` with `npx --yes github:AgentsKit-io/code-re
 | `--model <id>` | Model id; required for API/local-server providers |
 | `--api-key <key>` | Provider key; environment variables are preferred |
 | `--base-url <url>` | Provider endpoint, local server, or gateway |
+| `--transport <name>` | Provider transport: `acp`, `headless`, or local-only `auto` where supported |
 | `--base <ref>` | Git diff base; default `origin/main` |
 | `--pr owner/repo#N` | GitHub PR source; requires `GITHUB_TOKEN` |
 | `--paths <p...>` | Complete files or directories |
@@ -327,6 +328,7 @@ A full review runs seven lenses across selected files and then verifies candidat
 ## Operations and machine-readable docs
 
 - [Operations guide](docs/OPERATIONS.md) — providers, permissions, secrets, cost controls, SARIF, failures, releases, and incident-safe defaults.
+- [Provider compatibility matrix](docs/provider-compatibility.json) — stable CLI transports and their offline fixtures.
 - [Agent handoff](docs/for-agents/code-review-cli.md) — ownership, edit roots, verification commands, and change routes.
 - [`llms.txt`](llms.txt) — compact public source map for LLMs and coding agents.
 - [`llms-full.txt`](llms-full.txt) — complete README, operations, and agent-handoff corpus.

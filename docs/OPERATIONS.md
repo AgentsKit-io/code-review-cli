@@ -28,6 +28,22 @@ npx --yes github:AgentsKit-io/code-review-cli doctor --provider openai --model g
 
 It checks the named executable and version, transport, model requirement, configuration mode, and credential presence without making a model request. API keys are represented only as `configured` or `missing`; they are never printed. Local CLI credentials are represented as login-managed because login storage is provider-specific. `doctor --live` is the explicit provider smoke-test path. Unknown local CLI versions warn during local runs and fail in CI. Doctor exits `0` when checks pass, `1` when a provider check fails, and `2` for invalid usage.
 
+## First local setup
+
+```sh
+git clone https://github.com/AgentsKit-io/code-review-cli.git
+cd code-review-cli
+npm install
+npm run check
+npx --yes github:AgentsKit-io/code-review-cli --provider opencode-cli --transport acp --model openai/gpt-4o --no-fail
+```
+
+The last command requires an installed and authenticated OpenCode CLI. For a
+credential-free verification, `npm run check` uses only the committed offline
+fixtures. Precedence is explicit CLI flags, then the repository's
+`.agentskit-review.json` policy, then safe defaults; the project file never
+selects a trusted execution mode or carries credentials.
+
 ## Grok Build CLI via ACP
 
 `grok-cli` is stable and uses `--transport acp` by default. It
@@ -278,7 +294,7 @@ The default `added` filter limits inline feedback to changed lines. Choose a bro
 
 - **Unknown provider or missing model:** validate with `--list-providers`; API/local-server adapters require `--model`.
 - **Authentication failure:** verify only the provider-specific secret/login and avoid printing its value.
-- **Rate limit or timeout:** local `codex-cli` and `claude-cli` calls stop after 120 seconds by default. Set `AGENTSKIT_REVIEW_SUBPROCESS_TIMEOUT_MS` to a positive millisecond value when needed, reduce concurrency/file budget, or use an approved gateway; retry only when provider policy makes the operation safe.
+- **Rate limit or timeout:** local CLI calls stop after 120 seconds by default. Set `AGENTSKIT_REVIEW_SUBPROCESS_TIMEOUT_MS` to a positive millisecond value when needed, reduce concurrency/file budget, or use an approved gateway; retry only when provider policy makes the operation safe.
 - **No PR comments:** confirm `pull-requests: write`, token availability, and fork restrictions. The Markdown report still appears in logs.
 - **Inline comment rejected:** the reporter falls back to a non-approving comment for GitHub 422 restrictions.
 - **Large diff:** cap `--max-files` and split review by paths; unreviewed files must not be described as reviewed.
