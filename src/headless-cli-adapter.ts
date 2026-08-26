@@ -78,7 +78,7 @@ export function createAutoCliAdapter(options: {
           if (!primaryError) return
           options.onFallback?.(`${options.provider}: ${primaryError}`)
           for await (const chunk of fallback.stream()) {
-            if (chunk.type === 'error' && primaryError) yield { ...chunk, content: `${chunk.content}; ACP fallback reason: ${primaryError}` }
+            if (chunk.type === 'error') yield { ...chunk, content: `${chunk.content}; ACP fallback reason: ${primaryError}` }
             else yield chunk
           }
         },
