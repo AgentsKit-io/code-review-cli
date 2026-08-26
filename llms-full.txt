@@ -79,13 +79,13 @@ OPENAI_API_KEY=... npx --yes github:AgentsKit-io/code-review-cli \
 
 The CLI reviews the current repository's diff against `origin/main` and prints the report in your terminal. Choose another base with `--base main`.
 
-For the experimental Grok Build ACP worker, authenticate with `grok login` and run `npx --yes github:AgentsKit-io/code-review-cli --provider grok-cli`.
+For the Grok Build ACP worker, authenticate with `grok login` and run `npx --yes github:AgentsKit-io/code-review-cli --provider grok-cli`.
 
 Local `codex-cli` and `claude-cli` subprocesses have a 120-second deadline per model call. Set `AGENTSKIT_REVIEW_SUBPROCESS_TIMEOUT_MS` to a positive integer when a provider needs a different limit; timed-out lenses fail explicitly and cannot turn an unreviewed file into an approval.
 
-`grok-cli` is experimental and uses Grok Build's ACP transport (`grok agent stdio`) by default. Authenticate with `grok login` or pass `XAI_API_KEY`/`--api-key`; the key is injected into the isolated worker environment, never into command arguments. Isolated workers grant no filesystem write, terminal, MCP, plugin, or subagent capability and use a temporary working directory. `--transport headless` is available for explicit non-interactive runs, while `--transport auto` is local-only and reports an ACP fallback before trying headless.
+`grok-cli` is stable and uses Grok Build's ACP transport (`grok agent stdio`) by default. Authenticate with `grok login` or pass `XAI_API_KEY`/`--api-key`; the key is injected into the isolated worker environment, never into command arguments. Isolated workers grant no filesystem write, terminal, MCP, plugin, or subagent capability and use a temporary working directory. `--transport headless` is available for explicit non-interactive runs, while `--transport auto` is local-only and reports an ACP fallback before trying headless.
 
-`opencode-cli` is experimental and currently uses OpenCode's ACP transport (`opencode acp`). Authenticate OpenCode through its normal login/configuration or pass `OPENCODE_API_KEY`/`--api-key`; the selected key is injected into the isolated worker environment, never into command arguments. OpenCode is not installed automatically. `--transport headless` is available for explicit non-interactive runs, while `--transport auto` is local-only and reports an ACP fallback before trying headless.
+`opencode-cli` is stable and uses OpenCode's ACP transport (`opencode acp`) by default. Authenticate OpenCode through its normal login/configuration or pass `OPENCODE_API_KEY`/`--api-key`; the selected key is injected into the isolated worker environment, never into command arguments. OpenCode is not installed automatically. `--transport headless` is available for explicit non-interactive runs, while `--transport auto` is local-only and reports an ACP fallback before trying headless.
 
 Preflight refuses an over-budget run before the first provider call. `--dry-run` and `--plan` print the refusal and concrete reductions; `--json` makes the plan machine-readable. CLI providers default to concurrency `1`, while API providers retain concurrency `4`. Required-lens or source coverage failures always exit `2`, even with `--no-fail`.
 
@@ -251,8 +251,8 @@ Run these commands from the repository you want to review:
 |---|---|---|---|
 | `codex-cli` | Codex CLI logged in | Optional | `npx --yes github:AgentsKit-io/code-review-cli --provider codex-cli` |
 | `claude-cli` | Claude CLI logged in | Optional | `npx --yes github:AgentsKit-io/code-review-cli --provider claude-cli` |
-| `grok-cli` | Grok Build CLI; experimental | Optional | `... --provider grok-cli` |
-| `opencode-cli` | OpenCode CLI; experimental | Optional | `... --provider opencode-cli` |
+| `grok-cli` | Grok Build CLI; stable ACP/headless | Optional | `... --provider grok-cli` |
+| `opencode-cli` | OpenCode CLI; stable ACP/headless | Optional | `... --provider opencode-cli` |
 | `openai` | `OPENAI_API_KEY` | Required | `... --provider openai --model gpt-4o` |
 | `anthropic` | `ANTHROPIC_API_KEY` | Required | `... --provider anthropic --model <model>` |
 | `gemini` | `GEMINI_API_KEY` | Required | `... --provider gemini --model <model>` |
@@ -422,7 +422,7 @@ Do not run hosted review on code whose policy forbids external processing. A loc
 
 ## Provider registry and doctor
 
-Provider IDs are versioned registry entries. `grok` is the xAI API adapter, while `grok-cli` is the experimental Grok Build CLI; `opencode-cli` is the experimental OpenCode CLI. `--list-providers` prints registry metadata and dynamically discovered API factories, including each support level (`stable`, `experimental`, or `unsupported`), transport, and model requirement.
+Provider IDs are versioned registry entries. `grok` is the xAI API adapter, while `grok-cli` and `opencode-cli` are stable local CLI providers. `--list-providers` prints registry metadata and dynamically discovered API factories, including each support level (`stable`, `experimental`, or `unsupported`), transport, and model requirement.
 
 Use the offline doctor before execution:
 
@@ -435,7 +435,7 @@ It checks the named executable and version, transport, model requirement, config
 
 ## Grok Build CLI via ACP
 
-`grok-cli` is experimental and currently supports only `--transport acp`. It
+`grok-cli` is stable and uses `--transport acp` by default. It
 starts `grok agent stdio --no-auto-update`, performs the ACP initialize,
 authentication (when advertised), session, prompt, update, shutdown, and exit
 sequence, then emits one `submit_findings` tool call. The worker accepts only a
@@ -452,7 +452,7 @@ and must be selected explicitly.
 
 ## OpenCode CLI via ACP
 
-`opencode-cli` is experimental and currently supports only `--transport acp`.
+`opencode-cli` is stable and uses `--transport acp` by default.
 It starts `opencode acp`, performs the ACP initialize, session, prompt, update,
 shutdown, and exit sequence, then emits one validated `submit_findings` tool
 call. When `--model` is provided it is passed as OpenCode's `--model` option.
@@ -475,12 +475,18 @@ framings are parsed separately and normalized to the same strict
 `schemaVersion: 1` envelope. Surrounding logs are bounded and tolerated only
 when the validated envelope can still be recovered.
 
-`--transport auto` is a local convenience for these two experimental providers:
+`--transport auto` is a local convenience for these two providers:
 it tries ACP first, reports the reason on stderr, then tries the provider's
 headless command. It is rejected in CI so a pipeline cannot silently change
 transport. Both paths use the same isolated worker timeout, output cap,
 cancellation, temporary working directory, selected-credential injection, and
 redacted diagnostics. Neither path installs a provider CLI automatically.
+
+The executable compatibility source of truth is
+[`provider-compatibility.json`](https://github.com/AgentsKit-io/code-review-cli/blob/main/docs/provider-compatibility.json). It lists the
+stable providers, every supported transport, required lenses, minimum version,
+and the offline fixture that proves each cell. A provider remains experimental
+until its registry entry, matrix, fixtures, and doctor checks are all green.
 
 ## pre-commit integration
 

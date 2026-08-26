@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "envelope": "schemaVersion: 1",
+  "requiredLenses": ["correctness", "security", "tests"],
+  "providers": [
+    {
+      "id": "grok-cli",
+      "support": "stable",
+      "executable": "grok",
+      "minimumVersion": "0.1.0",
+      "trustModes": ["isolated", "trusted-local"],
+      "transports": {
+        "acp": { "status": "supported", "fixture": "test/grok-cli-adapter.test.mjs" },
+        "headless": { "status": "supported", "fixture": "test/headless-cli-adapter.test.mjs" },
+        "auto": { "status": "local-only", "fixture": "test/headless-cli-adapter.test.mjs" }
+      },
+      "auth": "XAI_API_KEY or provider login",
+      "failureSemantics": ["strict-envelope", "one-invalid-output-retry", "bounded-timeout", "cancel", "redacted-diagnostics"]
+    },
+    {
+      "id": "opencode-cli",
+      "support": "stable",
+      "executable": "opencode",
+      "minimumVersion": "0.1.0",
+      "trustModes": ["isolated", "trusted-local"],
+      "transports": {
+        "acp": { "status": "supported", "fixture": "test/opencode-cli-adapter.test.mjs" },
+        "headless": { "status": "supported", "fixture": "test/headless-cli-adapter.test.mjs" },
+        "auto": { "status": "local-only", "fixture": "test/headless-cli-adapter.test.mjs" }
+      },
+      "auth": "OPENCODE_API_KEY or provider login",
+      "failureSemantics": ["strict-envelope", "one-invalid-output-retry", "bounded-timeout", "cancel", "redacted-diagnostics"]
+    }
+  ]
+}

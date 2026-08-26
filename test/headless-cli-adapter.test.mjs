@@ -55,7 +55,7 @@ test('provider-specific headless builders normalize Grok JSON and OpenCode JSON 
 
 test('headless output is bounded, retries once, and preserves provider failures', { concurrency: false }, async () => {
   for (const provider of ['grok', 'opencode']) {
-    for (const mode of ['logs', 'invalid', 'schema-invalid', 'finding-invalid']) {
+    for (const mode of ['logs', 'invalid', 'schema-invalid', 'finding-invalid', 'auth-failure']) {
       const chunks = await run(provider, mode)
       if (mode === 'logs') assert.equal(chunks.at(-1)?.type, 'done')
       else assert.equal(chunks[0]?.type, 'error')

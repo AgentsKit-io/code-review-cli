@@ -17,7 +17,7 @@ Do not run hosted review on code whose policy forbids external processing. A loc
 
 ## Provider registry and doctor
 
-Provider IDs are versioned registry entries. `grok` is the xAI API adapter, while `grok-cli` is the experimental Grok Build CLI; `opencode-cli` is the experimental OpenCode CLI. `--list-providers` prints registry metadata and dynamically discovered API factories, including each support level (`stable`, `experimental`, or `unsupported`), transport, and model requirement.
+Provider IDs are versioned registry entries. `grok` is the xAI API adapter, while `grok-cli` and `opencode-cli` are stable local CLI providers. `--list-providers` prints registry metadata and dynamically discovered API factories, including each support level (`stable`, `experimental`, or `unsupported`), transport, and model requirement.
 
 Use the offline doctor before execution:
 
@@ -30,7 +30,7 @@ It checks the named executable and version, transport, model requirement, config
 
 ## Grok Build CLI via ACP
 
-`grok-cli` is experimental and currently supports only `--transport acp`. It
+`grok-cli` is stable and uses `--transport acp` by default. It
 starts `grok agent stdio --no-auto-update`, performs the ACP initialize,
 authentication (when advertised), session, prompt, update, shutdown, and exit
 sequence, then emits one `submit_findings` tool call. The worker accepts only a
@@ -47,7 +47,7 @@ and must be selected explicitly.
 
 ## OpenCode CLI via ACP
 
-`opencode-cli` is experimental and currently supports only `--transport acp`.
+`opencode-cli` is stable and uses `--transport acp` by default.
 It starts `opencode acp`, performs the ACP initialize, session, prompt, update,
 shutdown, and exit sequence, then emits one validated `submit_findings` tool
 call. When `--model` is provided it is passed as OpenCode's `--model` option.
@@ -70,12 +70,18 @@ framings are parsed separately and normalized to the same strict
 `schemaVersion: 1` envelope. Surrounding logs are bounded and tolerated only
 when the validated envelope can still be recovered.
 
-`--transport auto` is a local convenience for these two experimental providers:
+`--transport auto` is a local convenience for these two providers:
 it tries ACP first, reports the reason on stderr, then tries the provider's
 headless command. It is rejected in CI so a pipeline cannot silently change
 transport. Both paths use the same isolated worker timeout, output cap,
 cancellation, temporary working directory, selected-credential injection, and
 redacted diagnostics. Neither path installs a provider CLI automatically.
+
+The executable compatibility source of truth is
+[`provider-compatibility.json`](./provider-compatibility.json). It lists the
+stable providers, every supported transport, required lenses, minimum version,
+and the offline fixture that proves each cell. A provider remains experimental
+until its registry entry, matrix, fixtures, and doctor checks are all green.
 
 ## pre-commit integration
 

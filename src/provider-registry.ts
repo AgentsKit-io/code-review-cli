@@ -44,12 +44,12 @@ const LOCAL_PROVIDERS: readonly ProviderEntry[] = [
   cli('codex-cli', 'OpenAI Codex CLI', 'codex', 'stable'),
   cli('claude-cli', 'Claude Code CLI', 'claude', 'stable'),
   {
-    ...cli('grok-cli', 'Grok Build CLI', 'grok', 'experimental'),
+    ...cli('grok-cli', 'Grok Build CLI', 'grok', 'stable'),
     transports: ['acp', 'headless', 'auto'],
     defaultTransport: 'acp',
   },
   {
-    ...cli('opencode-cli', 'OpenCode CLI', 'opencode', 'experimental'),
+    ...cli('opencode-cli', 'OpenCode CLI', 'opencode', 'stable'),
     transports: ['acp', 'headless', 'auto'],
     defaultTransport: 'acp',
   },

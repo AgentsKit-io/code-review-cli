@@ -23,6 +23,7 @@ if (onceFile) {
 if (headless) {
   if (mode === 'timeout' || mode === 'cancel') setTimeout(() => {}, 60 * 60 * 1000)
   else if (mode === 'failure') { process.stderr.write('fixture process failed\n'); process.exit(7) }
+  else if (mode === 'auth-failure') { process.stderr.write('fixture authentication failed\n'); process.exit(8) }
   else {
     const output = reviewEnvelope()
     if (mode === 'logs') process.stdout.write('progress: reviewing\n')
@@ -30,6 +31,7 @@ if (headless) {
     process.exit(0)
   }
 }
+if (baseFixtureName === 'OPENCODE' && mode === 'auth-failure') { process.stderr.write('fixture authentication failed\n'); process.exit(8) }
 if (mode === 'acp-failure') { process.stderr.write('fixture ACP unavailable\n'); process.exit(9) }
 
 let buffer = ''
@@ -52,7 +54,7 @@ process.stdin.on('data', (chunk) => {
       respond(promptMessage, {})
       continue
     }
-    if (message.method === 'initialize') respond(message, { authMethods: [] })
+    if (message.method === 'initialize') respond(message, { authMethods: mode === 'auth-failure' ? [{ id: 'xai.api_key' }] : [] })
     else if (message.method === 'authenticate') respond(message, {})
     else if (message.method === 'session/new') respond(message, { sessionId: 'fixture-session' })
     else if (message.method === 'session/prompt') {
