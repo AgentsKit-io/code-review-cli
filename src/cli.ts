@@ -216,7 +216,7 @@ async function runDoctor(): Promise<void> {
   })
   if (has('json')) console.log(JSON.stringify(report))
   else console.log(formatDoctor(report))
-  if (!report.ok) process.exitCode = 1
+  if (!report.ok) process.exitCode = report.checks.some((check) => check.name === 'provider' && check.status === 'fail') ? 2 : 1
 }
 
 function formatProvider(entry: ProviderEntry): string {

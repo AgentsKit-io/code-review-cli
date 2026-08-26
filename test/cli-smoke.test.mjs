@@ -240,3 +240,14 @@ test('doctor reports missing API credentials without echoing values', () => {
   assert.equal(missing.status, 1)
   assert.equal(JSON.parse(missing.stdout).checks.find(check => check.name === 'credentials').detail, 'missing')
 })
+
+test('doctor treats an unknown provider as invalid CLI usage', () => {
+  const run = spawnSync(process.execPath, [
+    'dist/src/cli.js', 'doctor', '--provider', 'not-a-provider', '--json',
+  ], { cwd: root, encoding: 'utf8' })
+
+  assert.equal(run.status, 2)
+  const report = JSON.parse(run.stdout)
+  assert.equal(report.ok, false)
+  assert.equal(report.checks[0].detail, 'unsupported provider')
+})
