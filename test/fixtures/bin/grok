@@ -6,10 +6,11 @@ if (process.argv.includes('--version')) {
   process.exit(0)
 }
 
-const mode = process.env.CODEX_FIXTURE_GROK_MODE ?? 'success'
-const traceFile = process.env.CODEX_FIXTURE_GROK_TRACE_FILE
+const fixtureName = process.argv[1]?.endsWith('/opencode') ? 'OPENCODE' : 'GROK'
+const mode = process.env[`CODEX_FIXTURE_${fixtureName}_MODE`] ?? 'success'
+const traceFile = process.env[`CODEX_FIXTURE_${fixtureName}_TRACE_FILE`]
 const trace = (message) => { if (traceFile) appendFileSync(traceFile, `${JSON.stringify(message)}\n`) }
-const onceFile = process.env.CODEX_FIXTURE_GROK_INVALID_ONCE_FILE
+const onceFile = process.env[`CODEX_FIXTURE_${fixtureName}_INVALID_ONCE_FILE`]
 let invalid = mode === 'invalid' || mode === 'schema-invalid' || mode === 'finding-invalid'
 if (onceFile) {
   try { const fd = openSync(onceFile, 'wx'); closeSync(fd); invalid = true } catch (error) { if (error?.code !== 'EEXIST') throw error }

@@ -21,6 +21,7 @@ import { githubInlineReporter, githubSummaryReporter, markdownReporter, sarifRep
 import { claudeCode } from './claude-code-adapter.js'
 import { codexCli } from './codex-adapter.js'
 import { grokCli } from './grok-cli-adapter.js'
+import { opencodeCli } from './opencode-cli-adapter.js'
 import { ollamaReview } from './ollama-adapter.js'
 import type { SourceConfig } from '../agents/code-review/sources.js'
 import { diagnoseProvider, factoryFor, providerEntry, providerRegistry, resolveProviderId, type DoctorReport, type ProviderEntry } from './provider-registry.js'
@@ -33,7 +34,7 @@ Usage:
   agentskit-review --provider <name> [options]
 
 Providers:
-  codex-cli, claude-cli, grok-cli, or any @agentskit/adapters provider
+  codex-cli, claude-cli, grok-cli, opencode-cli, or any @agentskit/adapters provider
   (anthropic, openai, gemini, ollama, openrouter, mistral, groq, ...)
 
 Examples:
@@ -249,6 +250,10 @@ function buildAdapter(reviewConfig: ResolvedReviewConfig): AdapterFactory {
   if (provider === 'grok-cli') {
     if ((reviewConfig.transport ?? 'acp') !== 'acp') throw new Error('grok-cli currently supports only --transport acp; headless support is tracked separately')
     return grokCli({ model, mode, apiKey: flag('api-key') ?? process.env.XAI_API_KEY ?? process.env.LLM_API_KEY, worker: reviewConfig.worker })
+  }
+  if (provider === 'opencode-cli') {
+    if ((reviewConfig.transport ?? 'acp') !== 'acp') throw new Error('opencode-cli currently supports only --transport acp; headless support is tracked separately')
+    return opencodeCli({ model, mode, apiKey: flag('api-key') ?? process.env.OPENCODE_API_KEY ?? process.env.LLM_API_KEY, worker: reviewConfig.worker })
   }
   if (provider === 'ollama') {
     if (!model) throw new Error('--model is required for provider "ollama"')

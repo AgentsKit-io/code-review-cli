@@ -45,6 +45,22 @@ working directory. `doctor --provider grok-cli` checks executable/version
 availability without making a model request. Headless support is not enabled
 by this provider entry yet.
 
+## OpenCode CLI via ACP
+
+`opencode-cli` is experimental and currently supports only `--transport acp`.
+It starts `opencode acp`, performs the ACP initialize, session, prompt, update,
+shutdown, and exit sequence, then emits one validated `submit_findings` tool
+call. When `--model` is provided it is passed as OpenCode's `--model` option.
+The worker allows no filesystem writes, terminal, MCP, plugin, or subagent
+requests and retries malformed output once.
+
+Use OpenCode's normal authentication flow, or provide `OPENCODE_API_KEY` through
+the environment. The key is copied only into the temporary worker environment
+in `isolated` mode. The CLI does not install OpenCode automatically.
+`doctor --provider opencode-cli` checks executable/version availability without
+making a model request. Headless support is not enabled by this provider entry
+yet.
+
 ## pre-commit integration
 
 The root `.pre-commit-hooks.yaml` exposes `agentskit-review` as a Node hook. It uses `pass_filenames: false` because the CLI reviews a Git diff, explicit paths, a pull request, or stdin rather than interpreting positional filenames. It is confined to the `manual` stage by default so cloning the hook does not silently add model calls to every commit.
