@@ -6,7 +6,7 @@ export const PROVIDER_REGISTRY_VERSION = 1 as const
 
 export type ProviderKind = 'api' | 'cli' | 'local-server'
 export type SupportLevel = 'stable' | 'experimental' | 'unsupported'
-export type Transport = 'api' | 'acp' | 'headless' | 'http'
+export type Transport = 'api' | 'acp' | 'headless' | 'auto' | 'http'
 export type ModelRequirement = 'required' | 'optional' | 'none'
 
 export interface ProviderEntry {
@@ -45,12 +45,12 @@ const LOCAL_PROVIDERS: readonly ProviderEntry[] = [
   cli('claude-cli', 'Claude Code CLI', 'claude', 'stable'),
   {
     ...cli('grok-cli', 'Grok Build CLI', 'grok', 'experimental'),
-    transports: ['acp', 'headless'],
+    transports: ['acp', 'headless', 'auto'],
     defaultTransport: 'acp',
   },
   {
     ...cli('opencode-cli', 'OpenCode CLI', 'opencode', 'experimental'),
-    transports: ['acp', 'headless'],
+    transports: ['acp', 'headless', 'auto'],
     defaultTransport: 'acp',
   },
   localServer('ollama', 'Ollama local model server', 'stable'),

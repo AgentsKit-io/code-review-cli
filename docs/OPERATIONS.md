@@ -42,8 +42,8 @@ through the environment. In `isolated` mode the key is copied only into the
 temporary worker environment. Filesystem writes, terminal, MCP, plugin, and
 subagent requests are denied, and the worker never uses the checkout as its
 working directory. `doctor --provider grok-cli` checks executable/version
-availability without making a model request. Headless support is not enabled
-by this provider entry yet.
+availability without making a model request. Headless mode is documented below
+and must be selected explicitly.
 
 ## OpenCode CLI via ACP
 
@@ -58,8 +58,24 @@ Use OpenCode's normal authentication flow, or provide `OPENCODE_API_KEY` through
 the environment. The key is copied only into the temporary worker environment
 in `isolated` mode. The CLI does not install OpenCode automatically.
 `doctor --provider opencode-cli` checks executable/version availability without
-making a model request. Headless support is not enabled by this provider entry
-yet.
+making a model request. Headless mode is documented below and must be selected
+explicitly.
+
+## Grok and OpenCode headless transport
+
+Headless mode is explicit with `--transport headless`. Grok uses
+`grok --no-auto-update -p <prompt> --output-format json`; OpenCode uses
+`opencode run --format json [--model provider/model] <prompt>`. Their output
+framings are parsed separately and normalized to the same strict
+`schemaVersion: 1` envelope. Surrounding logs are bounded and tolerated only
+when the validated envelope can still be recovered.
+
+`--transport auto` is a local convenience for these two experimental providers:
+it tries ACP first, reports the reason on stderr, then tries the provider's
+headless command. It is rejected in CI so a pipeline cannot silently change
+transport. Both paths use the same isolated worker timeout, output cap,
+cancellation, temporary working directory, selected-credential injection, and
+redacted diagnostics. Neither path installs a provider CLI automatically.
 
 ## pre-commit integration
 

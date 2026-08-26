@@ -20,8 +20,9 @@ import { builtInLenses, createCodeReviewAgent, type Category, type CodeReviewCon
 import { githubInlineReporter, githubSummaryReporter, markdownReporter, sarifReporter } from '../agents/code-review/reporters.js'
 import { claudeCode } from './claude-code-adapter.js'
 import { codexCli } from './codex-adapter.js'
-import { grokCli } from './grok-cli-adapter.js'
-import { opencodeCli } from './opencode-cli-adapter.js'
+import { grokCli, grokHeadless } from './grok-cli-adapter.js'
+import { opencodeCli, opencodeHeadless } from './opencode-cli-adapter.js'
+import { createAutoCliAdapter } from './headless-cli-adapter.js'
 import { ollamaReview } from './ollama-adapter.js'
 import type { SourceConfig } from '../agents/code-review/sources.js'
 import { diagnoseProvider, factoryFor, providerEntry, providerRegistry, resolveProviderId, type DoctorReport, type ProviderEntry } from './provider-registry.js'
@@ -244,16 +245,30 @@ function buildAdapter(reviewConfig: ResolvedReviewConfig): AdapterFactory {
   const provider = requestedProvider && resolveProviderId(requestedProvider)
   if (!provider) throw new Error(requestedProvider ? `unknown --provider "${requestedProvider}" (run --list-providers for common options)` : 'choose a provider with --provider <name> (run --list-providers for common options)')
   const model = reviewConfig.model ?? (has('api') ? 'claude-opus-4-8' : undefined)
-  const mode = flag('mode') === 'trusted-local' ? 'trusted-local' : 'isolated'
+  const mode = flag('mode') === 'trusted-local' ? 'trusted-local' as const : 'isolated' as const
   if (provider === 'claude-cli') return claudeCode({ model, mode, worker: reviewConfig.worker })
   if (provider === 'codex-cli') return codexCli({ model, mode, worker: reviewConfig.worker })
   if (provider === 'grok-cli') {
-    if ((reviewConfig.transport ?? 'acp') !== 'acp') throw new Error('grok-cli currently supports only --transport acp; headless support is tracked separately')
-    return grokCli({ model, mode, apiKey: flag('api-key') ?? process.env.XAI_API_KEY ?? process.env.LLM_API_KEY, worker: reviewConfig.worker })
+    const apiKey = flag('api-key') ?? process.env.XAI_API_KEY ?? process.env.LLM_API_KEY
+    const options = { model, mode, apiKey, worker: reviewConfig.worker }
+    if ((reviewConfig.transport ?? 'acp') === 'acp') return grokCli(options)
+    if (reviewConfig.transport === 'headless') return grokHeadless(options)
+    if (reviewConfig.transport === 'auto') {
+      if (has('ci') || process.env.CI === 'true' || process.env.CI === '1') throw new Error('--transport auto is local-only; choose acp or headless in CI')
+      return createAutoCliAdapter({ provider, primary: grokCli(options), fallback: grokHeadless(options), onFallback: (detail) => console.error(`warning: ${detail}; trying grok headless`) })
+    }
+    throw new Error(`grok-cli does not support --transport ${reviewConfig.transport}`)
   }
   if (provider === 'opencode-cli') {
-    if ((reviewConfig.transport ?? 'acp') !== 'acp') throw new Error('opencode-cli currently supports only --transport acp; headless support is tracked separately')
-    return opencodeCli({ model, mode, apiKey: flag('api-key') ?? process.env.OPENCODE_API_KEY ?? process.env.LLM_API_KEY, worker: reviewConfig.worker })
+    const apiKey = flag('api-key') ?? process.env.OPENCODE_API_KEY ?? process.env.LLM_API_KEY
+    const options = { model, mode, apiKey, worker: reviewConfig.worker }
+    if ((reviewConfig.transport ?? 'acp') === 'acp') return opencodeCli(options)
+    if (reviewConfig.transport === 'headless') return opencodeHeadless(options)
+    if (reviewConfig.transport === 'auto') {
+      if (has('ci') || process.env.CI === 'true' || process.env.CI === '1') throw new Error('--transport auto is local-only; choose acp or headless in CI')
+      return createAutoCliAdapter({ provider, primary: opencodeCli(options), fallback: opencodeHeadless(options), onFallback: (detail) => console.error(`warning: ${detail}; trying opencode headless`) })
+    }
+    throw new Error(`opencode-cli does not support --transport ${reviewConfig.transport}`)
   }
   if (provider === 'ollama') {
     if (!model) throw new Error('--model is required for provider "ollama"')

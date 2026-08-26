@@ -48,7 +48,7 @@ const ReviewConfigSchema = z.object({
   conventions: relativePattern.optional(),
   context: z.object({ mode: z.enum(['prompt', 'isolated-snapshot']), patterns: z.array(relativePattern).max(100).optional() }).strict().optional(),
   provider: z.string().min(1).max(100).optional(), model: z.string().min(1).max(200).optional(),
-  transport: z.enum(['api', 'acp', 'headless', 'http']).optional(),
+  transport: z.enum(['api', 'acp', 'headless', 'auto', 'http']).optional(),
   trustMode: z.enum(['isolated', 'trusted-local']).optional(),
   redaction: z.enum(['required', 'high-confidence']).optional(),
   permissions: z.object({ tools: z.boolean().optional(), write: z.boolean().optional(), shell: z.boolean().optional(), mcp: z.boolean().optional() }).strict().optional(),
@@ -73,7 +73,7 @@ export interface ResolvedReviewConfig {
   conventions?: string
   context: { mode: 'prompt' | 'isolated-snapshot'; patterns: string[] }
   allowUnredacted: boolean
-  provider?: string; model?: string; transport?: 'api' | 'acp' | 'headless' | 'http'
+  provider?: string; model?: string; transport?: 'api' | 'acp' | 'headless' | 'auto' | 'http'
   trustMode: 'isolated'; redaction: 'required' | 'high-confidence'
   permissions: { tools?: boolean; write?: boolean; shell?: boolean; mcp?: boolean }
 }
