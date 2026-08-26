@@ -14,4 +14,5 @@ All notable changes will be documented here. This project follows Semantic Versi
 - Added primary-lens execution coverage to review summaries so partial provider degradation is visible.
 - Repositioned the CLI and GitHub Action as provider-neutral.
 - Made provider selection explicit and removed provider-specific model defaults.
+- Added bounded GitHub review reconciliation with SHA/policy fingerprints, incremental compare scope when the prior SHA is an ancestor, fork-safe skip behavior, and idempotent summary updates.
 - Added package metadata, CLI help, open-source governance, and contribution guidance.

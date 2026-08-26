@@ -124,6 +124,16 @@ permissions:
 
 Use environment protection or organization secrets for sensitive providers. Rotate a secret after suspected exposure and review provider usage plus GitHub audit logs.
 
+When `--post` is used with `--pr`, the reviewer stores a hidden SHA and policy
+fingerprint marker in the summary comment. Re-running the same head SHA with
+the same policy skips provider calls and updates no comments. A new SHA uses
+GitHub compare scope only when the previous marked SHA is an ancestor; a
+missing marker, force-push, or changed fingerprint falls back to the full PR
+file list. Fork PRs are reported as `SKIPPED` with exit `2` on this workflow
+boundary; do not switch to `pull_request_target` to expose secrets. Summary
+comments are reconciled by marker, while POST/PATCH failures remain visible for
+manual retry.
+
 ## Advisory and blocking behavior
 
 The Action is advisory by default: `fail-on-block: 'false'` adds `--no-fail`. Findings still post, but surviving blocker/high findings do not fail the job. `--no-fail` never suppresses provider, source, reporter, or review-execution errors. For enforcement:
