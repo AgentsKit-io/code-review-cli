@@ -2,6 +2,8 @@ import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { z } from 'zod'
 import type { Category, Severity } from '../agents/code-review/agent.js'
+import { ABSOLUTE_LOCAL_CLI_OUTPUT_BYTES, ABSOLUTE_LOCAL_CLI_TIMEOUT_MS, DEFAULT_LOCAL_CLI_OUTPUT_BYTES } from './local-cli-process.js'
+import { localCliTimeoutMs } from './local-cli-timeout.js'
 
 export const BUILTIN_LENS_KEYS = [
   'correctness', 'security', 'performance', 'maintainability', 'design', 'tests', 'conventions',
@@ -39,6 +41,10 @@ const ReviewConfigSchema = z.object({
     maxFiles: positiveInt.max(500).optional(), maxBytes: positiveInt.max(25 * 1024 * 1024).optional(),
     maxCalls: positiveInt.max(1000).optional(), concurrency: positiveInt.max(32).optional(),
   }).strict().optional(),
+  worker: z.object({
+    timeoutMs: positiveInt.max(ABSOLUTE_LOCAL_CLI_TIMEOUT_MS).optional(),
+    maxOutputBytes: positiveInt.max(ABSOLUTE_LOCAL_CLI_OUTPUT_BYTES).optional(),
+  }).strict().optional(),
   conventions: relativePattern.optional(),
   context: z.object({ mode: z.enum(['prompt', 'isolated-snapshot']), patterns: z.array(relativePattern).max(100).optional() }).strict().optional(),
   provider: z.string().min(1).max(100).optional(), model: z.string().min(1).max(200).optional(),
@@ -63,6 +69,7 @@ export interface ResolvedReviewConfig {
   retries: number
   thresholds: { minSeverity?: Severity; minConfidence?: number; maxPerFile?: number; suppressNits?: boolean }
   budget: { maxFiles?: number; maxBytes?: number; maxCalls?: number; concurrency: number }
+  worker: { timeoutMs: number; maxOutputBytes: number }
   conventions?: string
   context: { mode: 'prompt' | 'isolated-snapshot'; patterns: string[] }
   provider?: string; model?: string; transport?: 'api' | 'acp' | 'headless' | 'http'
@@ -121,6 +128,7 @@ export function resolveReviewConfig(
     configVersion: 1 as const, lenses, incompleteProfile,
     votes: overrides.votes ?? file?.votes ?? 3, retries: overrides.retries ?? file?.retries ?? 1,
     thresholds, budget: { ...budget, concurrency: budget.concurrency ?? 4 },
+    worker: { timeoutMs: file?.worker?.timeoutMs ?? localCliTimeoutMs(), maxOutputBytes: file?.worker?.maxOutputBytes ?? DEFAULT_LOCAL_CLI_OUTPUT_BYTES },
     conventions: overrides.conventions ?? file?.conventions,
     context: { mode: file?.context?.mode ?? 'prompt', patterns: file?.context?.patterns ?? [] },
     provider: overrides.provider ?? file?.provider, model: overrides.model ?? file?.model,

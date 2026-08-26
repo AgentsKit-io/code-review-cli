@@ -9,7 +9,7 @@ import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { AdapterFactory, AdapterRequest, StreamChunk, StreamSource } from "@agentskit/core";
-import { runLocalCli } from "./local-cli-process.js";
+import { runLocalCli, type LocalCliMode } from "./local-cli-process.js";
 
 /** Pull the JSON object out of a reply: first `{` to last `}` over the whole output. */
 function extractJson(text: string): string {
@@ -22,7 +22,7 @@ function extractJson(text: string): string {
 }
 
 /** Run `codex exec` and return its final message (captured via -o). */
-async function runCodex(prompt: string, model?: string): Promise<string> {
+async function runCodex(prompt: string, model?: string, signal?: AbortSignal, mode?: LocalCliMode, worker?: { timeoutMs?: number; maxOutputBytes?: number }): Promise<string> {
   const dir = mkdtempSync(join(tmpdir(), "cr-codex-"));
   const outFile = join(dir, "out.txt");
   const args = [
@@ -30,8 +30,6 @@ async function runCodex(prompt: string, model?: string): Promise<string> {
     "--skip-git-repo-check",
     "-s",
     "read-only",
-    "-C",
-    process.env.HOME ?? process.cwd(),
     "-o",
     outFile,
   ];
@@ -39,17 +37,19 @@ async function runCodex(prompt: string, model?: string): Promise<string> {
   args.push(prompt);
 
   try {
-    await runLocalCli("codex", args);
+    await runLocalCli("codex", args, { signal, mode, ...worker });
     return readFileSync(outFile, "utf8");
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
 }
 
-export function codexCli(opts: { model?: string } = {}): AdapterFactory {
+export function codexCli(opts: { model?: string; mode?: LocalCliMode; worker?: { timeoutMs?: number; maxOutputBytes?: number } } = {}): AdapterFactory {
   return {
     capabilities: { streaming: false, tools: true, structuredOutput: true },
-    createSource: (request: AdapterRequest): StreamSource => ({
+    createSource: (request: AdapterRequest): StreamSource => {
+      const controller = new AbortController();
+      return {
       stream: async function* (): AsyncIterableIterator<StreamChunk> {
         try {
           const system = request.messages.find((m) => m.role === "system")?.content ?? "";
@@ -65,7 +65,7 @@ export function codexCli(opts: { model?: string } = {}): AdapterFactory {
             prompt += `\n\nReturn ONLY a JSON object that is the argument to the "${t.name}" tool, matching this JSON Schema exactly. No prose, no code fences:\n${JSON.stringify(t.schema)}`;
           }
 
-          const out = (await runCodex(prompt, opts.model)).trim();
+          const out = (await runCodex(prompt, opts.model, controller.signal, opts.mode, opts.worker)).trim();
 
           if (tools.length === 1) {
             yield { type: "tool_call", toolCall: { id: `tc-${Date.now()}`, name: tools[0]!.name, args: extractJson(out) } };
@@ -79,7 +79,8 @@ export function codexCli(opts: { model?: string } = {}): AdapterFactory {
           yield { type: "error", content: `codex exec failed${detail ? `: ${detail.slice(0, 400)}` : ` (no output): ${(e.message ?? "").split("\n")[0]}`}` };
         }
       },
-      abort: () => {},
-    }),
+      abort: () => controller.abort(),
+      };
+    },
   };
 }

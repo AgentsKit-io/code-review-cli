@@ -304,6 +304,7 @@ never accepted in CI.
   },
   "votes": 3,
   "budget": { "maxFiles": 20, "maxCalls": 200, "concurrency": 1 },
+  "worker": { "timeoutMs": 120000, "maxOutputBytes": 20971520 },
   "thresholds": { "minSeverity": "med", "minConfidence": 0.7 },
   "context": { "mode": "prompt", "patterns": ["src/**"] }
 }
@@ -432,6 +433,8 @@ It requires `configVersion: 1` and supports lens policy (`enabled` and
 `required` per built-in lens), votes, retries, thresholds, file/byte/call and
 concurrency budgets, conventions, and context selection. All built-in lenses
 are enabled by default; correctness, security, and tests are required.
+The shared local worker also accepts bounded `timeoutMs` and `maxOutputBytes`
+settings; absolute ceilings are always enforced.
 
 Flags override file values. The file cannot contain credentials or executable
 plugins. Provider, model, transport, trust mode, redaction, permissions, and
@@ -795,6 +798,7 @@ All notable changes will be documented here. This project follows Semantic Versi
 ### Changed
 
 - Added strict versioned `.agentskit-review.json` policy with lens coverage, budgets, thresholds, context, and safe CI precedence; incomplete profiles require explicit local opt-in.
+- Hardened the shared local CLI worker with cancellation, process-tree cleanup, isolated temporary environments, bounded output, and redacted diagnostics.
 - Made reviews fail closed when any reviewable file has no successful primary lens or cannot be ingested; advisory mode now suppresses finding-based failures only, never source/provider/execution failures.
 - Added primary-lens execution coverage to review summaries so partial provider degradation is visible.
 - Repositioned the CLI and GitHub Action as provider-neutral.

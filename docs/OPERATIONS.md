@@ -43,6 +43,8 @@ It requires `configVersion: 1` and supports lens policy (`enabled` and
 `required` per built-in lens), votes, retries, thresholds, file/byte/call and
 concurrency budgets, conventions, and context selection. All built-in lenses
 are enabled by default; correctness, security, and tests are required.
+The shared local worker also accepts bounded `timeoutMs` and `maxOutputBytes`
+settings; absolute ceilings are always enforced.
 
 Flags override file values. The file cannot contain credentials or executable
 plugins. Provider, model, transport, trust mode, redaction, permissions, and

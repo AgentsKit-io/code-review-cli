@@ -34,6 +34,7 @@ test('merges independent lens policy and flags override file values', () => {
   assert.equal(config.lenses.security.enabled, true)
   assert.equal(config.votes, 1)
   assert.equal(config.thresholds.minSeverity, 'med')
+  assert.equal(config.worker.timeoutMs, 120000)
 })
 
 test('rejects unknown fields, unsupported versions, and impossible required lenses', () => {
