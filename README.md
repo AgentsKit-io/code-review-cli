@@ -286,6 +286,7 @@ never accepted in CI.
   },
   "votes": 3,
   "budget": { "maxFiles": 20, "maxCalls": 200, "concurrency": 1 },
+  "worker": { "timeoutMs": 120000, "maxOutputBytes": 20971520 },
   "thresholds": { "minSeverity": "med", "minConfidence": 0.7 },
   "context": { "mode": "prompt", "patterns": ["src/**"] }
 }

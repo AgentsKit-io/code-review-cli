@@ -6,7 +6,7 @@
  * args and synthesize the `tool_call` stream chunk the runtime expects.
  */
 import type { AdapterFactory, AdapterRequest, StreamChunk, StreamSource } from "@agentskit/core";
-import { runLocalCli } from "./local-cli-process.js";
+import { runLocalCli, type LocalCliMode } from "./local-cli-process.js";
 
 /**
  * Run `claude` and capture stdout. Crucially we CLOSE the child's stdin: in a
@@ -14,11 +14,11 @@ import { runLocalCli } from "./local-cli-process.js";
  * stdin ("no stdin data received in 3s …") and fails. Locally stdin is a TTY so it
  * never showed. stderr is attached to the error for diagnosis.
  */
-async function runClaude(args: string[]): Promise<string> {
+async function runClaude(args: string[], signal?: AbortSignal, mode?: LocalCliMode, worker?: { timeoutMs?: number; maxOutputBytes?: number }): Promise<string> {
   // Run from HOME (a trusted dir): the runner's checkout dir is untrusted and can
   // make claude exit without output (folder-trust). The file under review is in the
   // prompt, not read from cwd, so cwd is irrelevant to the result.
-  const { stdout } = await runLocalCli("claude", args, { cwd: process.env.HOME });
+  const { stdout } = await runLocalCli("claude", args, { signal, mode, ...worker });
   return stdout;
 }
 
@@ -36,10 +36,12 @@ function extractJson(text: string): string {
   return text.slice(start, end + 1);
 }
 
-export function claudeCode(opts: { model?: string } = {}): AdapterFactory {
+export function claudeCode(opts: { model?: string; mode?: LocalCliMode; worker?: { timeoutMs?: number; maxOutputBytes?: number } } = {}): AdapterFactory {
   return {
     capabilities: { streaming: false, tools: true, structuredOutput: true },
-    createSource: (request: AdapterRequest): StreamSource => ({
+    createSource: (request: AdapterRequest): StreamSource => {
+      const controller = new AbortController();
+      return {
       stream: async function* (): AsyncIterableIterator<StreamChunk> {
         try {
           const system = request.messages.find((m) => m.role === "system")?.content ?? "";
@@ -57,7 +59,7 @@ export function claudeCode(opts: { model?: string } = {}): AdapterFactory {
 
           const args = ["-p", prompt];
           if (opts.model) args.push("--model", opts.model);
-          const out = (await runClaude(args)).trim();
+          const out = (await runClaude(args, controller.signal, opts.mode, opts.worker)).trim();
 
           if (tools.length === 1) {
             yield { type: "tool_call", toolCall: { id: `tc-${Date.now()}`, name: tools[0]!.name, args: extractJson(out) } };
@@ -73,7 +75,8 @@ export function claudeCode(opts: { model?: string } = {}): AdapterFactory {
           yield { type: "error", content: `claude -p failed${detail ? `: ${detail.slice(0, 400)}` : ` (no output): ${(e.message ?? "").split("\n")[0]}`}` };
         }
       },
-      abort: () => {},
-    }),
+      abort: () => controller.abort(),
+      };
+    },
   };
 }

@@ -184,8 +184,9 @@ function buildAdapter(reviewConfig: ResolvedReviewConfig): AdapterFactory {
   const provider = requestedProvider && resolveProviderId(requestedProvider)
   if (!provider) throw new Error(requestedProvider ? `unknown --provider "${requestedProvider}" (run --list-providers for common options)` : 'choose a provider with --provider <name> (run --list-providers for common options)')
   const model = reviewConfig.model ?? (has('api') ? 'claude-opus-4-8' : undefined)
-  if (provider === 'claude-cli') return claudeCode({ model })
-  if (provider === 'codex-cli') return codexCli({ model })
+  const mode = flag('mode') === 'trusted-local' ? 'trusted-local' : 'isolated'
+  if (provider === 'claude-cli') return claudeCode({ model, mode, worker: reviewConfig.worker })
+  if (provider === 'codex-cli') return codexCli({ model, mode, worker: reviewConfig.worker })
   if (provider === 'ollama') {
     if (!model) throw new Error('--model is required for provider "ollama"')
     return ollamaReview({ model, ...(flag('base-url') ? { baseUrl: flag('base-url') } : {}) })
