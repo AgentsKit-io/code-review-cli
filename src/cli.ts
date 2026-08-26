@@ -16,13 +16,14 @@
 import type { AdapterFactory } from '@agentskit/core'
 import { createProgressObserver } from '@agentskit/ink'
 import { readFileSync } from 'node:fs'
-import { createCodeReviewAgent, type CodeReviewConfig, type Reporter, type Severity } from '../agents/code-review/agent.js'
+import { builtInLenses, createCodeReviewAgent, type Category, type CodeReviewConfig, type Reporter, type Severity } from '../agents/code-review/agent.js'
 import { githubInlineReporter, githubSummaryReporter, markdownReporter, sarifReporter } from '../agents/code-review/reporters.js'
 import { claudeCode } from './claude-code-adapter.js'
 import { codexCli } from './codex-adapter.js'
 import { ollamaReview } from './ollama-adapter.js'
 import type { SourceConfig } from '../agents/code-review/sources.js'
 import { diagnoseProvider, factoryFor, providerEntry, providerRegistry, resolveProviderId, type DoctorReport, type ProviderEntry } from './provider-registry.js'
+import { loadReviewConfig, type ResolvedReviewConfig } from './review-config.js'
 
 const HELP = `AgentsKit Code Review — deep, low-noise review with your model
 
@@ -53,6 +54,7 @@ Review options:
   --max-files <n>         Positive file budget
   --concurrency <n>       Parallel model calls (default: 4)
   --conventions <path>    Project conventions file
+  --allow-incomplete      Local-only exception for an explicitly incomplete profile
   --validate-patch        Validate suggested patches with git apply --check
   --sarif <file>          Also write a SARIF report
   --post                  Post a PR review (with --pr)
@@ -124,9 +126,24 @@ async function main() {
     await runDoctor()
     return
   }
+  const reviewConfig = loadReviewConfig(process.cwd(), {
+    ci: has('ci') || process.env.CI === 'true' || process.env.CI === '1',
+    allowIncomplete: has('allow-incomplete'),
+    overrides: {
+      provider: flag('provider') ?? (has('api') ? 'anthropic' : undefined),
+      model: flag('model'),
+      transport: flag('transport'),
+      votes: flag('votes') === undefined ? undefined : Number(flag('votes')),
+      minSeverity: flag('min-severity') as Severity | undefined,
+      minConfidence: flag('min-confidence') === undefined ? undefined : Number(flag('min-confidence')),
+      maxFiles: flag('max-files') === undefined ? undefined : Number(flag('max-files')),
+      concurrency: flag('concurrency') === undefined ? undefined : Number(flag('concurrency')),
+      conventions: flag('conventions'),
+    },
+  })
   const source = await resolveSource()
-  await preflightProvider()
-  const adapter = buildAdapter()
+  await preflightProvider(reviewConfig)
+  const adapter = buildAdapter(reviewConfig)
 
   const reporters: Reporter[] = [markdownReporter()]
   const sarif = flag('sarif')
@@ -141,21 +158,20 @@ async function main() {
     source,
     reporters,
     observers: [createProgressObserver()],
-    auditVotes: flag('votes') ? Number(flag('votes')) : undefined,
+    lenses: builtInLenses(Object.entries(reviewConfig.lenses).filter(([, policy]) => policy.enabled).map(([key]) => key as Category)),
+    incompleteProfile: reviewConfig.incompleteProfile,
+    auditVotes: reviewConfig.votes,
     validatePatch: has('validate-patch'),
     blockingSeverity: (flag('block') as Severity) ?? 'blocker',
-    budget: { maxFiles: flag('max-files') ? Number(flag('max-files')) : undefined, concurrency: flag('concurrency') ? Number(flag('concurrency')) : 4 },
-    conventions: flag('conventions') ? { path: flag('conventions')! } : autoConventions(),
-    thresholds: {
-      minSeverity: flag('min-severity') as Severity | undefined,
-      minConfidence: flag('min-confidence') ? Number(flag('min-confidence')) : undefined,
-    },
+    budget: { maxFiles: reviewConfig.budget.maxFiles, concurrency: reviewConfig.budget.concurrency },
+    conventions: reviewConfig.conventions ? { path: reviewConfig.conventions } : autoConventions(),
+    thresholds: reviewConfig.thresholds,
   }
 
   const review = await createCodeReviewAgent(config).run()
   // --no-fail = advisory: post the review but never fail the job (exit 0). Real errors
   // still surface via the catch below (exit 2).
-  process.exit(review.blocking && !has('no-fail') ? 1 : 0)
+  process.exit(reviewConfig.incompleteProfile ? 2 : review.blocking && !has('no-fail') ? 1 : 0)
 }
 
 /**
@@ -163,11 +179,11 @@ async function main() {
  * name resolves to a `@agentskit/adapters` factory and is given
  * `{ apiKey, model, baseUrl? }`. `--api` is a back-compat alias for `--provider anthropic`.
  */
-function buildAdapter(): AdapterFactory {
-  const requestedProvider = flag('provider') ?? (has('api') ? 'anthropic' : undefined)
+function buildAdapter(reviewConfig: ResolvedReviewConfig): AdapterFactory {
+  const requestedProvider = reviewConfig.provider
   const provider = requestedProvider && resolveProviderId(requestedProvider)
   if (!provider) throw new Error(requestedProvider ? `unknown --provider "${requestedProvider}" (run --list-providers for common options)` : 'choose a provider with --provider <name> (run --list-providers for common options)')
-  const model = flag('model') ?? (has('api') ? 'claude-opus-4-8' : undefined)
+  const model = reviewConfig.model ?? (has('api') ? 'claude-opus-4-8' : undefined)
   if (provider === 'claude-cli') return claudeCode({ model })
   if (provider === 'codex-cli') return codexCli({ model })
   if (provider === 'ollama') {
@@ -184,16 +200,16 @@ function buildAdapter(): AdapterFactory {
   return make({ apiKey, model, ...(baseUrl ? { baseUrl } : {}) })
 }
 
-async function preflightProvider(): Promise<void> {
-  const requested = flag('provider') ?? (has('api') ? 'anthropic' : undefined)
+async function preflightProvider(reviewConfig: ResolvedReviewConfig): Promise<void> {
+  const requested = reviewConfig.provider
   const id = requested && resolveProviderId(requested)
   const entry = id && providerEntry(id)
   if (!entry || entry.kind === 'api') return
   const report = await diagnoseProvider({
     provider: entry.id,
-    model: flag('model'),
-    transport: flag('transport'),
-    mode: flag('mode'),
+    model: reviewConfig.model,
+    transport: reviewConfig.transport,
+    mode: flag('mode') ?? reviewConfig.trustMode,
     apiKey: flag('api-key'),
     ci: has('ci'),
   })

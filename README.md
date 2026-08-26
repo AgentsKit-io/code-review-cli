@@ -258,6 +258,7 @@ In shortened examples, replace `...` with `npx --yes github:AgentsKit-io/code-re
 | `--block <severity>` | CI gate floor; default `blocker` |
 | `--no-fail` | Keep findings advisory |
 | `--conventions <path>` | Inject project conventions |
+| `--allow-incomplete` | Local-only exception for a config that declares incomplete lens coverage |
 | `--api` | Back-compatible alias for `--provider anthropic` |
 | `doctor --provider <name>` | Offline provider diagnostics; no model request |
 | `doctor --live` | Explicit provider smoke-test mode |
@@ -266,6 +267,33 @@ In shortened examples, replace `...` with `npx --yes github:AgentsKit-io/code-re
 | `--help` | Full command help |
 
 When no conventions path is supplied, the CLI looks for `CONVENTIONS.md`, `CONTRIBUTING.md`, `.cursorrules`, or `AGENTS.md`.
+
+### Versioned configuration
+
+The repository may contain one strict `.agentskit-review.json` file. It must use
+`configVersion: 1`; unknown fields, secrets, unsupported values, and unsafe lens
+policies fail before provider execution with exit `2`. Every built-in lens is
+enabled by default, with `correctness`, `security`, and `tests` required. Flags
+override file values. A required lens may only be disabled in an explicitly
+declared `incompleteProfile`, which requires `--allow-incomplete` locally and is
+never accepted in CI.
+
+```json
+{
+  "configVersion": 1,
+  "lenses": {
+    "performance": { "enabled": false, "required": false }
+  },
+  "votes": 3,
+  "budget": { "maxFiles": 20, "maxCalls": 200, "concurrency": 1 },
+  "thresholds": { "minSeverity": "med", "minConfidence": 0.7 },
+  "context": { "mode": "prompt", "patterns": ["src/**"] }
+}
+```
+
+Provider, model, transport, context trust, redaction, and permissions are
+trusted execution inputs; a project config cannot set them in CI. Put provider
+credentials only in the environment or provider login, never in this file.
 
 ### Doctor
 
