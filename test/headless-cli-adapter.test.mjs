@@ -78,7 +78,7 @@ test('headless output is bounded, retries once, and preserves provider failures'
 test('auto transport falls back locally and is rejected in CI', { concurrency: false }, () => {
   const result = spawnSync(process.execPath, [join(root, 'dist/src/cli.js'), '--provider', 'opencode-cli', '--transport', 'auto', '--stdin', '--no-fail'], {
     cwd: root, input: 'export const answer = 42\n', encoding: 'utf8',
-    env: { ...process.env, PATH: `${fixturePath}:${process.env.PATH ?? ''}`, CODEX_FIXTURE_OPENCODE_MODE: 'acp-failure' },
+    env: { ...process.env, CI: '', PATH: `${fixturePath}:${process.env.PATH ?? ''}`, CODEX_FIXTURE_OPENCODE_MODE: 'acp-failure' },
   })
   assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`)
   assert.match(result.stderr, /trying opencode headless/)
