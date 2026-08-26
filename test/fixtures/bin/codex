@@ -2,6 +2,10 @@
 import { writeFileSync } from 'node:fs'
 
 const prompt = process.argv.at(-1) ?? ''
+if (process.argv.includes('--version')) {
+  process.stdout.write(process.env.CODEX_FIXTURE_VERSION ?? 'codex-cli 1.0.0\n')
+  process.exit(0)
+}
 if (process.env.CODEX_FIXTURE_HANG === '1') setInterval(() => {}, 1_000)
 
 if (

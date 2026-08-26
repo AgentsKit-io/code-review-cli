@@ -6,7 +6,7 @@ This guide is the repository-native reference for running AgentsKit Code Review 
 
 | Provider class | Examples | Secret or login | Network boundary |
 |---|---|---|---|
-| Logged-in local CLI | `codex-cli`, `claude-cli` | Existing local login | Provider CLI policy |
+| Logged-in local CLI | `codex-cli`, `claude-cli`, `grok-cli`, `opencode-cli` | Existing local login | Provider CLI policy |
 | Hosted API | `openai`, `anthropic`, `gemini`, `mistral`, `groq` | Repository/org secret | Selected code reaches provider |
 | Local model | `ollama` | Usually none | Host or runner network only |
 | Gateway | `openrouter`, custom `--base-url` | Gateway secret | Gateway policy and routing |
@@ -14,6 +14,19 @@ This guide is the repository-native reference for running AgentsKit Code Review 
 Credential precedence is `--api-key`, `LLM_API_KEY`, then `<PROVIDER>_API_KEY`. Prefer environment variables and GitHub secrets: process arguments may be visible to other processes or captured by diagnostics. The composite Action forwards its secret through `LLM_API_KEY` and never adds it to CLI arguments.
 
 Do not run hosted review on code whose policy forbids external processing. A local model reduces external disclosure but does not remove the need to secure the runner, logs, cache, and generated SARIF.
+
+## Provider registry and doctor
+
+Provider IDs are versioned registry entries. `grok` is the xAI API adapter, while `grok-cli` is the experimental Grok Build CLI; `opencode-cli` is the experimental OpenCode CLI. `--list-providers` prints registry metadata and dynamically discovered API factories, including each support level (`stable`, `experimental`, or `unsupported`), transport, and model requirement.
+
+Use the offline doctor before execution:
+
+```sh
+npx --yes github:AgentsKit-io/code-review-cli doctor --provider codex-cli
+npx --yes github:AgentsKit-io/code-review-cli doctor --provider openai --model gpt-4o --json
+```
+
+It checks the named executable and version, transport, model requirement, configuration mode, and credential presence without making a model request. API keys are represented only as `configured` or `missing`; they are never printed. Local CLI credentials are represented as login-managed because login storage is provider-specific. `doctor --live` is the explicit provider smoke-test path. Unknown local CLI versions warn during local runs and fail in CI. Doctor exits `0` when checks pass, `1` when a provider check fails, and `2` for invalid usage.
 
 ## pre-commit integration
 
