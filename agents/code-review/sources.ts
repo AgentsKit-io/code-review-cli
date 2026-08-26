@@ -1,5 +1,5 @@
 import { execFile } from 'node:child_process'
-import { lstatSync, readdirSync, readFileSync, realpathSync, statSync } from 'node:fs'
+import { closeSync, fstatSync, lstatSync, openSync, readdirSync, readFileSync, realpathSync } from 'node:fs'
 import { extname, isAbsolute, join, relative } from 'node:path'
 import { promisify } from 'node:util'
 import type { ReviewTarget } from './agent.js'
@@ -75,14 +75,17 @@ function readTarget(file: string, cwd: string, limits: SourceLimits, redact: boo
   if (denied) return unreviewed(normalized, denied)
   if (!isReviewableName(normalized)) return unreviewed(normalized, 'unsupported text format')
   const abs = join(cwd, normalized)
-  let size: number
-  try { size = statSync(abs).size } catch { return unreviewed(normalized, 'file unavailable') }
-  const maxFileBytes = limits.maxFileBytes ?? DEFAULT_PROMPT_FILE_BYTES
-  if (size > maxFileBytes) return unreviewed(normalized, `file exceeds ${maxFileBytes} byte limit`)
-  let fullContent: string
-  try { fullContent = readFileSync(abs, 'utf8') } catch { return unreviewed(normalized, 'file is not readable text') }
-  if (fullContent.includes('\0')) return unreviewed(normalized, 'binary content')
-  return { file: normalized, language: langOf(normalized), fullContent: redact ? redactSecrets(fullContent) : fullContent, changedRanges: changed, isChanged: Boolean(changed) }
+  let fd: number
+  try { fd = openSync(abs, 'r') } catch { return unreviewed(normalized, 'file unavailable') }
+  try {
+    const size = fstatSync(fd).size
+    const maxFileBytes = limits.maxFileBytes ?? DEFAULT_PROMPT_FILE_BYTES
+    if (size > maxFileBytes) return unreviewed(normalized, `file exceeds ${maxFileBytes} byte limit`)
+    const fullContent = readFileSync(fd, 'utf8')
+    if (fullContent.includes('\0')) return unreviewed(normalized, 'binary content')
+    return { file: normalized, language: langOf(normalized), fullContent: redact ? redactSecrets(fullContent) : fullContent, changedRanges: changed, isChanged: Boolean(changed) }
+  } catch { return unreviewed(normalized, 'file is not readable text')
+  } finally { closeSync(fd) }
 }
 
 function withinRoot(root: string, candidate: string): boolean {
