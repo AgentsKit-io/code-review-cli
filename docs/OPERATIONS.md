@@ -28,6 +28,23 @@ npx --yes github:AgentsKit-io/code-review-cli doctor --provider openai --model g
 
 It checks the named executable and version, transport, model requirement, configuration mode, and credential presence without making a model request. API keys are represented only as `configured` or `missing`; they are never printed. Local CLI credentials are represented as login-managed because login storage is provider-specific. `doctor --live` is the explicit provider smoke-test path. Unknown local CLI versions warn during local runs and fail in CI. Doctor exits `0` when checks pass, `1` when a provider check fails, and `2` for invalid usage.
 
+## Grok Build CLI via ACP
+
+`grok-cli` is experimental and currently supports only `--transport acp`. It
+starts `grok agent stdio --no-auto-update`, performs the ACP initialize,
+authentication (when advertised), session, prompt, update, shutdown, and exit
+sequence, then emits one `submit_findings` tool call. The worker accepts only a
+`schemaVersion: 1` envelope with valid findings; malformed output gets one
+bounded retry.
+
+Use `grok login` for the provider's cached session, or provide `XAI_API_KEY`
+through the environment. In `isolated` mode the key is copied only into the
+temporary worker environment. Filesystem writes, terminal, MCP, plugin, and
+subagent requests are denied, and the worker never uses the checkout as its
+working directory. `doctor --provider grok-cli` checks executable/version
+availability without making a model request. Headless support is not enabled
+by this provider entry yet.
+
 ## pre-commit integration
 
 The root `.pre-commit-hooks.yaml` exposes `agentskit-review` as a Node hook. It uses `pass_filenames: false` because the CLI reviews a Git diff, explicit paths, a pull request, or stdin rather than interpreting positional filenames. It is confined to the `manual` stage by default so cloning the hook does not silently add model calls to every commit.

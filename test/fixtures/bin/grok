@@ -1,0 +1,64 @@
+#!/usr/bin/env node
+import { appendFileSync, closeSync, openSync } from 'node:fs'
+
+if (process.argv.includes('--version')) {
+  process.stdout.write('grok 1.0.0\n')
+  process.exit(0)
+}
+
+const mode = process.env.CODEX_FIXTURE_GROK_MODE ?? 'success'
+const traceFile = process.env.CODEX_FIXTURE_GROK_TRACE_FILE
+const trace = (message) => { if (traceFile) appendFileSync(traceFile, `${JSON.stringify(message)}\n`) }
+const onceFile = process.env.CODEX_FIXTURE_GROK_INVALID_ONCE_FILE
+let invalid = mode === 'invalid' || mode === 'schema-invalid' || mode === 'finding-invalid'
+if (onceFile) {
+  try { const fd = openSync(onceFile, 'wx'); closeSync(fd); invalid = true } catch (error) { if (error?.code !== 'EEXIST') throw error }
+}
+
+let buffer = ''
+let permissionPending = false
+let promptMessage
+process.stdin.setEncoding('utf8')
+process.stdin.on('data', (chunk) => {
+  buffer += chunk
+  for (;;) {
+    const end = buffer.indexOf('\n')
+    if (end < 0) return
+    const line = buffer.slice(0, end)
+    buffer = buffer.slice(end + 1)
+    if (!line.trim()) continue
+    const message = JSON.parse(line)
+    trace(message)
+    if (permissionPending && message.error) {
+      permissionPending = false
+      emitReview()
+      respond(promptMessage, {})
+      continue
+    }
+    if (message.method === 'initialize') respond(message, { authMethods: [] })
+    else if (message.method === 'authenticate') respond(message, {})
+    else if (message.method === 'session/new') respond(message, { sessionId: 'fixture-session' })
+    else if (message.method === 'session/prompt') {
+      promptMessage = message
+      if (mode === 'timeout' || mode === 'cancel') return
+      if (mode === 'failure') { process.stderr.write('fixture process failed\n'); process.exit(7) }
+      if (mode === 'permission' || mode === 'tool-attempt') {
+        permissionPending = true
+        process.stdout.write(`${JSON.stringify({ jsonrpc: '2.0', id: 'fixture-permission', method: mode === 'permission' ? 'terminal/create' : 'fs/write_text_file', params: {} })}\n`)
+      } else emitReview()
+      if (mode !== 'permission' && mode !== 'tool-attempt') respond(message, {})
+    } else if (message.method === 'shutdown') respond(message, {})
+    else if (message.method === 'exit') process.exit(0)
+  }
+})
+
+function emitReview() {
+  const finding = { file: 'snippet.ts', line: 1, severity: 'med', category: 'correctness', confidence: 0.9, title: 'Example', rationale: 'Example rationale', suggestion: 'Example suggestion' }
+  const output = invalid
+    ? (mode === 'invalid' ? '{not-json}' : mode === 'finding-invalid' ? JSON.stringify({ schemaVersion: 1, findings: [{ file: 'snippet.ts' }] }) : JSON.stringify({ schemaVersion: 2, findings: [] }))
+    : JSON.stringify({ schemaVersion: 1, findings: mode === 'finding' ? [finding] : [] })
+  invalid = false
+  process.stdout.write(`${JSON.stringify({ jsonrpc: '2.0', method: 'session/update', params: { update: { sessionUpdate: 'agent_message_chunk', content: { text: output } } } })}\n`)
+}
+
+function respond(message, result) { process.stdout.write(`${JSON.stringify({ jsonrpc: '2.0', id: message.id, result })}\n`) }
