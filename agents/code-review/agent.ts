@@ -126,6 +126,8 @@ export interface CodeReviewConfig {
   source: SourceConfig
   /** Defaults to the 7 built-in lenses. Pass a subset to disable, or add custom lenses. */
   lenses?: Lens[]
+  /** A declared incomplete profile is reported as COMMENT, never APPROVE. */
+  incompleteProfile?: boolean
   /** Project conventions injected into every lens — a string, or a file to read. */
   conventions?: string | { path: string }
   thresholds?: { minSeverity?: Severity; minConfidence?: number; maxPerFile?: number; suppressNits?: boolean }
@@ -165,7 +167,7 @@ const Consolidation = z.object({ duplicateGroups: z.array(z.array(z.number())) }
 const toJson = (s: z.ZodTypeAny): JSONSchema7 => zodToJsonSchema(s) as JSONSchema7
 const SEV_RANK: Record<Severity, number> = { blocker: 0, high: 1, med: 2, nit: 3 }
 
-const DEFAULT_LENSES: Lens[] = [
+export const DEFAULT_LENSES: Lens[] = [
   { key: 'correctness', skill: correctnessLens },
   { key: 'security', skill: securityLens },
   { key: 'performance', skill: performanceLens },
@@ -174,6 +176,11 @@ const DEFAULT_LENSES: Lens[] = [
   { key: 'tests', skill: testsLens },
   { key: 'conventions', skill: conventionsLens, severityCeiling: 'nit' },
 ]
+
+export function builtInLenses(enabled: readonly Category[]): Lens[] {
+  const selected = new Set(enabled)
+  return DEFAULT_LENSES.filter((lens) => selected.has(lens.key))
+}
 
 type Limiter = <T>(fn: () => Promise<T>) => Promise<T>
 
@@ -416,7 +423,7 @@ export function createCodeReviewAgent(config: CodeReviewConfig) {
   ): ReviewResult {
     const counts = (['blocker', 'high', 'med', 'nit'] as Severity[]).map((s) => ({ s, n: kept.filter((f) => f.severity === s).length }))
     const worst = kept.length ? Math.min(...kept.map((f) => SEV_RANK[f.severity])) : 3
-    const verdict: Verdict = !kept.length ? 'APPROVE' : worst <= SEV_RANK.high ? 'REQUEST CHANGES' : 'COMMENT'
+    const verdict: Verdict = config.incompleteProfile ? 'COMMENT' : !kept.length ? 'APPROVE' : worst <= SEV_RANK.high ? 'REQUEST CHANGES' : 'COMMENT'
     const blocking = kept.some((f) => SEV_RANK[f.severity] <= SEV_RANK[blockingSeverity])
     const breakdown = counts.filter((c) => c.n).map((c) => `${c.n} ${c.s}`).join(', ') || 'no findings'
     const executionSummary =
@@ -424,6 +431,7 @@ export function createCodeReviewAgent(config: CodeReviewConfig) {
       (execution.failed ? `; ${execution.failed} failed` : '')
     const summary =
       `${kept.length} finding(s) (${breakdown}) across ${reviewed} file(s)` +
+      (config.incompleteProfile ? ' Incomplete profile; this review is not an approval.' : '') +
       (droppedFiles ? `, ${droppedFiles} file(s) skipped for budget` : '') +
       `. ${executionSummary}.`
     return { verdict, blocking, findings: kept, dropped, execution, summary }

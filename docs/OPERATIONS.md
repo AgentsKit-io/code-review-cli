@@ -36,6 +36,25 @@ Consumer configuration must select a provider through `args`. Keep credentials i
 
 The default diff base remains `origin/main`. A pre-commit invocation does not mean the input is limited to the Git staging area. Set `--base` explicitly when the repository uses another integration branch.
 
+## Versioned review configuration
+
+Use a strict `.agentskit-review.json` at the repository root for review policy.
+It requires `configVersion: 1` and supports lens policy (`enabled` and
+`required` per built-in lens), votes, retries, thresholds, file/byte/call and
+concurrency budgets, conventions, and context selection. All built-in lenses
+are enabled by default; correctness, security, and tests are required.
+
+Flags override file values. The file cannot contain credentials or executable
+plugins. Provider, model, transport, trust mode, redaction, permissions, and
+other execution inputs are rejected when supplied by the project config in CI.
+An intentionally incomplete profile must say `incompleteProfile: true` and be
+run locally with `--allow-incomplete`; it is rejected in CI and cannot become an
+approval. Malformed, unknown, or unsafe configuration exits `2` before a model
+request and diagnostics do not print config values.
+
+Keep policy-only configuration in the file. Use trusted workflow flags or the
+runner environment for provider selection, credentials, and execution mode.
+
 ## Local Ollama review
 
 Ollama serves its local API at `http://localhost:11434` by default. Verify the service without sending repository content:

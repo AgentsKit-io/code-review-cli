@@ -276,6 +276,7 @@ In shortened examples, replace `...` with `npx --yes github:AgentsKit-io/code-re
 | `--block <severity>` | CI gate floor; default `blocker` |
 | `--no-fail` | Keep findings advisory |
 | `--conventions <path>` | Inject project conventions |
+| `--allow-incomplete` | Local-only exception for a config that declares incomplete lens coverage |
 | `--api` | Back-compatible alias for `--provider anthropic` |
 | `doctor --provider <name>` | Offline provider diagnostics; no model request |
 | `doctor --live` | Explicit provider smoke-test mode |
@@ -284,6 +285,33 @@ In shortened examples, replace `...` with `npx --yes github:AgentsKit-io/code-re
 | `--help` | Full command help |
 
 When no conventions path is supplied, the CLI looks for `CONVENTIONS.md`, `CONTRIBUTING.md`, `.cursorrules`, or `AGENTS.md`.
+
+### Versioned configuration
+
+The repository may contain one strict `.agentskit-review.json` file. It must use
+`configVersion: 1`; unknown fields, secrets, unsupported values, and unsafe lens
+policies fail before provider execution with exit `2`. Every built-in lens is
+enabled by default, with `correctness`, `security`, and `tests` required. Flags
+override file values. A required lens may only be disabled in an explicitly
+declared `incompleteProfile`, which requires `--allow-incomplete` locally and is
+never accepted in CI.
+
+```json
+{
+  "configVersion": 1,
+  "lenses": {
+    "performance": { "enabled": false, "required": false }
+  },
+  "votes": 3,
+  "budget": { "maxFiles": 20, "maxCalls": 200, "concurrency": 1 },
+  "thresholds": { "minSeverity": "med", "minConfidence": 0.7 },
+  "context": { "mode": "prompt", "patterns": ["src/**"] }
+}
+```
+
+Provider, model, transport, context trust, redaction, and permissions are
+trusted execution inputs; a project config cannot set them in CI. Put provider
+credentials only in the environment or provider login, never in this file.
 
 ### Doctor
 
@@ -396,6 +424,25 @@ The root `.pre-commit-hooks.yaml` exposes `agentskit-review` as a Node hook. It 
 Consumer configuration must select a provider through `args`. Keep credentials in the provider login or environment; never place API keys in `.pre-commit-config.yaml`. Before overriding the hook to `stages: [pre-push]`, decide whether findings are advisory, set a file budget, and confirm that provider latency and data handling are appropriate for every contributor.
 
 The default diff base remains `origin/main`. A pre-commit invocation does not mean the input is limited to the Git staging area. Set `--base` explicitly when the repository uses another integration branch.
+
+## Versioned review configuration
+
+Use a strict `.agentskit-review.json` at the repository root for review policy.
+It requires `configVersion: 1` and supports lens policy (`enabled` and
+`required` per built-in lens), votes, retries, thresholds, file/byte/call and
+concurrency budgets, conventions, and context selection. All built-in lenses
+are enabled by default; correctness, security, and tests are required.
+
+Flags override file values. The file cannot contain credentials or executable
+plugins. Provider, model, transport, trust mode, redaction, permissions, and
+other execution inputs are rejected when supplied by the project config in CI.
+An intentionally incomplete profile must say `incompleteProfile: true` and be
+run locally with `--allow-incomplete`; it is rejected in CI and cannot become an
+approval. Malformed, unknown, or unsafe configuration exits `2` before a model
+request and diagnostics do not print config values.
+
+Keep policy-only configuration in the file. Use trusted workflow flags or the
+runner environment for provider selection, credentials, and execution mode.
 
 ## Local Ollama review
 
@@ -747,6 +794,7 @@ All notable changes will be documented here. This project follows Semantic Versi
 
 ### Changed
 
+- Added strict versioned `.agentskit-review.json` policy with lens coverage, budgets, thresholds, context, and safe CI precedence; incomplete profiles require explicit local opt-in.
 - Made reviews fail closed when any reviewable file has no successful primary lens or cannot be ingested; advisory mode now suppresses finding-based failures only, never source/provider/execution failures.
 - Added primary-lens execution coverage to review summaries so partial provider degradation is visible.
 - Repositioned the CLI and GitHub Action as provider-neutral.
