@@ -55,6 +55,7 @@ Review options:
   --concurrency <n>       Parallel model calls (default: 4)
   --conventions <path>    Project conventions file
   --allow-incomplete      Local-only exception for an explicitly incomplete profile
+  --allow-unredacted      Local-only exception for secret redaction
   --validate-patch        Validate suggested patches with git apply --check
   --sarif <file>          Also write a SARIF report
   --post                  Post a PR review (with --pr)
@@ -93,24 +94,33 @@ function readStdin(): Promise<string> {
   })
 }
 
-async function resolveSource(): Promise<SourceConfig> {
+function shouldRedact(reviewConfig: ResolvedReviewConfig): boolean {
+  const provider = reviewConfig.provider && resolveProviderId(reviewConfig.provider)
+  const boundary = provider && providerEntry(provider)?.dataBoundary
+  return (boundary === 'remote' || boundary === 'unknown') && !reviewConfig.allowUnredacted
+}
+
+async function resolveSource(reviewConfig: ResolvedReviewConfig): Promise<SourceConfig> {
+  const redact = shouldRedact(reviewConfig)
+  const limits = { maxFiles: reviewConfig.budget.maxFiles, maxBytes: reviewConfig.budget.maxBytes }
   const pr = flag('pr')
   if (pr) {
     const m = pr.match(/^([^/]+)\/([^#]+)#(\d+)$/)
     if (!m) throw new Error('--pr must be owner/repo#number')
     const token = process.env.GITHUB_TOKEN
     if (!token) throw new Error('--pr needs GITHUB_TOKEN')
-    return { kind: 'github-pr', owner: m[1]!, repo: m[2]!, number: Number(m[3]), token }
+    return { kind: 'github-pr', owner: m[1]!, repo: m[2]!, number: Number(m[3]), token, redact, limits }
   }
-  if (has('stdin')) return { kind: 'stdin', content: await readStdin(), filename: `snippet.${flag('lang') ?? 'txt'}` }
+  if (has('stdin')) return { kind: 'stdin', content: await readStdin(), filename: `snippet.${flag('lang') ?? 'txt'}`, redact, limits: { ...limits, maxFileBytes: 1024 * 1024 } }
   if (has('paths')) {
     const i = process.argv.indexOf('--paths')
     const paths: string[] = []
     for (let j = i + 1; j < process.argv.length && !process.argv[j]!.startsWith('--'); j++) paths.push(process.argv[j]!)
     if (!paths.length) throw new Error('--paths needs at least one file/dir')
-    return { kind: 'paths', paths, cwd: process.cwd() }
+    return { kind: 'paths', paths, cwd: process.cwd(), redact, limits: { ...limits, maxFileBytes: 1024 * 1024 } }
   }
-  return { kind: 'git-diff', base: flag('base') ?? 'origin/main', cwd: process.cwd() }
+  if (reviewConfig.context.mode === 'isolated-snapshot') return { kind: 'isolated-snapshot', cwd: process.cwd(), patterns: reviewConfig.context.patterns, redact, limits: { ...limits, maxFileBytes: 1024 * 1024 } }
+  return { kind: 'git-diff', base: flag('base') ?? 'origin/main', cwd: process.cwd(), redact, limits }
 }
 
 async function main() {
@@ -129,6 +139,7 @@ async function main() {
   const reviewConfig = loadReviewConfig(process.cwd(), {
     ci: has('ci') || process.env.CI === 'true' || process.env.CI === '1',
     allowIncomplete: has('allow-incomplete'),
+    allowUnredacted: has('allow-unredacted'),
     overrides: {
       provider: flag('provider') ?? (has('api') ? 'anthropic' : undefined),
       model: flag('model'),
@@ -141,7 +152,7 @@ async function main() {
       conventions: flag('conventions'),
     },
   })
-  const source = await resolveSource()
+  const source = await resolveSource(reviewConfig)
   await preflightProvider(reviewConfig)
   const adapter = buildAdapter(reviewConfig)
 

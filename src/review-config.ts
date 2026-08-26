@@ -72,6 +72,7 @@ export interface ResolvedReviewConfig {
   worker: { timeoutMs: number; maxOutputBytes: number }
   conventions?: string
   context: { mode: 'prompt' | 'isolated-snapshot'; patterns: string[] }
+  allowUnredacted: boolean
   provider?: string; model?: string; transport?: 'api' | 'acp' | 'headless' | 'http'
   trustMode: 'isolated'; redaction: 'required' | 'high-confidence'
   permissions: { tools?: boolean; write?: boolean; shell?: boolean; mcp?: boolean }
@@ -105,14 +106,15 @@ function parseFile(raw: unknown): FileConfig {
 
 export function resolveReviewConfig(
   fileConfig: unknown | undefined,
-  options: { ci?: boolean; allowIncomplete?: boolean; overrides?: ReviewConfigOverrides } = {},
+  options: { ci?: boolean; allowIncomplete?: boolean; allowUnredacted?: boolean; overrides?: ReviewConfigOverrides } = {},
 ): ResolvedReviewConfig {
   const file = fileConfig === undefined ? undefined : parseFile(fileConfig)
   const overrides = options.overrides ?? {}
   if (file) {
-    const restricted = TRUSTED_ONLY_KEYS.filter((key) => file[key] !== undefined)
+    const restricted = TRUSTED_ONLY_KEYS.filter((key) => key !== 'context' || file.context?.mode !== 'isolated-snapshot').filter((key) => file[key] !== undefined)
     if (options.ci && restricted.length) throw new ReviewConfigError(`project config cannot set trusted execution inputs in CI: ${restricted.join(', ')}`)
     if (file.trustMode === 'trusted-local') throw new ReviewConfigError('project config cannot enable trusted-local mode; use an explicit trusted CLI invocation')
+    if (file.context?.mode === 'isolated-snapshot' && !file.context.patterns?.length) throw new ReviewConfigError('isolated-snapshot requires at least one context pattern')
   }
 
   const lenses = Object.fromEntries(BUILTIN_LENS_KEYS.map((key) => [key, { ...DEFAULT_LENSES[key], ...(file?.lenses?.[key] ?? {}) }])) as Record<BuiltinLensKey, LensPolicy>
@@ -120,6 +122,7 @@ export function resolveReviewConfig(
   if (impossibleRequired.length && !file?.incompleteProfile) throw new ReviewConfigError(`required lens cannot be disabled without incompleteProfile: ${impossibleRequired.join(', ')}`)
   const incompleteProfile = Boolean(file?.incompleteProfile || impossibleRequired.length)
   if (options.ci && (incompleteProfile || options.allowIncomplete)) throw new ReviewConfigError('--allow-incomplete and incomplete profiles are local-only; CI cannot approve an incomplete review')
+  if (options.ci && options.allowUnredacted) throw new ReviewConfigError('--allow-unredacted is local-only and cannot disable CI redaction')
   if (incompleteProfile && !options.allowIncomplete) throw new ReviewConfigError('incomplete profile requires explicit --allow-incomplete for a local run')
 
   const thresholds = { ...file?.thresholds, ...(overrides.minSeverity === undefined ? {} : { minSeverity: overrides.minSeverity }), ...(overrides.minConfidence === undefined ? {} : { minConfidence: overrides.minConfidence }) }
@@ -131,6 +134,7 @@ export function resolveReviewConfig(
     worker: { timeoutMs: file?.worker?.timeoutMs ?? localCliTimeoutMs(), maxOutputBytes: file?.worker?.maxOutputBytes ?? DEFAULT_LOCAL_CLI_OUTPUT_BYTES },
     conventions: overrides.conventions ?? file?.conventions,
     context: { mode: file?.context?.mode ?? 'prompt', patterns: file?.context?.patterns ?? [] },
+    allowUnredacted: Boolean(options.allowUnredacted),
     provider: overrides.provider ?? file?.provider, model: overrides.model ?? file?.model,
     transport: (overrides.transport ?? file?.transport) as ResolvedReviewConfig['transport'],
     trustMode: 'isolated' as const, redaction: file?.redaction ?? 'required', permissions: file?.permissions ?? {},
@@ -146,7 +150,7 @@ export function resolveReviewConfig(
 
 export function loadReviewConfig(
   cwd: string,
-  options: { ci?: boolean; allowIncomplete?: boolean; overrides?: ReviewConfigOverrides } = {},
+  options: { ci?: boolean; allowIncomplete?: boolean; allowUnredacted?: boolean; overrides?: ReviewConfigOverrides } = {},
 ): ResolvedReviewConfig {
   const file = join(cwd, '.agentskit-review.json')
   if (!existsSync(file)) return resolveReviewConfig(undefined, options)
