@@ -151,12 +151,12 @@ Use `@main` while the project is pre-release. After the first stable release, pi
 
 | Mode | Provider examples | Credentials | Best for |
 |---|---|---|---|
-| Local CLI | `codex-cli`, `claude-cli` | Existing CLI login | Local development or self-hosted runners |
+| Local CLI | `codex-cli`, `claude-cli`, `grok-cli`, `opencode-cli` | Existing CLI login | Local development or self-hosted runners |
 | Hosted API | `openai`, `anthropic`, `gemini`, `mistral`, `groq` | Provider API key | Managed CI |
 | Local model | `ollama` | Usually none | Privacy and predictable cost |
 | Gateway | `openrouter` or a custom `--base-url` | Gateway-specific | Central routing and policy |
 
-Provider names other than the two local CLIs resolve to factories exported by [`@agentskit/adapters`](https://www.npmjs.com/package/@agentskit/adapters). Run `npx --yes github:AgentsKit-io/code-review-cli --list-providers` for common choices.
+`grok` is the xAI API provider; `grok-cli` is the separate Grok Build CLI entry. `opencode-cli` is the OpenCode CLI entry. API providers are discovered from factories exported by [`@agentskit/adapters`](https://www.npmjs.com/package/@agentskit/adapters). Run `npx --yes github:AgentsKit-io/code-review-cli --list-providers` to see IDs, support levels, transports, and model requirements.
 
 Credentials resolve in this order:
 
@@ -224,6 +224,8 @@ Run these commands from the repository you want to review:
 |---|---|---|---|
 | `codex-cli` | Codex CLI logged in | Optional | `npx --yes github:AgentsKit-io/code-review-cli --provider codex-cli` |
 | `claude-cli` | Claude CLI logged in | Optional | `npx --yes github:AgentsKit-io/code-review-cli --provider claude-cli` |
+| `grok-cli` | Grok Build CLI; experimental | Optional | `... --provider grok-cli` |
+| `opencode-cli` | OpenCode CLI; experimental | Optional | `... --provider opencode-cli` |
 | `openai` | `OPENAI_API_KEY` | Required | `... --provider openai --model gpt-4o` |
 | `anthropic` | `ANTHROPIC_API_KEY` | Required | `... --provider anthropic --model <model>` |
 | `gemini` | `GEMINI_API_KEY` | Required | `... --provider gemini --model <model>` |
@@ -257,9 +259,22 @@ In shortened examples, replace `...` with `npx --yes github:AgentsKit-io/code-re
 | `--no-fail` | Keep findings advisory |
 | `--conventions <path>` | Inject project conventions |
 | `--api` | Back-compatible alias for `--provider anthropic` |
+| `doctor --provider <name>` | Offline provider diagnostics; no model request |
+| `doctor --live` | Explicit provider smoke-test mode |
+| `doctor --json` | Stable machine-readable diagnostics |
+| `--mode <mode>` | `isolated` (default) or explicit local-only `trusted-local` |
 | `--help` | Full command help |
 
 When no conventions path is supplied, the CLI looks for `CONVENTIONS.md`, `CONTRIBUTING.md`, `.cursorrules`, or `AGENTS.md`.
+
+### Doctor
+
+Run `doctor` before a review to check a registered provider’s executable, version, transport, model requirement, configuration mode, and credential presence. It is offline by default: API credentials are checked only for presence and values are never printed; local CLI login is represented as login-managed until a provider-specific live check is available. Unknown local CLI versions warn locally and fail when `CI=true`. Exit `0` means healthy, `1` means a failed diagnostic, and `2` means invalid CLI usage.
+
+```sh
+npx --yes github:AgentsKit-io/code-review-cli doctor --provider codex-cli
+npx --yes github:AgentsKit-io/code-review-cli doctor --provider openai --model gpt-4o --json
+```
 
 ## Cost and privacy
 

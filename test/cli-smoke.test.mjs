@@ -142,4 +142,112 @@ test('the built CLI exposes provider and usage discovery without credentials', (
   assert.equal(providers.status, 0, providers.stderr)
   assert.match(providers.stdout, /codex-cli/)
   assert.match(providers.stdout, /ollama/)
+  assert.match(providers.stdout, /grok-cli.*support=experimental/)
+  assert.match(providers.stdout, /opencode-cli.*support=experimental/)
+  assert.match(providers.stdout, /grok\tkind=api/)
+})
+
+test('doctor reports a healthy local provider as stable JSON without secrets', () => {
+  const fixtureBin = join(root, 'test/fixtures/bin')
+  const run = spawnSync(process.execPath, [
+    'dist/src/cli.js', 'doctor', '--provider', 'codex-cli', '--json',
+  ], {
+    cwd: root,
+    encoding: 'utf8',
+    env: { ...process.env, PATH: `${fixtureBin}:${process.env.PATH ?? ''}` },
+  })
+
+  assert.equal(run.status, 0, run.stderr)
+  const report = JSON.parse(run.stdout)
+  assert.equal(report.schemaVersion, 1)
+  assert.equal(report.provider, 'codex-cli')
+  assert.equal(report.support, 'stable')
+  assert.equal(report.ok, true)
+  assert.equal(report.checks.find(check => check.name === 'version').status, 'pass')
+})
+
+test('doctor catches missing binaries and unsupported versions offline', () => {
+  const missing = spawnSync(process.execPath, [
+    'dist/src/cli.js', 'doctor', '--provider', 'opencode-cli', '--json',
+  ], {
+    cwd: root,
+    encoding: 'utf8',
+    env: { ...process.env, PATH: '/usr/bin:/bin' },
+  })
+  assert.equal(missing.status, 1)
+  const missingReport = JSON.parse(missing.stdout)
+  assert.equal(missingReport.checks.find(check => check.name === 'executable').detail, 'not found')
+
+  const fixtureBin = join(root, 'test/fixtures/bin')
+  const oldVersion = spawnSync(process.execPath, [
+    'dist/src/cli.js', 'doctor', '--provider', 'codex-cli', '--json',
+  ], {
+    cwd: root,
+    encoding: 'utf8',
+    env: { ...process.env, CODEX_FIXTURE_VERSION: 'codex-cli 0.0.1', PATH: `${fixtureBin}:${process.env.PATH ?? ''}` },
+  })
+  assert.equal(oldVersion.status, 1)
+  assert.match(oldVersion.stdout, /unsupported version 0\.0\.1/)
+})
+
+test('unknown local CLI versions warn locally and fail in CI', () => {
+  const fixtureBin = join(root, 'test/fixtures/bin')
+  const args = ['dist/src/cli.js', 'doctor', '--provider', 'codex-cli', '--json']
+  const local = spawnSync(process.execPath, args, {
+    cwd: root, encoding: 'utf8',
+    env: { ...process.env, CI: '', CODEX_FIXTURE_VERSION: 'codex development build', PATH: `${fixtureBin}:${process.env.PATH ?? ''}` },
+  })
+  assert.equal(local.status, 0)
+  assert.equal(JSON.parse(local.stdout).checks.find(check => check.name === 'version').status, 'warn')
+
+  const ci = spawnSync(process.execPath, args, {
+    cwd: root, encoding: 'utf8',
+    env: { ...process.env, CI: 'true', CODEX_FIXTURE_VERSION: 'codex development build', PATH: `${fixtureBin}:${process.env.PATH ?? ''}` },
+  })
+  assert.equal(ci.status, 1)
+  assert.match(ci.stdout, /unknown version/)
+})
+
+test('CI rejects an unknown local CLI version before model execution', () => {
+  const fixtureBin = join(root, 'test/fixtures/bin')
+  const run = spawnSync(process.execPath, [
+    'dist/src/cli.js', '--provider', 'codex-cli', '--stdin', '--no-fail',
+  ], {
+    cwd: root,
+    input: 'export const answer = 42\n',
+    encoding: 'utf8',
+    env: { ...process.env, CI: 'true', CODEX_FIXTURE_VERSION: 'codex development build', PATH: `${fixtureBin}:${process.env.PATH ?? ''}` },
+  })
+  assert.equal(run.status, 2)
+  assert.match(run.stderr, /unknown version/)
+  assert.doesNotMatch(run.stdout, /Code review —/)
+})
+
+test('doctor reports missing API credentials without echoing values', () => {
+  const env = { ...process.env }
+  for (const key of Object.keys(env)) if (key.endsWith('_API_KEY') || key === 'LLM_API_KEY') delete env[key]
+  const secret = 'never-echo-this-key'
+  const run = spawnSync(process.execPath, [
+    'dist/src/cli.js', 'doctor', '--provider', 'openai', '--model', 'fixture-model', '--json',
+  ], { cwd: root, encoding: 'utf8', env: { ...env, OPENAI_API_KEY: secret } })
+  assert.equal(run.status, 0)
+  assert.doesNotMatch(`${run.stdout}\n${run.stderr}`, new RegExp(secret))
+  assert.equal(JSON.parse(run.stdout).checks.find(check => check.name === 'credentials').detail, 'configured')
+
+  const missing = spawnSync(process.execPath, [
+    'dist/src/cli.js', 'doctor', '--provider', 'openai', '--model', 'fixture-model', '--json',
+  ], { cwd: root, encoding: 'utf8', env })
+  assert.equal(missing.status, 1)
+  assert.equal(JSON.parse(missing.stdout).checks.find(check => check.name === 'credentials').detail, 'missing')
+})
+
+test('doctor treats an unknown provider as invalid CLI usage', () => {
+  const run = spawnSync(process.execPath, [
+    'dist/src/cli.js', 'doctor', '--provider', 'not-a-provider', '--json',
+  ], { cwd: root, encoding: 'utf8' })
+
+  assert.equal(run.status, 2)
+  const report = JSON.parse(run.stdout)
+  assert.equal(report.ok, false)
+  assert.equal(report.checks[0].detail, 'unsupported provider')
 })

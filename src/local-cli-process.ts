@@ -22,9 +22,9 @@ function terminateProcessTree(child: ChildProcess): void {
 export function runLocalCli(
   command: string,
   args: string[],
-  options: { readonly cwd?: string } = {},
+  options: { readonly cwd?: string; readonly timeoutMs?: number } = {},
 ): Promise<{ readonly stdout: string; readonly stderr: string }> {
-  const timeoutMs = localCliTimeoutMs()
+  const timeoutMs = options.timeoutMs ?? localCliTimeoutMs()
 
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, {

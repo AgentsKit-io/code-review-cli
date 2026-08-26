@@ -13,7 +13,6 @@
  *
  * Exit code: 1 when a finding at/above --block survives (unless --no-fail) — wire to CI.
  */
-import * as adapters from '@agentskit/adapters'
 import type { AdapterFactory } from '@agentskit/core'
 import { createProgressObserver } from '@agentskit/ink'
 import { readFileSync } from 'node:fs'
@@ -23,6 +22,7 @@ import { claudeCode } from './claude-code-adapter.js'
 import { codexCli } from './codex-adapter.js'
 import { ollamaReview } from './ollama-adapter.js'
 import type { SourceConfig } from '../agents/code-review/sources.js'
+import { diagnoseProvider, factoryFor, providerEntry, providerRegistry, resolveProviderId, type DoctorReport, type ProviderEntry } from './provider-registry.js'
 
 const HELP = `AgentsKit Code Review — deep, low-noise review with your model
 
@@ -62,13 +62,19 @@ Provider options:
   --model <id>            Model id (required for API/local-server providers)
   --api-key <key>         Or use LLM_API_KEY / <PROVIDER>_API_KEY
   --base-url <url>        Custom endpoint or local gateway
+  --transport <name>      Provider transport (doctor validates it)
   --api                   Back-compatible alias for --provider anthropic
+
+Diagnostics:
+  doctor                  Check one provider without making a model request
+  --live                  Explicitly enable a provider smoke test for doctor
+  --json                  Emit machine-readable doctor output
+  --mode <mode>           Configuration mode: isolated or trusted-local
+  --ci                    Apply CI version and trust checks
 
   --help                  Show this help
   --list-providers        List common providers
 `
-
-const PROVIDERS = 'codex-cli\nclaude-cli\nanthropic\nopenai\ngemini\ngrok\nollama\ndeepseek\nmistral\ngroq\nopenrouter\ntogether'
 
 function flag(name: string): string | undefined {
   const i = process.argv.indexOf(`--${name}`)
@@ -111,10 +117,15 @@ async function main() {
     return
   }
   if (has('list-providers')) {
-    console.log(PROVIDERS)
+    console.log(providerRegistry().map(formatProvider).join('\n'))
+    return
+  }
+  if (process.argv.includes('doctor') || has('doctor')) {
+    await runDoctor()
     return
   }
   const source = await resolveSource()
+  await preflightProvider()
   const adapter = buildAdapter()
 
   const reporters: Reporter[] = [markdownReporter()]
@@ -153,8 +164,9 @@ async function main() {
  * `{ apiKey, model, baseUrl? }`. `--api` is a back-compat alias for `--provider anthropic`.
  */
 function buildAdapter(): AdapterFactory {
-  const provider = flag('provider') ?? (has('api') ? 'anthropic' : undefined)
-  if (!provider) throw new Error('choose a provider with --provider <name> (run --list-providers for common options)')
+  const requestedProvider = flag('provider') ?? (has('api') ? 'anthropic' : undefined)
+  const provider = requestedProvider && resolveProviderId(requestedProvider)
+  if (!provider) throw new Error(requestedProvider ? `unknown --provider "${requestedProvider}" (run --list-providers for common options)` : 'choose a provider with --provider <name> (run --list-providers for common options)')
   const model = flag('model') ?? (has('api') ? 'claude-opus-4-8' : undefined)
   if (provider === 'claude-cli') return claudeCode({ model })
   if (provider === 'codex-cli') return codexCli({ model })
@@ -163,14 +175,60 @@ function buildAdapter(): AdapterFactory {
     return ollamaReview({ model, ...(flag('base-url') ? { baseUrl: flag('base-url') } : {}) })
   }
 
-  const make = (adapters as Record<string, unknown>)[provider]
-  if (typeof make !== 'function') {
-    throw new Error(`unknown --provider "${provider}". Use "claude-cli" or any @agentskit/adapters factory (anthropic, openai, gemini, grok, ollama, deepseek, mistral, groq, openrouter, together, …).`)
-  }
+  const entry = providerEntry(provider)
+  const make = entry && factoryFor(entry)
+  if (!entry || !make) throw new Error(`provider "${provider}" is registered but has no local adapter yet`)
   if (!model) throw new Error(`--model is required for provider "${provider}"`)
   const apiKey = flag('api-key') ?? process.env.LLM_API_KEY ?? process.env[`${provider.toUpperCase()}_API_KEY`] ?? ''
   const baseUrl = flag('base-url')
-  return (make as (c: Record<string, unknown>) => AdapterFactory)({ apiKey, model, ...(baseUrl ? { baseUrl } : {}) })
+  return make({ apiKey, model, ...(baseUrl ? { baseUrl } : {}) })
+}
+
+async function preflightProvider(): Promise<void> {
+  const requested = flag('provider') ?? (has('api') ? 'anthropic' : undefined)
+  const id = requested && resolveProviderId(requested)
+  const entry = id && providerEntry(id)
+  if (!entry || entry.kind === 'api') return
+  const report = await diagnoseProvider({
+    provider: entry.id,
+    model: flag('model'),
+    transport: flag('transport'),
+    mode: flag('mode'),
+    apiKey: flag('api-key'),
+    ci: has('ci'),
+  })
+  const version = report.checks.find((check) => check.name === 'version')
+  if (version?.status === 'warn') console.error(`warning: ${entry.id} ${version.detail}`)
+  if (!report.ok) throw new Error(`${entry.id} provider preflight failed: ${report.checks.filter((check) => check.status === 'fail').map((check) => `${check.name}: ${check.detail}`).join('; ')}`)
+}
+
+async function runDoctor(): Promise<void> {
+  const requested = flag('provider') ?? (has('api') ? 'anthropic' : undefined)
+  if (!requested) throw new Error('doctor needs --provider <name>')
+  const report = await diagnoseProvider({
+    provider: requested,
+    model: flag('model'),
+    transport: flag('transport'),
+    mode: flag('mode'),
+    live: has('live'),
+    ci: has('ci'),
+    apiKey: flag('api-key'),
+  })
+  if (has('json')) console.log(JSON.stringify(report))
+  else console.log(formatDoctor(report))
+  if (!report.ok) process.exitCode = report.checks.some((check) => check.name === 'provider' && check.status === 'fail') ? 2 : 1
+}
+
+function formatProvider(entry: ProviderEntry): string {
+  const aliases = entry.aliases.length ? `\taliases=${entry.aliases.join(',')}` : ''
+  return `${entry.id}\tkind=${entry.kind}\tsupport=${entry.support}\ttransport=${entry.defaultTransport}\tmodel=${entry.model}${aliases}`
+}
+
+function formatDoctor(report: DoctorReport): string {
+  const lines = [`Provider doctor: ${report.provider} (${report.support})`]
+  for (const check of report.checks) lines.push(`  ${check.name}: ${check.status.toUpperCase()} — ${check.detail}`)
+  lines.push(`Result: ${report.ok ? 'PASS' : 'FAIL'}`)
+  return lines.join('\n')
 }
 
 /** Best-effort: feed a conventions doc to every lens if one exists. */
