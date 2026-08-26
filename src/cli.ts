@@ -20,6 +20,7 @@ import { builtInLenses, createCodeReviewAgent, type Category, type CodeReviewCon
 import { githubInlineReporter, githubSummaryReporter, markdownReporter, sarifReporter } from '../agents/code-review/reporters.js'
 import { claudeCode } from './claude-code-adapter.js'
 import { codexCli } from './codex-adapter.js'
+import { grokCli } from './grok-cli-adapter.js'
 import { ollamaReview } from './ollama-adapter.js'
 import type { SourceConfig } from '../agents/code-review/sources.js'
 import { diagnoseProvider, factoryFor, providerEntry, providerRegistry, resolveProviderId, type DoctorReport, type ProviderEntry } from './provider-registry.js'
@@ -32,7 +33,7 @@ Usage:
   agentskit-review --provider <name> [options]
 
 Providers:
-  codex-cli, claude-cli, or any @agentskit/adapters provider
+  codex-cli, claude-cli, grok-cli, or any @agentskit/adapters provider
   (anthropic, openai, gemini, ollama, openrouter, mistral, groq, ...)
 
 Examples:
@@ -245,6 +246,10 @@ function buildAdapter(reviewConfig: ResolvedReviewConfig): AdapterFactory {
   const mode = flag('mode') === 'trusted-local' ? 'trusted-local' : 'isolated'
   if (provider === 'claude-cli') return claudeCode({ model, mode, worker: reviewConfig.worker })
   if (provider === 'codex-cli') return codexCli({ model, mode, worker: reviewConfig.worker })
+  if (provider === 'grok-cli') {
+    if ((reviewConfig.transport ?? 'acp') !== 'acp') throw new Error('grok-cli currently supports only --transport acp; headless support is tracked separately')
+    return grokCli({ model, mode, apiKey: flag('api-key') ?? process.env.XAI_API_KEY ?? process.env.LLM_API_KEY, worker: reviewConfig.worker })
+  }
   if (provider === 'ollama') {
     if (!model) throw new Error('--model is required for provider "ollama"')
     return ollamaReview({ model, ...(flag('base-url') ? { baseUrl: flag('base-url') } : {}) })

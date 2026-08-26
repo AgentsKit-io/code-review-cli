@@ -61,7 +61,11 @@ OPENAI_API_KEY=... npx --yes github:AgentsKit-io/code-review-cli \
 
 The CLI reviews the current repository's diff against `origin/main` and prints the report in your terminal. Choose another base with `--base main`.
 
+For the experimental Grok Build ACP worker, authenticate with `grok login` and run `npx --yes github:AgentsKit-io/code-review-cli --provider grok-cli`.
+
 Local `codex-cli` and `claude-cli` subprocesses have a 120-second deadline per model call. Set `AGENTSKIT_REVIEW_SUBPROCESS_TIMEOUT_MS` to a positive integer when a provider needs a different limit; timed-out lenses fail explicitly and cannot turn an unreviewed file into an approval.
+
+`grok-cli` is experimental and currently uses Grok Build's ACP transport (`grok agent stdio`). Authenticate with `grok login` or pass `XAI_API_KEY`/`--api-key`; the key is injected into the isolated worker environment, never into command arguments. Isolated workers grant no filesystem write, terminal, MCP, plugin, or subagent capability and use a temporary working directory. Headless transport is tracked separately.
 
 Preflight refuses an over-budget run before the first provider call. `--dry-run` and `--plan` print the refusal and concrete reductions; `--json` makes the plan machine-readable. CLI providers default to concurrency `1`, while API providers retain concurrency `4`. Required-lens or source coverage failures always exit `2`, even with `--no-fail`.
 

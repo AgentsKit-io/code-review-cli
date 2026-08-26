@@ -79,7 +79,11 @@ OPENAI_API_KEY=... npx --yes github:AgentsKit-io/code-review-cli \
 
 The CLI reviews the current repository's diff against `origin/main` and prints the report in your terminal. Choose another base with `--base main`.
 
+For the experimental Grok Build ACP worker, authenticate with `grok login` and run `npx --yes github:AgentsKit-io/code-review-cli --provider grok-cli`.
+
 Local `codex-cli` and `claude-cli` subprocesses have a 120-second deadline per model call. Set `AGENTSKIT_REVIEW_SUBPROCESS_TIMEOUT_MS` to a positive integer when a provider needs a different limit; timed-out lenses fail explicitly and cannot turn an unreviewed file into an approval.
+
+`grok-cli` is experimental and currently uses Grok Build's ACP transport (`grok agent stdio`). Authenticate with `grok login` or pass `XAI_API_KEY`/`--api-key`; the key is injected into the isolated worker environment, never into command arguments. Isolated workers grant no filesystem write, terminal, MCP, plugin, or subagent capability and use a temporary working directory. Headless transport is tracked separately.
 
 Preflight refuses an over-budget run before the first provider call. `--dry-run` and `--plan` print the refusal and concrete reductions; `--json` makes the plan machine-readable. CLI providers default to concurrency `1`, while API providers retain concurrency `4`. Required-lens or source coverage failures always exit `2`, even with `--no-fail`.
 
@@ -426,6 +430,23 @@ npx --yes github:AgentsKit-io/code-review-cli doctor --provider openai --model g
 ```
 
 It checks the named executable and version, transport, model requirement, configuration mode, and credential presence without making a model request. API keys are represented only as `configured` or `missing`; they are never printed. Local CLI credentials are represented as login-managed because login storage is provider-specific. `doctor --live` is the explicit provider smoke-test path. Unknown local CLI versions warn during local runs and fail in CI. Doctor exits `0` when checks pass, `1` when a provider check fails, and `2` for invalid usage.
+
+## Grok Build CLI via ACP
+
+`grok-cli` is experimental and currently supports only `--transport acp`. It
+starts `grok agent stdio --no-auto-update`, performs the ACP initialize,
+authentication (when advertised), session, prompt, update, shutdown, and exit
+sequence, then emits one `submit_findings` tool call. The worker accepts only a
+`schemaVersion: 1` envelope with valid findings; malformed output gets one
+bounded retry.
+
+Use `grok login` for the provider's cached session, or provide `XAI_API_KEY`
+through the environment. In `isolated` mode the key is copied only into the
+temporary worker environment. Filesystem writes, terminal, MCP, plugin, and
+subagent requests are denied, and the worker never uses the checkout as its
+working directory. `doctor --provider grok-cli` checks executable/version
+availability without making a model request. Headless support is not enabled
+by this provider entry yet.
 
 ## pre-commit integration
 
@@ -840,4 +861,5 @@ All notable changes will be documented here. This project follows Semantic Versi
 - Repositioned the CLI and GitHub Action as provider-neutral.
 - Made provider selection explicit and removed provider-specific model defaults.
 - Added bounded GitHub review reconciliation with SHA/policy fingerprints, incremental compare scope when the prior SHA is an ancestor, fork-safe skip behavior, and idempotent summary updates.
+- Added experimental Grok Build CLI ACP support with isolated capability denial, versioned output validation, bounded invalid-output retry, and offline lifecycle fixtures.
 - Added package metadata, CLI help, open-source governance, and contribution guidance.
