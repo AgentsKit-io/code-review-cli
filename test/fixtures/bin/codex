@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { existsSync, writeFileSync } from 'node:fs'
+import { closeSync, openSync, writeFileSync } from 'node:fs'
 
 const prompt = process.argv.at(-1) ?? ''
 if (process.argv.includes('--version')) {
@@ -20,9 +20,14 @@ if (
 const outputIndex = process.argv.indexOf('-o')
 if (outputIndex < 0 || !process.argv[outputIndex + 1]) process.exit(2)
 const invalidOnceFile = process.env.CODEX_FIXTURE_INVALID_ONCE_FILE
-if (invalidOnceFile && !existsSync(invalidOnceFile)) {
-  writeFileSync(invalidOnceFile, 'used')
-  writeFileSync(process.argv[outputIndex + 1], '{}')
-  process.exit(0)
+if (invalidOnceFile) {
+  try {
+    const fd = openSync(invalidOnceFile, 'wx')
+    try { writeFileSync(fd, 'used') } finally { closeSync(fd) }
+    writeFileSync(process.argv[outputIndex + 1], '{}')
+    process.exit(0)
+  } catch (error) {
+    if (error?.code !== 'EEXIST') throw error
+  }
 }
 writeFileSync(process.argv[outputIndex + 1], JSON.stringify({ findings: [] }))
