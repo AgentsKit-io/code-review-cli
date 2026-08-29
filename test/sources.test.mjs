@@ -46,3 +46,55 @@ test('GitHub PR ingestion downloads files returned with encoding none', async ()
     globalThis.fetch = originalFetch
   }
 })
+
+test('GitHub PR ingestion applies file budgets and marks omitted files unreviewed', async () => {
+  const originalFetch = globalThis.fetch
+  globalThis.fetch = async (url) => {
+    const parsed = new URL(url)
+    if (parsed.pathname.endsWith('/pulls/9')) return Response.json({ head: { sha: 'abc123' } })
+    if (parsed.pathname.endsWith('/pulls/9/files')) {
+      return Response.json([
+        { filename: 'src/one.ts', patch: '@@ -0,0 +1 @@', status: 'added' },
+        { filename: 'src/two.ts', patch: '@@ -0,0 +1 @@', status: 'added' },
+      ])
+    }
+    if (parsed.pathname.includes('/contents/')) return Response.json({ content: 'export const answer = 42\n', encoding: 'utf8' })
+    return new Response('not found', { status: 404 })
+  }
+
+  try {
+    const targets = await loadTargets({ kind: 'github-pr', owner: 'AgentsKit-io', repo: 'example', number: 9, token: 'test-token', limits: { maxFiles: 1 } })
+    assert.equal(targets.filter((target) => target.reviewStatus !== 'UNREVIEWED').length, 1)
+    assert.equal(targets.filter((target) => target.reviewStatus === 'UNREVIEWED').length, 1)
+    assert.match(targets.find((target) => target.reviewStatus === 'UNREVIEWED')?.unreviewedReason ?? '', /file limit/)
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})
+
+test('GitHub PR ingestion does not download content for files outside the file budget', async () => {
+  const originalFetch = globalThis.fetch
+  const contentRequests = []
+  globalThis.fetch = async (url) => {
+    const parsed = new URL(url)
+    if (parsed.pathname.endsWith('/pulls/10')) return Response.json({ head: { sha: 'abc123' } })
+    if (parsed.pathname.endsWith('/pulls/10/files')) {
+      return Response.json([
+        { filename: 'src/one.ts', patch: '@@ -0,0 +1,3 @@', status: 'added' },
+        { filename: 'src/two.ts', patch: '@@ -0,0 +1 @@', status: 'added' },
+      ])
+    }
+    if (parsed.pathname.includes('/contents/')) {
+      contentRequests.push(parsed.pathname)
+      return Response.json({ content: 'export const answer = 42\n', encoding: 'utf8' })
+    }
+    return new Response('not found', { status: 404 })
+  }
+
+  try {
+    await loadTargets({ kind: 'github-pr', owner: 'AgentsKit-io', repo: 'example', number: 10, token: 'test-token', limits: { maxFiles: 1 } })
+    assert.equal(contentRequests.length, 1)
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})

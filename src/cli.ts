@@ -116,7 +116,10 @@ async function resolveSource(reviewConfig: ResolvedReviewConfig): Promise<Source
     if (!m) throw new Error('--pr must be owner/repo#number')
     const token = process.env.GITHUB_TOKEN
     if (!token) throw new Error('--pr needs GITHUB_TOKEN')
-    return { kind: 'github-pr', owner: m[1]!, repo: m[2]!, number: Number(m[3]), token, redact, limits }
+    const lensCount = Object.values(reviewConfig.lenses).filter((lens) => lens.enabled).length
+    const callsPerFile = lensCount * (1 + reviewConfig.retries + reviewConfig.votes)
+    const automaticFileBudget = Math.max(1, Math.floor(((reviewConfig.budget.maxCalls ?? 1000) - 1) / Math.max(1, callsPerFile)))
+    return { kind: 'github-pr', owner: m[1]!, repo: m[2]!, number: Number(m[3]), token, redact, limits: { ...limits, maxFiles: limits.maxFiles ?? automaticFileBudget } }
   }
   if (has('stdin')) return { kind: 'stdin', content: await readStdin(), filename: `snippet.${flag('lang') ?? 'txt'}`, redact, limits: { ...limits, maxFileBytes: 1024 * 1024 } }
   if (has('paths')) {

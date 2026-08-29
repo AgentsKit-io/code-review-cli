@@ -81,7 +81,7 @@ The CLI reviews the current repository's diff against `origin/main` and prints t
 
 For the Grok Build ACP worker, use `XAI_API_KEY` (or `--api-key`) in the default isolated mode. To reuse `grok login`, opt in explicitly with `--mode trusted-local`.
 
-Local `codex-cli` and `claude-cli` subprocesses have a 120-second deadline per model call. Set `AGENTSKIT_REVIEW_SUBPROCESS_TIMEOUT_MS` to a positive integer when a provider needs a different limit; timed-out lenses fail explicitly and cannot turn an unreviewed file into an approval.
+Local `codex-cli` subprocesses have a 300-second deadline per model call; `claude-cli` and the other local workers use 120 seconds. Set `AGENTSKIT_REVIEW_SUBPROCESS_TIMEOUT_MS` to a positive integer when a provider needs a different limit; timed-out lenses fail explicitly and cannot turn an unreviewed file into an approval.
 
 The default `isolated` mode does not inherit an interactive CLI login. Use `--mode trusted-local` only on a machine or runner you trust with the provider's local session and environment.
 
@@ -89,7 +89,7 @@ The default `isolated` mode does not inherit an interactive CLI login. Use `--mo
 
 `opencode-cli` is stable and uses OpenCode's ACP transport (`opencode acp`) by default. In the default isolated mode, pass `OPENCODE_API_KEY`/`--api-key`; the selected key is injected into the isolated worker environment, never into command arguments. Existing OpenCode login/configuration state is available only with explicit local-only `--mode trusted-local`. OpenCode is not installed automatically. `--transport headless` is available for explicit non-interactive runs, while `--transport auto` is local-only and reports an ACP fallback before trying headless.
 
-Preflight refuses an over-budget run before the first provider call. `--dry-run` and `--plan` print the refusal and concrete reductions; `--json` makes the plan machine-readable. CLI providers default to concurrency `1`, while API providers retain concurrency `4`. Required-lens or source coverage failures always exit `2`, even with `--no-fail`.
+Preflight refuses an over-budget run before the first provider call. For GitHub PR sources, the CLI automatically caps the reviewed files to the safe call budget when `--max-files` is omitted; the remaining files are marked `UNREVIEWED`, so the result stays incomplete and cannot approve the PR. Use `--max-files` to choose a smaller explicit scope. `--dry-run` and `--plan` print the cap and concrete reductions; `--json` makes the plan machine-readable. CLI providers default to concurrency `1`, while API providers retain concurrency `4`. Required-lens or source coverage failures always exit `2`, even with `--no-fail`.
 
 ![AgentsKit Code Review showing an APPROVE result after seven review lenses complete](https://raw.githubusercontent.com/AgentsKit-io/code-review-cli/main/docs/assets/code-review-terminal.png)
 
@@ -706,10 +706,10 @@ The default `added` filter limits inline feedback to changed lines. Choose a bro
 
 - **Unknown provider or missing model:** validate with `--list-providers`; API/local-server adapters require `--model`.
 - **Authentication failure:** verify only the provider-specific secret/login and avoid printing its value.
-- **Rate limit or timeout:** local CLI calls stop after 120 seconds by default. Set `AGENTSKIT_REVIEW_SUBPROCESS_TIMEOUT_MS` to a positive millisecond value when needed, reduce concurrency/file budget, or use an approved gateway; retry only when provider policy makes the operation safe.
+- **Rate limit or timeout:** Codex calls stop after 300 seconds by default; other local CLI calls use 120 seconds. Set `AGENTSKIT_REVIEW_SUBPROCESS_TIMEOUT_MS` to a positive millisecond value when needed, reduce concurrency/file budget, or use an approved gateway; retry only when provider policy makes the operation safe.
 - **No PR comments:** confirm `pull-requests: write`, token availability, and fork restrictions. The Markdown report still appears in logs.
 - **Inline comment rejected:** the reporter falls back to a non-approving comment for GitHub 422 restrictions.
-- **Large diff:** cap `--max-files` and split review by paths; unreviewed files must not be described as reviewed.
+- **Large diff:** GitHub PR reviews automatically cap files to the call budget when `--max-files` is omitted. Set `--max-files` or split review by paths; unreviewed files must not be described as reviewed.
 - **Provider unavailable:** fail or mark the check unavailable according to team policy; never silently convert it to approval.
 
 ## Releases and maturity
@@ -936,6 +936,7 @@ All notable changes will be documented here. This project follows Semantic Versi
 
 - Prevented Codex authentication, timeout, and process failures from being retried as output-schema compatibility failures.
 - Documented and exposed explicit trusted-local mode for logged-in Codex/Claude CLI workflows.
+- Raised the default Codex local-worker deadline to five minutes and made GitHub PR file budgets enforceable and fail-closed.
 
 ## [0.2.0] - 2026-08-29
 

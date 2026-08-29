@@ -12,6 +12,7 @@ All notable changes will be documented here. This project follows Semantic Versi
 
 - Prevented Codex authentication, timeout, and process failures from being retried as output-schema compatibility failures.
 - Documented and exposed explicit trusted-local mode for logged-in Codex/Claude CLI workflows.
+- Raised the default Codex local-worker deadline to five minutes and made GitHub PR file budgets enforceable and fail-closed.
 
 ## [0.2.0] - 2026-08-29
 

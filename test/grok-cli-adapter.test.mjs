@@ -19,7 +19,7 @@ async function run(mode, options = {}) {
   if (mode) process.env.CODEX_FIXTURE_GROK_MODE = mode
   else delete process.env.CODEX_FIXTURE_GROK_MODE
   try {
-    const source = grokCli({ command: 'grok', worker: { timeoutMs: 200, ...options.worker } }).createSource(request)
+    const source = grokCli({ command: 'grok', worker: { timeoutMs: 1000, ...options.worker } }).createSource(request)
     const chunks = []
     for await (const chunk of source.stream()) chunks.push(chunk)
     return { chunks, source }
@@ -95,7 +95,7 @@ test('Grok ACP rejects permission and tool requests instead of executing them', 
 })
 
 test('Grok ACP is bounded on timeout, cancellation, and process failure', async () => {
-  const timeout = await run('timeout')
+  const timeout = await run('timeout', { worker: { timeoutMs: 200 } })
   assert.match(timeout.chunks[0]?.content ?? '', /timed out after 200ms/)
 
   const previousMode = process.env.CODEX_FIXTURE_GROK_MODE

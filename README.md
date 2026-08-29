@@ -63,7 +63,7 @@ The CLI reviews the current repository's diff against `origin/main` and prints t
 
 For the Grok Build ACP worker, use `XAI_API_KEY` (or `--api-key`) in the default isolated mode. To reuse `grok login`, opt in explicitly with `--mode trusted-local`.
 
-Local `codex-cli` and `claude-cli` subprocesses have a 120-second deadline per model call. Set `AGENTSKIT_REVIEW_SUBPROCESS_TIMEOUT_MS` to a positive integer when a provider needs a different limit; timed-out lenses fail explicitly and cannot turn an unreviewed file into an approval.
+Local `codex-cli` subprocesses have a 300-second deadline per model call; `claude-cli` and the other local workers use 120 seconds. Set `AGENTSKIT_REVIEW_SUBPROCESS_TIMEOUT_MS` to a positive integer when a provider needs a different limit; timed-out lenses fail explicitly and cannot turn an unreviewed file into an approval.
 
 The default `isolated` mode does not inherit an interactive CLI login. Use `--mode trusted-local` only on a machine or runner you trust with the provider's local session and environment.
 
@@ -71,7 +71,7 @@ The default `isolated` mode does not inherit an interactive CLI login. Use `--mo
 
 `opencode-cli` is stable and uses OpenCode's ACP transport (`opencode acp`) by default. In the default isolated mode, pass `OPENCODE_API_KEY`/`--api-key`; the selected key is injected into the isolated worker environment, never into command arguments. Existing OpenCode login/configuration state is available only with explicit local-only `--mode trusted-local`. OpenCode is not installed automatically. `--transport headless` is available for explicit non-interactive runs, while `--transport auto` is local-only and reports an ACP fallback before trying headless.
 
-Preflight refuses an over-budget run before the first provider call. `--dry-run` and `--plan` print the refusal and concrete reductions; `--json` makes the plan machine-readable. CLI providers default to concurrency `1`, while API providers retain concurrency `4`. Required-lens or source coverage failures always exit `2`, even with `--no-fail`.
+Preflight refuses an over-budget run before the first provider call. For GitHub PR sources, the CLI automatically caps the reviewed files to the safe call budget when `--max-files` is omitted; the remaining files are marked `UNREVIEWED`, so the result stays incomplete and cannot approve the PR. Use `--max-files` to choose a smaller explicit scope. `--dry-run` and `--plan` print the cap and concrete reductions; `--json` makes the plan machine-readable. CLI providers default to concurrency `1`, while API providers retain concurrency `4`. Required-lens or source coverage failures always exit `2`, even with `--no-fail`.
 
 ![AgentsKit Code Review showing an APPROVE result after seven review lenses complete](docs/assets/code-review-terminal.png)
 

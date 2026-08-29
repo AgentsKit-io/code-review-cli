@@ -37,6 +37,7 @@ test('merges independent lens policy and flags override file values', () => {
   assert.equal(config.worker.timeoutMs, 120000)
   assert.equal(config.budget.maxCalls, 1000)
   assert.equal(resolveReviewConfig({ configVersion: 1, provider: 'codex-cli' }).budget.concurrency, 1)
+  assert.equal(resolveReviewConfig({ configVersion: 1, provider: 'codex-cli' }).worker.timeoutMs, 300000)
   assert.equal(resolveReviewConfig({ configVersion: 1, provider: 'openai' }).budget.concurrency, 4)
 })
 
