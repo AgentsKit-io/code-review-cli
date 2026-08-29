@@ -41,6 +41,9 @@
   },
   "homepage": "https://github.com/AgentsKit-io/code-review#readme",
   "bugs": "https://github.com/AgentsKit-io/code-review/issues",
+  "publishConfig": {
+    "access": "public"
+  },
   "keywords": [
     "ai-code-review",
     "code-review",

@@ -4,6 +4,10 @@ All notable changes will be documented here. This project follows Semantic Versi
 
 ## [Unreleased]
 
+### Added
+
+- Added a GitHub Release workflow for tag-verified npm Trusted Publishing with OIDC and provenance.
+
 ## [0.2.0] - 2026-08-29
 
 ### Changed
