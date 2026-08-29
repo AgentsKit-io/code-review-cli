@@ -314,6 +314,19 @@ The current package is `0.2.x` and the project is pre-v1. Before immutable relea
 
 Release work updates [`CHANGELOG.md`](../CHANGELOG.md), [`ROADMAP.md`](../ROADMAP.md), package version, immutable tag guidance, and signed/provenance evidence when available. Run `npm run check` and `npm pack --dry-run` before publishing.
 
+### Automated npm publishing
+
+`.github/workflows/publish.yml` publishes only when a stable GitHub Release is published with a semantic version tag such as `v0.2.0`. The workflow checks out that tag, verifies that the tag matches `package.json`, runs `npm run check` and `npm pack --dry-run`, then publishes `@agentskit/code-review` using [npm Trusted Publishing](https://docs.npmjs.com/trusted-publishers/) (OIDC). No long-lived `NPM_TOKEN` is stored in GitHub.
+
+Before the first release, configure the npm package's Trusted Publisher for GitHub Actions with:
+
+- Organization: `AgentsKit-io`
+- Repository: `code-review`
+- Workflow filename: `publish.yml`
+- Allowed action: `npm publish`
+
+The npm configuration is a one-time external prerequisite; the GitHub workflow cannot create it. For each release, update the package version and changelog in a reviewed commit, push the commit, then create the matching GitHub Release/tag. Do not run `npm publish` locally.
+
 ## Contribution and security
 
 Start with [`CONTRIBUTING.md`](../CONTRIBUTING.md). Provider integrations must preserve the AgentsKit adapter contract and keep secrets out of arguments/logs. Review lenses need reproducible evidence and false-positive fixtures. Report vulnerabilities privately through [`SECURITY.md`](../SECURITY.md).
