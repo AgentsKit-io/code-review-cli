@@ -24,12 +24,23 @@ if (process.env.CODEX_FIXTURE_REJECT_OUTPUT_SCHEMA === '1' && schemaIndex >= 0) 
   process.stderr.write("error: unknown option '--output-schema'\n")
   process.exit(2)
 }
+if (process.env.CODEX_FIXTURE_REJECT_OUTPUT_SCHEMA === 'invalid-json-schema' && schemaIndex >= 0) {
+  process.stderr.write('invalid_json_schema: optional properties must be required\n')
+  process.exit(1)
+}
 if (process.env.CODEX_FIXTURE_REQUIRE_OUTPUT_SCHEMA === '1') {
   if (schemaIndex < 0 || !process.argv[schemaIndex + 1]) {
     process.stderr.write('fixture provider did not receive --output-schema\n')
     process.exit(1)
   }
-  JSON.parse(readFileSync(process.argv[schemaIndex + 1], 'utf8'))
+  const schema = JSON.parse(readFileSync(process.argv[schemaIndex + 1], 'utf8'))
+  if (process.env.CODEX_FIXTURE_REQUIRE_STRICT_OUTPUT_SCHEMA === '1') {
+    const required = schema.properties?.findings?.items?.required ?? []
+    if (!['endLine', 'suggestedPatch'].every((field) => required.includes(field))) {
+      process.stderr.write('fixture provider received a non-strict output schema\n')
+      process.exit(1)
+    }
+  }
 }
 const invalidOnceFile = process.env.CODEX_FIXTURE_INVALID_ONCE_FILE
 if (invalidOnceFile) {
