@@ -8,6 +8,11 @@ All notable changes will be documented here. This project follows Semantic Versi
 
 - Added a GitHub Release workflow for tag-verified npm Trusted Publishing with OIDC and provenance.
 
+### Fixed
+
+- Prevented Codex authentication, timeout, and process failures from being retried as output-schema compatibility failures.
+- Documented and exposed explicit trusted-local mode for logged-in Codex/Claude CLI workflows.
+
 ## [0.2.0] - 2026-08-29
 
 ### Changed

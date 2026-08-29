@@ -8,6 +8,10 @@ inputs:
   provider:
     description: 'Provider to use: a local CLI (claude-cli, codex-cli) or any @agentskit/adapters provider such as anthropic, openai, gemini, ollama, or openrouter.'
     required: true
+  mode:
+    description: 'Execution mode: isolated (default) or trusted-local for an explicitly trusted runner with an existing CLI login.'
+    required: false
+    default: 'isolated'
   api-key:
     description: 'API key for the provider (required unless provider is claude-cli or a keyless local provider). Set as a repo/org secret. Passed via env, never the command line.'
     required: false
@@ -58,6 +62,7 @@ runs:
         CLAUDE_CODE_OAUTH_TOKEN: ${{ inputs.claude-oauth-token }}
         GITHUB_TOKEN: ${{ inputs.github-token }}
         INPUT_PROVIDER: ${{ inputs.provider }}
+        INPUT_MODE: ${{ inputs.mode }}
         INPUT_MODEL: ${{ inputs.model }}
         INPUT_BASE_URL: ${{ inputs.base-url }}
         INPUT_VOTES: ${{ inputs.votes }}
@@ -70,6 +75,7 @@ runs:
           --pr "${{ github.repository }}#${{ github.event.pull_request.number }}" \
           --post \
           --provider "$INPUT_PROVIDER" \
+          --mode "$INPUT_MODE" \
           --votes "$INPUT_VOTES" \
           --max-files "$INPUT_MAX_FILES" \
           --block "$INPUT_BLOCK"

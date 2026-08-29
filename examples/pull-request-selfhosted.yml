@@ -20,5 +20,6 @@ jobs:
       - uses: AgentsKit-io/code-review-cli@main
         with:
           provider: 'codex-cli'
+          mode: 'trusted-local'
           # fail-on-block: 'true'   # default: advisory (posts only)
           # block: 'high'

@@ -176,8 +176,17 @@ async function fromGithubPr(c: Extract<SourceConfig, { kind: 'github-pr' }>): Pr
     if (f.status === 'removed') continue
     const denied = deniedPath(f.filename)
     if (denied || !isReviewableName(f.filename)) { targets.push(unreviewed(f.filename, denied ?? 'unsupported text format')); continue }
-    const content = await api<{ content: string; encoding: string }>(`/repos/${c.owner}/${c.repo}/contents/${encodeURIComponent(f.filename)}?ref=${sha}`)
-    const raw = Buffer.from(content.content, content.encoding as BufferEncoding).toString('utf8')
+    const content = await api<{ content: string; encoding: string; download_url?: string }>(`/repos/${c.owner}/${c.repo}/contents/${encodeURIComponent(f.filename)}?ref=${sha}`)
+    const raw = content.encoding === 'none'
+      ? await (async () => {
+        if (!content.download_url) throw new Error(`GitHub contents response has no download URL for ${f.filename}`)
+        const downloadUrl = new URL(content.download_url)
+        if (downloadUrl.hostname !== 'raw.githubusercontent.com') throw new Error(`GitHub contents response has an unsafe download URL for ${f.filename}`)
+        const res = await fetch(downloadUrl, { headers: { authorization: `Bearer ${c.token}`, accept: 'application/vnd.github.raw', 'user-agent': 'agentskit-code-review' } })
+        if (!res.ok) throw new Error(`GitHub ${content.download_url} → ${res.status}`)
+        return res.text()
+      })()
+      : Buffer.from(content.content, content.encoding as BufferEncoding).toString('utf8')
     const size = Buffer.byteLength(raw, 'utf8'); const limit = c.limits?.maxFileBytes ?? DEFAULT_PROMPT_FILE_BYTES
     if (size > limit || raw.includes('\0')) { targets.push(unreviewed(f.filename, size > limit ? `file exceeds ${limit} byte limit` : 'binary content')); continue }
     targets.push({ file: f.filename, language: langOf(f.filename), fullContent: c.redact ? redactSecrets(raw) : raw, changedRanges: f.patch ? changedRanges(f.patch) : [], isChanged: true, commitId: sha })

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
-import { mkdtempSync, rmSync } from 'node:fs'
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join, resolve } from 'node:path'
 import { tmpdir } from 'node:os'
@@ -90,6 +90,30 @@ test('Codex adapter falls back when the provider rejects the output schema', () 
 
   assert.equal(run.status, 0, run.stderr)
   assert.match(run.stdout, /7\/7 lens executions succeeded/)
+})
+
+test('Codex adapter does not retry provider failures', () => {
+  const fixtureBin = join(root, 'test/fixtures/bin')
+  const temp = mkdtempSync(join(tmpdir(), 'codex-failure-'))
+  const countFile = join(temp, 'count')
+  try {
+    const run = spawnSync(process.execPath, [
+      'dist/src/cli.js', '--provider', 'codex-cli', '--stdin', '--lang', 'ts', '--no-fail',
+    ], {
+      cwd: root,
+      input: 'export const answer = 42\n',
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        CODEX_FIXTURE_FAIL_ALL: '1',
+        CODEX_FIXTURE_COUNT_FILE: countFile,
+        PATH: `${fixtureBin}:${process.env.PATH ?? ''}`,
+      },
+    })
+
+    assert.equal(run.status, 2, `stdout:\n${run.stdout}\nstderr:\n${run.stderr}`)
+    assert.equal(Number(readFileSync(countFile, 'utf8')), 7)
+  } finally { rmSync(temp, { recursive: true, force: true }) }
 })
 
 test('Codex adapter rejects ambiguous multiple fenced JSON outputs', () => {

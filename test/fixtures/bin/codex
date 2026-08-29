@@ -6,6 +6,12 @@ if (process.argv.includes('--version')) {
   process.stdout.write(process.env.CODEX_FIXTURE_VERSION ?? 'codex-cli 1.0.0\n')
   process.exit(0)
 }
+const countFile = process.env.CODEX_FIXTURE_COUNT_FILE
+if (countFile) {
+  let count = 0
+  try { count = Number(readFileSync(countFile, 'utf8')) } catch { /* first invocation */ }
+  writeFileSync(countFile, String(count + 1))
+}
 if (process.env.CODEX_FIXTURE_HANG === '1') setInterval(() => {}, 1_000)
 
 if (

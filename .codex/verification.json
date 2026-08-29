@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "project": "agentskit-code-review-codex-retry-fix",
+  "root": ".",
+  "profile": "custom",
+  "contract": {
+    "intent": "Prevent Codex adapter retries for non-schema failures while preserving compatibility fallback for rejected output schemas.",
+    "outcomes": [
+      { "id": "schema-fallback", "statement": "Codex output-schema rejection still retries without schema.", "checks": ["regression"] },
+      { "id": "failure-no-retry", "statement": "Authentication and process failures do not trigger a duplicate Codex invocation.", "checks": ["regression"] },
+      { "id": "repo-gates", "statement": "The package typechecks, tests, documentation gates, and packs successfully.", "checks": ["repo-check", "package" ] }
+    ]
+  },
+  "surfaces": { "logic": true, "cli": true, "docs": true },
+  "checks": [
+    { "id": "regression", "category": "logic", "execution": "real", "command": "npm run build && node --test test/cli-smoke.test.mjs", "timeoutMs": 180000 },
+    { "id": "repo-check", "category": "logic", "execution": "real", "command": "npm run check", "timeoutMs": 300000 },
+    { "id": "package", "category": "cli", "execution": "real", "command": "npm pack --dry-run", "timeoutMs": 180000 }
+  ],
+  "tracking": { "required": false },
+  "cleanup": { "roots": [".codex/verification/tmp"] }
+}

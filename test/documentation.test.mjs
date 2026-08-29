@@ -98,11 +98,15 @@ test('Ollama recipe is local, bounded, advisory, and honest about its source bou
 test('the Action stays least-privilege, secret-safe, and advisory by default', () => {
   const action = read('action.yml')
   const workflow = read('examples/pull-request.yml')
+  const selfHostedWorkflow = read('examples/pull-request-selfhosted.yml')
   assert.match(action, /LLM_API_KEY: \$\{\{ inputs\.api-key \}\}/)
+  assert.match(action, /INPUT_MODE: \$\{\{ inputs\.mode \}\}/)
+  assert.match(action, /--mode "\$INPUT_MODE"/)
   assert.match(action, /INPUT_FAIL_ON_BLOCK/)
   assert.match(action, /--no-fail/)
   assert.match(workflow, /contents: read/)
   assert.match(workflow, /pull-requests: write/)
+  assert.match(selfHostedWorkflow, /mode: 'trusted-local'/)
   assert.doesNotMatch(workflow, /pull_request_target/)
 })
 
