@@ -344,7 +344,7 @@ node examples/verify-readme.mjs
 
 ## Maturity
 
-The repository is **pre-v1 (`0.1.x`)**. The CLI and Action are available for evaluation and advisory CI, but immutable `v1` Action tags and npm distribution remain planned. Use the GitHub-source command and `@main` only when that update policy is acceptable; pin a commit SHA for stronger CI reproducibility. See [ROADMAP.md](ROADMAP.md) and the [release guidance](docs/OPERATIONS.md#releases-and-maturity).
+The repository is **pre-v1 (`0.2.x`)**. The CLI and Action are available for evaluation and advisory CI, but immutable `v1` Action tags and npm distribution remain planned. Use the GitHub-source command and `@main` only when that update policy is acceptable; pin a commit SHA for stronger CI reproducibility. See [ROADMAP.md](ROADMAP.md) and the [release guidance](docs/OPERATIONS.md#releases-and-maturity).
 
 ## Compatibility
 

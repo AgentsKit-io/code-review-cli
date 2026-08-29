@@ -20,13 +20,71 @@ test('a clean local Codex CLI fixture completes an offline stdin review', () => 
     cwd: root,
     input: 'export const answer = 42\n',
     encoding: 'utf8',
-    env: { ...process.env, PATH: `${fixtureBin}:${process.env.PATH ?? ''}` },
+    env: { ...process.env, CODEX_FIXTURE_REQUIRE_OUTPUT_SCHEMA: '1', PATH: `${fixtureBin}:${process.env.PATH ?? ''}` },
   })
 
   assert.equal(run.status, 0, run.stderr)
   assert.match(run.stdout, /Code review — APPROVE/)
   assert.match(run.stdout, /No findings above threshold/)
   assert.match(run.stdout, /7\/7 lens executions succeeded/)
+})
+
+test('Codex adapter accepts a fenced JSON fallback', () => {
+  const fixtureBin = join(root, 'test/fixtures/bin')
+  const run = spawnSync(process.execPath, [
+    'dist/src/cli.js', '--provider', 'codex-cli', '--stdin', '--lang', 'ts', '--no-fail',
+  ], {
+    cwd: root,
+    input: 'export const answer = 42\n',
+    encoding: 'utf8',
+    env: {
+      ...process.env,
+      CODEX_FIXTURE_FENCED_OUTPUT: '1',
+      CODEX_FIXTURE_REQUIRE_OUTPUT_SCHEMA: '1',
+      PATH: `${fixtureBin}:${process.env.PATH ?? ''}`,
+    },
+  })
+
+  assert.equal(run.status, 0, run.stderr)
+  assert.match(run.stdout, /7\/7 lens executions succeeded/)
+})
+
+test('Codex adapter falls back when output schemas are unsupported', () => {
+  const fixtureBin = join(root, 'test/fixtures/bin')
+  const run = spawnSync(process.execPath, [
+    'dist/src/cli.js', '--provider', 'codex-cli', '--stdin', '--lang', 'ts', '--no-fail',
+  ], {
+    cwd: root,
+    input: 'export const answer = 42\n',
+    encoding: 'utf8',
+    env: {
+      ...process.env,
+      CODEX_FIXTURE_REJECT_OUTPUT_SCHEMA: '1',
+      PATH: `${fixtureBin}:${process.env.PATH ?? ''}`,
+    },
+  })
+
+  assert.equal(run.status, 0, run.stderr)
+  assert.match(run.stdout, /7\/7 lens executions succeeded/)
+})
+
+test('Codex adapter rejects ambiguous multiple fenced JSON outputs', () => {
+  const fixtureBin = join(root, 'test/fixtures/bin')
+  const run = spawnSync(process.execPath, [
+    'dist/src/cli.js', '--provider', 'codex-cli', '--stdin', '--lang', 'ts', '--no-fail',
+  ], {
+    cwd: root,
+    input: 'export const answer = 42\n',
+    encoding: 'utf8',
+    env: {
+      ...process.env,
+      CODEX_FIXTURE_MULTIPLE_FENCED_OUTPUT: '1',
+      PATH: `${fixtureBin}:${process.env.PATH ?? ''}`,
+    },
+  })
+
+  assert.equal(run.status, 2)
+  assert.match(`${run.stdout}\n${run.stderr}`, /0 of 7 lens executions succeeded/)
 })
 
 test('advisory mode fails closed when every lens execution fails', () => {

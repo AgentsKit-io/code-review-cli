@@ -362,7 +362,7 @@ node examples/verify-readme.mjs
 
 ## Maturity
 
-The repository is **pre-v1 (`0.1.x`)**. The CLI and Action are available for evaluation and advisory CI, but immutable `v1` Action tags and npm distribution remain planned. Use the GitHub-source command and `@main` only when that update policy is acceptable; pin a commit SHA for stronger CI reproducibility. See [ROADMAP.md](https://github.com/AgentsKit-io/code-review-cli/blob/main/ROADMAP.md) and the [release guidance](https://github.com/AgentsKit-io/code-review-cli/blob/main/docs/OPERATIONS.md#releases-and-maturity).
+The repository is **pre-v1 (`0.2.x`)**. The CLI and Action are available for evaluation and advisory CI, but immutable `v1` Action tags and npm distribution remain planned. Use the GitHub-source command and `@main` only when that update policy is acceptable; pin a commit SHA for stronger CI reproducibility. See [ROADMAP.md](https://github.com/AgentsKit-io/code-review-cli/blob/main/ROADMAP.md) and the [release guidance](https://github.com/AgentsKit-io/code-review-cli/blob/main/docs/OPERATIONS.md#releases-and-maturity).
 
 ## Compatibility
 
@@ -712,7 +712,7 @@ The default `added` filter limits inline feedback to changed lines. Choose a bro
 
 ## Releases and maturity
 
-The current package is `0.1.x` and the project is pre-v1. Before immutable releases exist:
+The current package is `0.2.x` and the project is pre-v1. Before immutable releases exist:
 
 - GitHub-source CLI commands can pin a commit SHA after `github:AgentsKit-io/code-review-cli#<sha>`;
 - Actions can pin a full commit SHA instead of `@main`;
@@ -910,6 +910,8 @@ Canonical source: https://raw.githubusercontent.com/AgentsKit-io/code-review-cli
 All notable changes will be documented here. This project follows Semantic Versioning.
 
 ## [Unreleased]
+
+## [0.2.0] - 2026-08-29
 
 ### Changed
 

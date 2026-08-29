@@ -142,7 +142,7 @@
         ],
         "maturity": [
           "## Maturity",
-          "pre-v1 (`0.1.x`)"
+          "pre-v1 (`0.2.x`)"
         ],
         "compatibility": [
           "## Compatibility",
@@ -221,7 +221,7 @@
           "docs/OPERATIONS.md",
           "test/cli-smoke.test.mjs"
         ],
-        "sourceHash": "sha256:0a45ae704c6f6be6c53dd27ced72ae3ea290747a60cfc02bc54efc5346ef3d3b"
+        "sourceHash": "sha256:d41b86bd0db46d2469d665242362210c8e2b8ca50933340b0ee4138f16cebf7e"
       },
       "exceptions": []
     }

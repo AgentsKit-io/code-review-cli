@@ -165,7 +165,7 @@ async function main() {
     ? await getGithubReviewState({
       ...source,
       fingerprint: reviewFingerprint({
-        engine: '@agentskit/code-review@0.1.0',
+        engine: '@agentskit/code-review@0.2.0',
         provider: reviewConfig.provider,
         model: reviewConfig.model,
         transport: reviewConfig.transport,
