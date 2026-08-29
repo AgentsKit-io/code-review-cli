@@ -305,7 +305,7 @@ The default `added` filter limits inline feedback to changed lines. Choose a bro
 
 ## Releases and maturity
 
-The current package is `0.1.x` and the project is pre-v1. Before immutable releases exist:
+The current package is `0.2.x` and the project is pre-v1. Before immutable releases exist:
 
 - GitHub-source CLI commands can pin a commit SHA after `github:AgentsKit-io/code-review-cli#<sha>`;
 - Actions can pin a full commit SHA instead of `@main`;

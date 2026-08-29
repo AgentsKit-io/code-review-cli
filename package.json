@@ -1,6 +1,6 @@
 {
   "name": "@agentskit/code-review",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "module",
   "description": "Provider-agnostic, low-noise AI code review for local development and GitHub Actions.",
   "license": "MIT",
@@ -37,10 +37,10 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/AgentsKit-io/code-review-cli.git"
+    "url": "git+https://github.com/AgentsKit-io/code-review.git"
   },
-  "homepage": "https://github.com/AgentsKit-io/code-review-cli#readme",
-  "bugs": "https://github.com/AgentsKit-io/code-review-cli/issues",
+  "homepage": "https://github.com/AgentsKit-io/code-review#readme",
+  "bugs": "https://github.com/AgentsKit-io/code-review/issues",
   "keywords": [
     "ai-code-review",
     "code-review",

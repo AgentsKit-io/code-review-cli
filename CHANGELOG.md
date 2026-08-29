@@ -4,6 +4,8 @@ All notable changes will be documented here. This project follows Semantic Versi
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-08-29
+
 ### Changed
 
 - Added strict versioned `.agentskit-review.json` policy with lens coverage, budgets, thresholds, context, and safe CI precedence; incomplete profiles require explicit local opt-in.
