@@ -18,8 +18,9 @@ import { runLocalCli, type LocalCliMode } from "./local-cli-process.js";
  */
 function extractJson(text: string): string {
   const candidates = [text.trim()];
-  const fenced = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/i)?.[1];
-  if (fenced) candidates.push(fenced.trim());
+  const fenced = [...text.matchAll(/```[^\n]*\n([\s\S]*?)\n?```/g)];
+  if (fenced.length > 1) throw new Error(`codex output contained multiple fenced blocks (${fenced.length})`);
+  if (fenced.length === 1) candidates.push(fenced[0]![1]!.trim());
 
   const start = text.indexOf("{");
   const end = text.lastIndexOf("}");
@@ -38,30 +39,44 @@ function extractJson(text: string): string {
   throw new Error(`codex output was not a JSON object (${text.length} characters)`);
 }
 
+function isUnsupportedOutputSchemaError(error: unknown): boolean {
+  const e = error as { message?: string; stderr?: string };
+  const detail = [e.message, e.stderr].filter(Boolean).join(" ");
+  return /(?:unknown|unrecognized|unexpected|invalid)\s+(?:option|flag|argument)[^\n]*--output-schema/i.test(detail);
+}
+
 /** Run `codex exec` and return its final message (captured via -o). */
 async function runCodex(prompt: string, schema: unknown, model?: string, signal?: AbortSignal, mode?: LocalCliMode, worker?: { timeoutMs?: number; maxOutputBytes?: number }): Promise<string> {
   const dir = mkdtempSync(join(tmpdir(), "cr-codex-"));
   const outFile = join(dir, "out.txt");
-  const args = [
-    "exec",
-    "--skip-git-repo-check",
-    "-s",
-    "read-only",
-    "-o",
-    outFile,
-  ];
-  if (schema !== undefined) {
-    const schemaFile = join(dir, "output-schema.json");
-    const serializedSchema = JSON.stringify(schema);
-    if (serializedSchema === undefined) throw new Error("codex output schema could not be serialized");
-    writeFileSync(schemaFile, serializedSchema, { encoding: "utf8", mode: 0o600 });
-    args.push("--output-schema", schemaFile);
-  }
-  if (model) args.push("-m", model);
-  args.push(prompt);
-
   try {
-    await runLocalCli("codex", args, { signal, mode, ...worker });
+    const run = async (useSchema: boolean): Promise<void> => {
+      const args = [
+        "exec",
+        "--skip-git-repo-check",
+        "-s",
+        "read-only",
+        "-o",
+        outFile,
+      ];
+      if (useSchema && schema !== undefined) {
+        const schemaFile = join(dir, "output-schema.json");
+        const serializedSchema = JSON.stringify(schema);
+        if (serializedSchema === undefined) throw new Error("codex output schema could not be serialized");
+        writeFileSync(schemaFile, serializedSchema, { encoding: "utf8", mode: 0o600 });
+        args.push("--output-schema", schemaFile);
+      }
+      if (model) args.push("-m", model);
+      args.push(prompt);
+      await runLocalCli("codex", args, { signal, mode, ...worker });
+    };
+
+    try {
+      await run(schema !== undefined);
+    } catch (error) {
+      if (schema === undefined || !isUnsupportedOutputSchemaError(error)) throw error;
+      await run(false);
+    }
     return readFileSync(outFile, "utf8");
   } finally {
     rmSync(dir, { recursive: true, force: true });

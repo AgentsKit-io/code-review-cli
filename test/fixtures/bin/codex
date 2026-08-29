@@ -20,6 +20,10 @@ if (
 const outputIndex = process.argv.indexOf('-o')
 if (outputIndex < 0 || !process.argv[outputIndex + 1]) process.exit(2)
 const schemaIndex = process.argv.indexOf('--output-schema')
+if (process.env.CODEX_FIXTURE_REJECT_OUTPUT_SCHEMA === '1' && schemaIndex >= 0) {
+  process.stderr.write("error: unknown option '--output-schema'\n")
+  process.exit(2)
+}
 if (process.env.CODEX_FIXTURE_REQUIRE_OUTPUT_SCHEMA === '1') {
   if (schemaIndex < 0 || !process.argv[schemaIndex + 1]) {
     process.stderr.write('fixture provider did not receive --output-schema\n')
@@ -38,7 +42,9 @@ if (invalidOnceFile) {
     if (error?.code !== 'EEXIST') throw error
   }
 }
-const output = process.env.CODEX_FIXTURE_FENCED_OUTPUT === '1'
+const output = process.env.CODEX_FIXTURE_MULTIPLE_FENCED_OUTPUT === '1'
+  ? 'First result:\n```json\n{"findings":[]}\n```\nSecond result:\n```json\n{"findings":[]}\n```\n'
+  : process.env.CODEX_FIXTURE_FENCED_OUTPUT === '1'
   ? 'Here is the requested result:\n```json\n{"findings":[]}\n```\n'
   : JSON.stringify({ findings: [] })
 writeFileSync(process.argv[outputIndex + 1], output)
