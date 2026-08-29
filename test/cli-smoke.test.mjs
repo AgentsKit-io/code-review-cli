@@ -20,7 +20,12 @@ test('a clean local Codex CLI fixture completes an offline stdin review', () => 
     cwd: root,
     input: 'export const answer = 42\n',
     encoding: 'utf8',
-    env: { ...process.env, CODEX_FIXTURE_REQUIRE_OUTPUT_SCHEMA: '1', PATH: `${fixtureBin}:${process.env.PATH ?? ''}` },
+    env: {
+      ...process.env,
+      CODEX_FIXTURE_REQUIRE_OUTPUT_SCHEMA: '1',
+      CODEX_FIXTURE_REQUIRE_STRICT_OUTPUT_SCHEMA: '1',
+      PATH: `${fixtureBin}:${process.env.PATH ?? ''}`,
+    },
   })
 
   assert.equal(run.status, 0, run.stderr)
@@ -60,6 +65,25 @@ test('Codex adapter falls back when output schemas are unsupported', () => {
     env: {
       ...process.env,
       CODEX_FIXTURE_REJECT_OUTPUT_SCHEMA: '1',
+      PATH: `${fixtureBin}:${process.env.PATH ?? ''}`,
+    },
+  })
+
+  assert.equal(run.status, 0, run.stderr)
+  assert.match(run.stdout, /7\/7 lens executions succeeded/)
+})
+
+test('Codex adapter falls back when the provider rejects the output schema', () => {
+  const fixtureBin = join(root, 'test/fixtures/bin')
+  const run = spawnSync(process.execPath, [
+    'dist/src/cli.js', '--provider', 'codex-cli', '--stdin', '--lang', 'ts', '--no-fail',
+  ], {
+    cwd: root,
+    input: 'export const answer = 42\n',
+    encoding: 'utf8',
+    env: {
+      ...process.env,
+      CODEX_FIXTURE_REJECT_OUTPUT_SCHEMA: 'invalid-json-schema',
       PATH: `${fixtureBin}:${process.env.PATH ?? ''}`,
     },
   })

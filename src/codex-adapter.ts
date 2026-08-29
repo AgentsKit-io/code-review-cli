@@ -39,12 +39,6 @@ function extractJson(text: string): string {
   throw new Error(`codex output was not a JSON object (${text.length} characters)`);
 }
 
-function isUnsupportedOutputSchemaError(error: unknown): boolean {
-  const e = error as { message?: string; stderr?: string };
-  const detail = [e.message, e.stderr].filter(Boolean).join(" ");
-  return /(?:unknown|unrecognized|unexpected|invalid)\s+(?:option|flag|argument)[^\n]*--output-schema/i.test(detail);
-}
-
 /** Run `codex exec` and return its final message (captured via -o). */
 async function runCodex(prompt: string, schema: unknown, model?: string, signal?: AbortSignal, mode?: LocalCliMode, worker?: { timeoutMs?: number; maxOutputBytes?: number }): Promise<string> {
   const dir = mkdtempSync(join(tmpdir(), "cr-codex-"));
@@ -74,7 +68,11 @@ async function runCodex(prompt: string, schema: unknown, model?: string, signal?
     try {
       await run(schema !== undefined);
     } catch (error) {
-      if (schema === undefined || !isUnsupportedOutputSchemaError(error)) throw error;
+      // Codex versions can reject an otherwise valid JSON Schema at request time
+      // (for example, when they require every object property to be required).
+      // Retry without response-format enforcement; extractJson still validates the
+      // bounded object response before it reaches the runtime tool parser.
+      if (schema === undefined) throw error;
       await run(false);
     }
     return readFileSync(outFile, "utf8");

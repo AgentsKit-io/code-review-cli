@@ -192,14 +192,14 @@ export interface CodeReviewConfig {
 const FindingSchema = z.object({
   file: z.string(),
   line: z.number(),
-  endLine: z.number().optional(),
+  endLine: z.number().nullable().transform((value) => value ?? undefined),
   severity: z.enum(['blocker', 'high', 'med', 'nit']),
   category: z.enum(['correctness', 'security', 'performance', 'maintainability', 'design', 'tests', 'conventions']),
   confidence: z.number().min(0).max(1),
   title: z.string(),
   rationale: z.string(),
   suggestion: z.string(),
-  suggestedPatch: z.string().optional(),
+  suggestedPatch: z.string().nullable().transform((value) => value ?? undefined),
 })
 const LensSubmission = z.object({ findings: z.array(FindingSchema) })
 const SkepticVerdict = z.object({ refuted: z.boolean(), reason: z.string() })
