@@ -10,6 +10,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { AdapterFactory, AdapterRequest, StreamChunk, StreamSource } from "@agentskit/core";
 import { runLocalCli, type LocalCliMode } from "./local-cli-process.js";
+import { DEFAULT_CODEX_CLI_TIMEOUT_MS, localCliTimeoutMs } from "./local-cli-timeout.js";
 
 /**
  * Pull a JSON object out of a reply while rejecting prose/braces that are not
@@ -70,7 +71,12 @@ async function runCodex(prompt: string, schema: unknown, model?: string, signal?
       }
       if (model) args.push("-m", model);
       args.push(prompt);
-      await runLocalCli("codex", args, { signal, mode, ...worker });
+      await runLocalCli("codex", args, {
+        signal,
+        mode,
+        timeoutMs: worker?.timeoutMs ?? localCliTimeoutMs(DEFAULT_CODEX_CLI_TIMEOUT_MS),
+        maxOutputBytes: worker?.maxOutputBytes,
+      });
     };
 
     try {
