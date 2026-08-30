@@ -1,5 +1,8 @@
 import * as adapters from '@agentskit/adapters'
 import type { AdapterFactory } from '@agentskit/core'
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { runLocalCli } from './local-cli-process.js'
 
 export const PROVIDER_REGISTRY_VERSION = 1 as const
@@ -136,6 +139,7 @@ export interface DoctorOptions {
   readonly transport?: string
   readonly mode?: string
   readonly live?: boolean
+  readonly liveTimeoutMs?: number
   readonly ci?: boolean
   readonly apiKey?: string
   readonly env?: NodeJS.ProcessEnv
@@ -201,7 +205,22 @@ export async function diagnoseProvider(options: DoctorOptions): Promise<DoctorRe
     checks.push({ name: 'version', status: 'skip', detail: 'API provider' })
   }
 
-  if (options.live) checks.push({ name: 'live', status: 'skip', detail: 'provider smoke test is opt-in and provider-specific' })
+  if (options.live && entry.id === 'codex-cli') {
+    const liveTimeoutMs = Math.min(options.liveTimeoutMs ?? 15_000, 15_000)
+    const probeDir = mkdtempSync(join(tmpdir(), 'agentskit-review-health-'))
+    try {
+      const result = await runLocalCli('codex', ['exec', '--skip-git-repo-check', '-s', 'read-only', '-o', join(probeDir, 'out.txt'), 'Reply with exactly OK.'], {
+        mode: mode as 'isolated' | 'trusted-local', timeoutMs: liveTimeoutMs, maxOutputBytes: 4096,
+      })
+      const output = readFileSync(join(probeDir, 'out.txt'), 'utf8')
+      checks.push({ name: 'live', status: /ok/i.test(`${output}\n${result.stdout}\n${result.stderr}`) ? 'pass' : 'fail', detail: /ok/i.test(output) ? 'provider smoke test completed' : 'provider returned no OK response' })
+    } catch (error) {
+      const e = error as { code?: string; message?: string }
+      checks.push({ name: 'live', status: 'fail', detail: e.code === 'ETIMEDOUT' ? `smoke test timed out after ${liveTimeoutMs}ms` : 'provider smoke test failed' })
+    } finally {
+      rmSync(probeDir, { recursive: true, force: true })
+    }
+  } else if (options.live) checks.push({ name: 'live', status: 'skip', detail: 'provider smoke test is provider-specific' })
   return { registryVersion: PROVIDER_REGISTRY_VERSION, schemaVersion: 1, provider: entry.id, support: entry.support, live: Boolean(options.live), ok: !checks.some((check) => check.status === 'fail'), checks }
 }
 

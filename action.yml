@@ -53,6 +53,18 @@ inputs:
     description: 'Maximum findings verified per file; keeps the provider-call estimate bounded.'
     required: false
     default: '7'
+  profile:
+    description: 'Review profile: full or fast (one bounded required-lens batch).'
+    required: false
+    default: 'full'
+  deadline-ms:
+    description: 'Global review deadline in milliseconds.'
+    required: false
+    default: '600000'
+  health-check:
+    description: 'Provider preflight smoke test: auto or off.'
+    required: false
+    default: 'auto'
 
 runs:
   using: 'composite'
@@ -77,6 +89,9 @@ runs:
         INPUT_MAX_FILES: ${{ inputs.max-files }}
         INPUT_MAX_CALLS: ${{ inputs.max-calls }}
         INPUT_MAX_FINDINGS_PER_FILE: ${{ inputs.max-findings-per-file }}
+        INPUT_PROFILE: ${{ inputs.profile }}
+        INPUT_DEADLINE_MS: ${{ inputs.deadline-ms }}
+        INPUT_HEALTH_CHECK: ${{ inputs.health-check }}
         INPUT_BLOCK: ${{ inputs.block }}
         INPUT_FAIL_ON_BLOCK: ${{ inputs.fail-on-block }}
       run: |
@@ -94,6 +109,9 @@ runs:
           --max-files "$INPUT_MAX_FILES" \
           --max-calls "$INPUT_MAX_CALLS" \
           --max-findings-per-file "$INPUT_MAX_FINDINGS_PER_FILE" \
+          --profile "$INPUT_PROFILE" \
+          --deadline-ms "$INPUT_DEADLINE_MS" \
+          --health-check "$INPUT_HEALTH_CHECK" \
           --block "$INPUT_BLOCK"
         )
         [[ -n "$INPUT_MODEL" ]] && args+=(--model "$INPUT_MODEL")

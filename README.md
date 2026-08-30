@@ -40,7 +40,7 @@ AgentsKit Code Review is built around a different contract:
 - **Low noise by design.** Findings are challenged by independent verification votes before they survive.
 - **Local first, CI ready.** Review a diff before pushing, inspect complete paths, read stdin, or comment directly on a GitHub PR.
 - **Control cost and policy.** Set file budgets, concurrency, thresholds, project conventions, and blocking severity.
-- **See the cost before execution.** Use `--plan --json` to inspect files, lenses, retries, concurrency, and estimated provider calls without a model request. Plans label estimates as `bounded` when `thresholds.maxPerFile` is set; otherwise they are `best-effort` because model output volume is inherently variable.
+- **See the cost before execution.** Use `--plan --json` to inspect files, lenses, retries, concurrency, deadline, and estimated provider calls without a model request. Plans label estimates as `bounded` when `thresholds.maxPerFile` is set; otherwise they are `best-effort` because model output volume is inherently variable.
 
 ## Run your first review
 
@@ -63,7 +63,7 @@ The CLI reviews the current repository's diff against `origin/main` and prints t
 
 For the Grok Build ACP worker, use `XAI_API_KEY` (or `--api-key`) in the default isolated mode. To reuse `grok login`, opt in explicitly with `--mode trusted-local`.
 
-Local `codex-cli` subprocesses have a 300-second deadline per model call; `claude-cli` and the other local workers use 120 seconds. Set `AGENTSKIT_REVIEW_SUBPROCESS_TIMEOUT_MS` to a positive integer when a provider needs a different limit; timed-out lenses fail explicitly and cannot turn an unreviewed file into an approval.
+Local `codex-cli` subprocesses have a 300-second deadline per model call; `claude-cli` and the other local workers use 120 seconds. Every run also has a global deadline (10 minutes for full, 2 minutes for `fast`) and a bounded Codex smoke check before fan-out. Set `--deadline-ms` for a smaller explicit budget; timed-out calls fail explicitly and cannot turn an unreviewed file into an approval.
 
 Terminal provider authentication failures stop the remaining lenses immediately; the review still exits incomplete and never converts a credential failure into approval.
 
@@ -74,6 +74,7 @@ The default `isolated` mode does not inherit an interactive CLI login. Use `--mo
 `opencode-cli` is stable and uses OpenCode's ACP transport (`opencode acp`) by default. In the default isolated mode, pass `OPENCODE_API_KEY`/`--api-key`; the selected key is injected into the isolated worker environment, never into command arguments. Existing OpenCode login/configuration state is available only with explicit local-only `--mode trusted-local`. OpenCode is not installed automatically. `--transport headless` is available for explicit non-interactive runs, while `--transport auto` is local-only and reports an ACP fallback before trying headless.
 
 Preflight refuses an over-budget run before the first provider call. For GitHub PR sources, the CLI automatically caps the reviewed files to the safe call budget when `--max-files` is omitted; the remaining files are marked `UNREVIEWED`, so the result stays incomplete and cannot approve the PR. Use `--max-files` to choose a smaller explicit scope. `--dry-run` and `--plan` print the cap and concrete reductions; `--json` makes the plan machine-readable. CLI providers default to concurrency `1`, while API providers retain concurrency `4`. Required-lens or source coverage failures always exit `2`, even with `--no-fail`.
+Use `--profile fast` when latency and provider budget matter more than the optional lenses: correctness, security, and tests run in one structured batch with one verification vote and no retry. The result records provider calls, failures, skips, elapsed time, circuit state, and whether the deadline fired. Any incomplete evidence remains fail-closed.
 
 ![AgentsKit Code Review showing an APPROVE result after seven review lenses complete](docs/assets/code-review-terminal.png)
 
@@ -145,7 +146,7 @@ jobs:
   review:
     runs-on: ubuntu-latest
     steps:
-      - uses: AgentsKit-io/code-review-cli@v0.2.3
+      - uses: AgentsKit-io/code-review-cli@v0.3.0
         with:
           provider: openai
           model: gpt-4o
@@ -153,6 +154,8 @@ jobs:
           # max-files: '17'
           # max-calls: '1000'
           # max-findings-per-file: '7'
+          # profile: 'full' # or fast for a bounded required-lens batch
+          # deadline-ms: '600000'
           # fail-on-block: 'true' # advisory by default
           # block: high
 ```
@@ -161,7 +164,7 @@ The Action fetches the PR diff and posts one batched inline review plus a summar
 
 Building a conversational review experience? Use [AgentsKit Chat](https://chat.agentskit.io/docs) for the cross-framework application layer instead of embedding chat here. Looking for organization-wide orchestration, governance, and production controls? Continue with [AKOS](https://akos.agentskit.io/docs).
 
-Pin the Action to an immutable release tag such as `@v0.2.3`; use a full commit SHA when your policy requires the strongest reproducibility.
+Pin the Action to an immutable release tag such as `@v0.3.0`; use a full commit SHA when your policy requires the strongest reproducibility.
 
 ## Choose how to run
 
@@ -267,12 +270,15 @@ In shortened examples, replace `...` with `npx --yes github:AgentsKit-io/code-re
 | `--post` | Post a batched review when the source is a PR |
 | `--sarif <file>` | Also write SARIF |
 | `--votes <n>` | Adversarial verification votes; default `3` |
+| `--profile <full\|fast>` | Full review or one bounded required-lens batch |
 | `--min-severity <level>` | Minimum reported severity |
 | `--min-confidence <n>` | Minimum reported confidence |
 | `--max-files <n>` | Positive file budget; over-budget runs are refused before the provider |
 | `--max-calls <n>` | Provider-call budget; absolute ceiling `1000` |
 | `--max-findings-per-file <n>` | Maximum verified findings per file; bounds adversarial verification calls |
 | `--concurrency <n>` | Parallel model calls; default `1` for CLI providers, `4` for API providers |
+| `--deadline-ms <n>` | Global run deadline; defaults to `600000` (`120000` for `fast`) |
+| `--health-check <auto\|off>` | Bounded provider smoke check before model fan-out |
 | `--plan`, `--dry-run` | Print provider-free preflight; add `--json` for machine output |
 | `--validate-patch` | Run `git apply --check` on suggested patches |
 | `--block <severity>` | CI gate floor; default `blocker` |
@@ -302,11 +308,12 @@ never accepted in CI.
 ```json
 {
   "configVersion": 1,
+  "profile": "full",
   "lenses": {
     "performance": { "enabled": false, "required": false }
   },
   "votes": 3,
-  "budget": { "maxFiles": 20, "maxCalls": 200, "concurrency": 1 },
+  "budget": { "maxFiles": 20, "maxCalls": 200, "concurrency": 1, "deadlineMs": 600000 },
   "worker": { "timeoutMs": 120000, "maxOutputBytes": 20971520 },
   "thresholds": { "minSeverity": "med", "minConfidence": 0.7 },
   "context": { "mode": "prompt", "patterns": ["src/**"] }
@@ -322,7 +329,7 @@ paths are reported as `UNREVIEWED`; content is never silently truncated.
 
 ### Doctor
 
-Run `doctor` before a review to check a registered provider’s executable, version, transport, model requirement, configuration mode, and credential presence. It is offline by default: API credentials are checked only for presence and values are never printed; local CLI login is represented as login-managed until a provider-specific live check is available. Unknown local CLI versions warn locally and fail when `CI=true`. Exit `0` means healthy, `1` means a failed diagnostic, and `2` means invalid CLI usage.
+Run `doctor` before a review to check a registered provider’s executable, version, transport, model requirement, configuration mode, and credential presence. It is offline by default; `doctor --live` and normal Codex reviews use a bounded smoke check to catch authentication or hangs before fan-out. API credentials are checked only for presence and values are never printed. Unknown local CLI versions warn locally and fail when `CI=true`. Exit `0` means healthy, `1` means a failed diagnostic, and `2` means invalid CLI usage.
 
 ```sh
 npx --yes github:AgentsKit-io/code-review-cli doctor --provider codex-cli
@@ -331,7 +338,7 @@ npx --yes github:AgentsKit-io/code-review-cli doctor --provider openai --model g
 
 ## Cost and privacy
 
-A full review runs seven lenses across selected files and then verifies candidate findings. Control usage with `--max-files`, `--votes`, `--concurrency`, paths, and workflow triggers. For sensitive code, use a local model or an approved private gateway; provider data policies still apply to hosted APIs.
+A full review runs seven lenses across selected files and then verifies candidate findings. Control usage with `--profile fast`, `--max-files`, `--max-calls`, `--votes`, `--deadline-ms`, `--concurrency`, paths, and workflow triggers. For sensitive code, use a local model or an approved private gateway; provider data policies still apply to hosted APIs.
 
 ## Operations and machine-readable docs
 
@@ -352,7 +359,7 @@ node examples/verify-readme.mjs
 
 ## Maturity
 
-The repository is **pre-v1 (`0.2.x`)**. The CLI and Action are available for evaluation and advisory CI; use an exact release tag such as `@v0.2.3` or a commit SHA, and treat the future `v1` moving tag as a separate stability milestone. See [ROADMAP.md](ROADMAP.md) and the [release guidance](docs/OPERATIONS.md#releases-and-maturity).
+The repository is **pre-v1 (`0.3.x`)**. The CLI and Action are available for evaluation and advisory CI; use an exact release tag such as `@v0.3.0` or a commit SHA, and treat the future `v1` moving tag as a separate stability milestone. See [ROADMAP.md](ROADMAP.md) and the [release guidance](docs/OPERATIONS.md#releases-and-maturity).
 
 ## Compatibility
 

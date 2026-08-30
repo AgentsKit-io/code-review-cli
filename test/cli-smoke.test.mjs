@@ -21,6 +21,7 @@ test('a clean local Codex CLI fixture completes an offline stdin review', () => 
     '--provider', 'codex-cli',
     '--stdin',
     '--lang', 'ts',
+    '--health-check', 'off',
     '--no-fail',
   ], {
     cwd: root,
@@ -38,6 +39,21 @@ test('a clean local Codex CLI fixture completes an offline stdin review', () => 
   assert.match(run.stdout, /Code review — APPROVE/)
   assert.match(run.stdout, /No findings above threshold/)
   assert.match(run.stdout, /7\/7 lens executions succeeded/)
+})
+
+test('normal Codex review probes provider health once before fan-out', () => {
+  const fixtureBin = join(root, 'test/fixtures/bin')
+  const countFile = join(mkdtempSync(join(tmpdir(), 'codex-health-')), 'count')
+  try {
+    const run = spawnSync(process.execPath, [
+      'dist/src/cli.js', '--provider', 'codex-cli', '--stdin', '--no-fail',
+    ], {
+      cwd: root, input: 'export const answer = 42\n', encoding: 'utf8',
+      env: { ...process.env, CODEX_FIXTURE_COUNT_FILE: countFile, PATH: `${fixtureBin}:${process.env.PATH ?? ''}` },
+    })
+    assert.equal(run.status, 0, run.stderr)
+    assert.equal(Number(readFileSync(countFile, 'utf8')), 22)
+  } finally { rmSync(countFile.replace(/\/count$/, ''), { recursive: true, force: true }) }
 })
 
 test('Codex adapter accepts a fenced JSON fallback', () => {
@@ -148,6 +164,7 @@ test('advisory mode fails closed when every lens execution fails', () => {
     '--provider', 'codex-cli',
     '--stdin',
     '--lang', 'ts',
+    '--health-check', 'off',
     '--no-fail',
   ], {
     cwd: root,
@@ -169,6 +186,7 @@ test('a local Codex subprocess timeout fails fast instead of hanging the review'
     '--stdin',
     '--lang', 'ts',
     '--concurrency', '1',
+    '--health-check', 'off',
     '--no-fail',
   ], {
     cwd: root,
@@ -262,6 +280,32 @@ test('plan supports a bounded findings-per-file limit', () => {
   assert.equal(plan.estimatedProviderCalls, 27)
 })
 
+test('fast profile batches required lenses and stays within a small call budget', () => {
+  const fixtureBin = join(root, 'test/fixtures/bin')
+  const run = spawnSync(process.execPath, [
+    'dist/src/cli.js', '--provider', 'codex-cli', '--stdin', '--profile', 'fast', '--health-check', 'off', '--no-fail',
+  ], {
+    cwd: root, input: 'export const answer = 42\n', encoding: 'utf8',
+    env: { ...process.env, PATH: `${fixtureBin}:${process.env.PATH ?? ''}` },
+  })
+  assert.equal(run.status, 0, run.stderr)
+  assert.match(run.stdout, /profile=fast/)
+  assert.match(run.stdout, /1\/1 lens executions succeeded/)
+  assert.match(run.stdout, /provider calls=1/)
+})
+
+test('global review deadline aborts a hanging fast run', () => {
+  const fixtureBin = join(root, 'test/fixtures/bin')
+  const run = spawnSync(process.execPath, [
+    'dist/src/cli.js', '--provider', 'codex-cli', '--stdin', '--profile', 'fast', '--health-check', 'off', '--deadline-ms', '50', '--no-fail',
+  ], {
+    cwd: root, input: 'export const answer = 42\n', encoding: 'utf8', timeout: 3000,
+    env: { ...process.env, CODEX_FIXTURE_HANG: '1', PATH: `${fixtureBin}:${process.env.PATH ?? ''}` },
+  })
+  assert.equal(run.status, 2, `stdout:\n${run.stdout}\nstderr:\n${run.stderr}`)
+  assert.match(`${run.stdout}\n${run.stderr}`, /review deadline exceeded after 50ms/i)
+})
+
 test('preflight refuses an over-call-budget run before the provider starts', () => {
   const fixtureBin = join(root, 'test/fixtures/bin')
   const run = spawnSync(process.execPath, [
@@ -282,7 +326,7 @@ test('retries one invalid structured response but not provider failures', () => 
   const stateFile = join(cwd, 'retry-state')
   try {
     const run = spawnSync(process.execPath, [
-      join(root, 'dist/src/cli.js'), '--provider', 'codex-cli', '--stdin', '--no-fail',
+      join(root, 'dist/src/cli.js'), '--provider', 'codex-cli', '--stdin', '--health-check', 'off', '--no-fail',
     ], {
       cwd: root, input: 'export const answer = 42\n', encoding: 'utf8',
       env: { ...process.env, CODEX_FIXTURE_INVALID_ONCE_FILE: stateFile, PATH: `${fixtureBin}:${process.env.PATH ?? ''}` },
@@ -298,6 +342,7 @@ test('one reviewed file cannot hide a second file with zero successful lenses', 
     'dist/src/cli.js',
     '--provider', 'codex-cli',
     '--paths', 'test/fixtures/review/good.ts', 'test/fixtures/review/unreviewed.ts',
+    '--health-check', 'off',
     '--no-fail',
   ], {
     cwd: root,

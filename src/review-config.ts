@@ -27,6 +27,7 @@ const relativePattern = z.string().min(1).refine(
 
 const ReviewConfigSchema = z.object({
   configVersion: z.literal(1),
+  profile: z.enum(['full', 'fast']).optional(),
   lenses: lensOverrides.optional(),
   incompleteProfile: z.boolean().optional(),
   votes: positiveInt.max(25).optional(),
@@ -39,7 +40,7 @@ const ReviewConfigSchema = z.object({
   }).strict().optional(),
   budget: z.object({
     maxFiles: positiveInt.max(500).optional(), maxBytes: positiveInt.max(25 * 1024 * 1024).optional(),
-    maxCalls: positiveInt.max(1000).optional(), concurrency: positiveInt.max(32).optional(),
+    maxCalls: positiveInt.max(1000).optional(), concurrency: positiveInt.max(32).optional(), deadlineMs: positiveInt.max(30 * 60 * 1000).optional(),
   }).strict().optional(),
   worker: z.object({
     timeoutMs: positiveInt.max(ABSOLUTE_LOCAL_CLI_TIMEOUT_MS).optional(),
@@ -49,6 +50,7 @@ const ReviewConfigSchema = z.object({
   context: z.object({ mode: z.enum(['prompt', 'isolated-snapshot']), patterns: z.array(relativePattern).max(100).optional() }).strict().optional(),
   provider: z.string().min(1).max(100).optional(), model: z.string().min(1).max(200).optional(),
   transport: z.enum(['api', 'acp', 'headless', 'auto', 'http']).optional(),
+  healthCheck: z.enum(['auto', 'off']).optional(),
   trustMode: z.enum(['isolated', 'trusted-local']).optional(),
   redaction: z.enum(['required', 'high-confidence']).optional(),
   permissions: z.object({ tools: z.boolean().optional(), write: z.boolean().optional(), shell: z.boolean().optional(), mcp: z.boolean().optional() }).strict().optional(),
@@ -59,21 +61,25 @@ type FileConfig = z.infer<typeof ReviewConfigSchema>
 export interface ReviewConfigOverrides {
   provider?: string; model?: string; transport?: string; votes?: number; retries?: number
   minSeverity?: Severity; minConfidence?: number; maxPerFile?: number; maxFiles?: number; maxCalls?: number; concurrency?: number; conventions?: string
+  profile?: 'full' | 'fast'; deadlineMs?: number; healthCheck?: 'auto' | 'off'
 }
 
 export interface ResolvedReviewConfig {
   configVersion: 1
+  profile: 'full' | 'fast'
+  batchLenses: boolean
   lenses: Record<BuiltinLensKey, LensPolicy>
   incompleteProfile: boolean
   votes: number
   retries: number
   thresholds: { minSeverity?: Severity; minConfidence?: number; maxPerFile?: number; suppressNits?: boolean }
-  budget: { maxFiles?: number; maxBytes?: number; maxCalls?: number; concurrency: number }
+  budget: { maxFiles?: number; maxBytes?: number; maxCalls?: number; concurrency: number; deadlineMs: number }
   worker: { timeoutMs: number; maxOutputBytes: number }
   conventions?: string
   context: { mode: 'prompt' | 'isolated-snapshot'; patterns: string[] }
   allowUnredacted: boolean
   provider?: string; model?: string; transport?: 'api' | 'acp' | 'headless' | 'auto' | 'http'
+  healthCheck: 'auto' | 'off'
   trustMode: 'isolated'; redaction: 'required' | 'high-confidence'
   permissions: { tools?: boolean; write?: boolean; shell?: boolean; mcp?: boolean }
 }
@@ -117,7 +123,11 @@ export function resolveReviewConfig(
     if (file.context?.mode === 'isolated-snapshot' && !file.context.patterns?.length) throw new ReviewConfigError('isolated-snapshot requires at least one context pattern')
   }
 
-  const lenses = Object.fromEntries(BUILTIN_LENS_KEYS.map((key) => [key, { ...DEFAULT_LENSES[key], ...(file?.lenses?.[key] ?? {}) }])) as Record<BuiltinLensKey, LensPolicy>
+  const profile = overrides.profile ?? file?.profile ?? 'full'
+  const configuredLenses = Object.fromEntries(BUILTIN_LENS_KEYS.map((key) => [key, { ...DEFAULT_LENSES[key], ...(file?.lenses?.[key] ?? {}) }])) as Record<BuiltinLensKey, LensPolicy>
+  const lenses = profile === 'fast'
+    ? Object.fromEntries(BUILTIN_LENS_KEYS.map((key) => [key, { ...configuredLenses[key], enabled: configuredLenses[key].required }])) as Record<BuiltinLensKey, LensPolicy>
+    : configuredLenses
   const impossibleRequired = BUILTIN_LENS_KEYS.filter((key) => lenses[key].required && !lenses[key].enabled)
   if (impossibleRequired.length && !file?.incompleteProfile) throw new ReviewConfigError(`required lens cannot be disabled without incompleteProfile: ${impossibleRequired.join(', ')}`)
   const incompleteProfile = Boolean(file?.incompleteProfile || impossibleRequired.length)
@@ -125,31 +135,35 @@ export function resolveReviewConfig(
   if (options.ci && options.allowUnredacted) throw new ReviewConfigError('--allow-unredacted is local-only and cannot disable CI redaction')
   if (incompleteProfile && !options.allowIncomplete) throw new ReviewConfigError('incomplete profile requires explicit --allow-incomplete for a local run')
 
-  const thresholds = { ...file?.thresholds, ...(overrides.minSeverity === undefined ? {} : { minSeverity: overrides.minSeverity }), ...(overrides.minConfidence === undefined ? {} : { minConfidence: overrides.minConfidence }), ...(overrides.maxPerFile === undefined ? {} : { maxPerFile: overrides.maxPerFile }) }
+  const thresholds = { ...file?.thresholds, ...(profile === 'fast' && file?.thresholds?.maxPerFile === undefined && overrides.maxPerFile === undefined ? { maxPerFile: 1 } : {}), ...(overrides.minSeverity === undefined ? {} : { minSeverity: overrides.minSeverity }), ...(overrides.minConfidence === undefined ? {} : { minConfidence: overrides.minConfidence }), ...(overrides.maxPerFile === undefined ? {} : { maxPerFile: overrides.maxPerFile }) }
   const budget = {
     ...file?.budget,
     ...(overrides.maxFiles === undefined ? {} : { maxFiles: overrides.maxFiles }),
     ...(overrides.maxCalls === undefined ? {} : { maxCalls: overrides.maxCalls }),
     ...(overrides.concurrency === undefined ? {} : { concurrency: overrides.concurrency }),
+    ...(overrides.deadlineMs === undefined ? {} : { deadlineMs: overrides.deadlineMs }),
   }
   const provider = overrides.provider ?? file?.provider
-  const defaultConcurrency = provider?.endsWith('-cli') ? 1 : 4
+  const defaultConcurrency = profile === 'fast' ? (provider?.endsWith('-cli') ? 1 : 2) : provider?.endsWith('-cli') ? 1 : 4
+  const defaultDeadlineMs = profile === 'fast' ? 120_000 : 10 * 60 * 1000
   const effective = {
-    configVersion: 1 as const, lenses, incompleteProfile,
-    votes: overrides.votes ?? file?.votes ?? 3, retries: overrides.retries ?? file?.retries ?? 1,
-    thresholds, budget: { ...budget, concurrency: budget.concurrency ?? defaultConcurrency, maxCalls: budget.maxCalls ?? 1000 },
+    configVersion: 1 as const, profile, batchLenses: profile === 'fast', lenses, incompleteProfile,
+    votes: overrides.votes ?? file?.votes ?? (profile === 'fast' ? 1 : 3), retries: overrides.retries ?? file?.retries ?? (profile === 'fast' ? 0 : 1),
+    thresholds, budget: { ...budget, concurrency: budget.concurrency ?? defaultConcurrency, maxCalls: budget.maxCalls ?? 1000, deadlineMs: budget.deadlineMs ?? defaultDeadlineMs },
     worker: { timeoutMs: file?.worker?.timeoutMs ?? localCliTimeoutMs(provider === 'codex-cli' ? DEFAULT_CODEX_CLI_TIMEOUT_MS : undefined), maxOutputBytes: file?.worker?.maxOutputBytes ?? DEFAULT_LOCAL_CLI_OUTPUT_BYTES },
     conventions: overrides.conventions ?? file?.conventions,
     context: { mode: file?.context?.mode ?? 'prompt', patterns: file?.context?.patterns ?? [] },
     allowUnredacted: Boolean(options.allowUnredacted),
     provider: overrides.provider ?? file?.provider, model: overrides.model ?? file?.model,
     transport: (overrides.transport ?? file?.transport) as ResolvedReviewConfig['transport'],
+    healthCheck: overrides.healthCheck ?? file?.healthCheck ?? 'auto',
     trustMode: 'isolated' as const, redaction: file?.redaction ?? 'required', permissions: file?.permissions ?? {},
   }
   const validation = z.object({
+    profile: z.enum(['full', 'fast']), healthCheck: z.enum(['auto', 'off']),
     votes: positiveInt.max(25), retries: nonNegativeInt.max(1),
     thresholds: z.object({ minSeverity: z.enum(['blocker', 'high', 'med', 'nit']).optional(), minConfidence: z.number().min(0).max(1).optional(), maxPerFile: positiveInt.optional() }),
-    budget: z.object({ maxFiles: positiveInt.max(500).optional(), maxBytes: positiveInt.max(25 * 1024 * 1024).optional(), maxCalls: positiveInt.max(1000), concurrency: positiveInt.max(32) }),
+    budget: z.object({ maxFiles: positiveInt.max(500).optional(), maxBytes: positiveInt.max(25 * 1024 * 1024).optional(), maxCalls: positiveInt.max(1000), concurrency: positiveInt.max(32), deadlineMs: positiveInt.max(30 * 60 * 1000) }),
   }).safeParse(effective)
   if (!validation.success) throw new ReviewConfigError(`invalid effective review config: ${diagnostic(validation.error)}`)
   return effective
