@@ -19,7 +19,7 @@ if (
   (process.env.CODEX_FIXTURE_FAIL_FILE && prompt.includes(`FILE: ${process.env.CODEX_FIXTURE_FAIL_FILE} `)) ||
   (process.env.CODEX_FIXTURE_FAIL_CATEGORY && prompt.includes(`SINGLE dimension: ${process.env.CODEX_FIXTURE_FAIL_CATEGORY}`))
 ) {
-  process.stderr.write('fixture provider authentication failed\n')
+  process.stderr.write(process.env.CODEX_FIXTURE_FAIL_ALL === '1' ? 'fixture provider authentication failed\n' : 'fixture lens failure\n')
   process.exit(1)
 }
 
