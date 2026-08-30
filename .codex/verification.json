@@ -1,8 +1,11 @@
 {
   "schemaVersion": 1,
   "project": "agentskit-code-review-codex-retry-fix",
-  "root": ".",
+  "root": "..",
   "profile": "custom",
+  "exemptions": [
+    "This repository is a CLI/library; endpoint, database, MCP, and UI product surfaces are out of scope for this fix."
+  ],
   "contract": {
     "intent": "Make Codex-backed GitHub PR reviews bounded and usable by preventing duplicate failures, allowing realistic Codex deadlines, and enforcing source budgets fail-closed.",
     "outcomes": [
@@ -17,8 +20,9 @@
   "checks": [
     { "id": "regression", "category": "logic", "execution": "real", "command": "npm run build && node --test test/cli-smoke.test.mjs", "timeoutMs": 180000 },
     { "id": "repo-check", "category": "logic", "execution": "real", "command": "npm run check", "timeoutMs": 300000 },
+    { "id": "docs-gate", "category": "docs", "execution": "real", "command": "npm run docs:gate", "timeoutMs": 180000 },
     { "id": "package", "category": "cli", "execution": "real", "command": "npm pack --dry-run", "timeoutMs": 180000 }
   ],
-  "tracking": { "required": false },
+  "tracking": { "required": false, "reason": "Local library fix; no external issue or PR transition is authorized by this task." },
   "cleanup": { "roots": [".codex/verification/tmp"] }
 }
