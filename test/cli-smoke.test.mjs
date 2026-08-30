@@ -98,7 +98,7 @@ test('Codex adapter falls back when the provider rejects the output schema', () 
   assert.match(run.stdout, /7\/7 lens executions succeeded/)
 })
 
-test('Codex adapter does not retry provider failures', () => {
+test('Codex adapter stops after a terminal provider authentication failure', () => {
   const fixtureBin = join(root, 'test/fixtures/bin')
   const temp = mkdtempSync(join(tmpdir(), 'codex-failure-'))
   const countFile = join(temp, 'count')
@@ -118,7 +118,7 @@ test('Codex adapter does not retry provider failures', () => {
     })
 
     assert.equal(run.status, 2, `stdout:\n${run.stdout}\nstderr:\n${run.stderr}`)
-    assert.equal(Number(readFileSync(countFile, 'utf8')), 7)
+    assert.equal(Number(readFileSync(countFile, 'utf8')), 1)
   } finally { rmSync(temp, { recursive: true, force: true }) }
 })
 

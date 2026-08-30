@@ -118,6 +118,11 @@ class ReviewCallBudgetError extends Error {
 
 class InvalidStructuredOutputError extends Error {}
 
+function isTerminalProviderFailure(error: unknown): boolean {
+  const detail = error instanceof Error ? error.message : String(error)
+  return /(?:failed to authenticate|authentication failed|access token has been revoked|oauth[^\n]*(?:revoked|invalid|expired)|(?:invalid|missing) (?:api )?key|\b(?:401|403)\b[^\n]*(?:auth|token|credential))/i.test(detail)
+}
+
 /** A review had targets, but no lens produced a usable response. */
 export class ReviewExecutionError extends Error {
   readonly execution: LensExecutionStats
@@ -263,6 +268,7 @@ export function createCodeReviewAgent(config: CodeReviewConfig) {
   const requiredLenses = new Set<Category>(config.requiredLenses ?? ['correctness', 'security', 'tests'])
   let adapter = config.adapter
   let providerCalls = 0
+  let terminalProviderFailure: Error | undefined
   const maxSteps = config.maxSteps ?? 3
   const minSeverity = config.thresholds?.minSeverity ?? 'nit'
   const minConfidence = config.thresholds?.minConfidence ?? 0.5
@@ -292,9 +298,19 @@ export function createCodeReviewAgent(config: CodeReviewConfig) {
     if (!adapter) throw new Error('provider adapter is not configured')
     const activeAdapter = adapter
     const invoke = async (): Promise<z.infer<T>> => {
-      if (++providerCalls > maxCalls) throw new ReviewCallBudgetError(maxCalls)
       const runtime = createRuntime({ adapter: activeAdapter, tools: [tool], memory: config.memory, onConfirm: config.onConfirm, maxSteps })
-      const result = await limit(() => runtime.run(task, { skill }))
+      const result = await limit(async () => {
+        // Auth failures are terminal for the whole run. Do not spend one call
+        // per lens after the provider has already rejected the credential.
+        if (terminalProviderFailure) throw terminalProviderFailure
+        if (++providerCalls > maxCalls) throw new ReviewCallBudgetError(maxCalls)
+        try {
+          return await runtime.run(task, { skill })
+        } catch (error) {
+          if (isTerminalProviderFailure(error)) terminalProviderFailure = error instanceof Error ? error : new Error(String(error))
+          throw error
+        }
+      })
       const call = result.toolCalls.find((c) => c.name === tool.name)
       if (!call) throw new InvalidStructuredOutputError(`${skill.name} did not submit a result`)
       try { return schema.parse(call.args) } catch { throw new InvalidStructuredOutputError(`${skill.name} returned invalid structured output`) }

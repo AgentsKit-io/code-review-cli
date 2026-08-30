@@ -4,6 +4,12 @@ All notable changes will be documented here. This project follows Semantic Versi
 
 ## [Unreleased]
 
+## [0.2.3] - 2026-08-30
+
+### Fixed
+
+- Stop issuing additional provider calls after a terminal authentication failure; reviews still fail closed without spending one failed call per lens.
+
 ## [0.2.2] - 2026-08-29
 
 ### Added

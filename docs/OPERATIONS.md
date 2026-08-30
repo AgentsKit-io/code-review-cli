@@ -299,7 +299,7 @@ The default `added` filter limits inline feedback to changed lines. Choose a bro
 ## Failure scenarios
 
 - **Unknown provider or missing model:** validate with `--list-providers`; API/local-server adapters require `--model`.
-- **Authentication failure:** verify only the provider-specific secret/login and avoid printing its value.
+- **Authentication failure:** verify only the provider-specific secret/login and avoid printing its value. A terminal authentication failure stops remaining lenses immediately and the review exits incomplete rather than spending one failed call per lens.
 - **Rate limit or timeout:** Codex calls stop after 300 seconds by default; other local CLI calls use 120 seconds. Set `AGENTSKIT_REVIEW_SUBPROCESS_TIMEOUT_MS` to a positive millisecond value when needed, reduce concurrency/file budget, or use an approved gateway; retry only when provider policy makes the operation safe.
 - **No PR comments:** confirm `pull-requests: write`, token availability, and fork restrictions. The Markdown report still appears in logs.
 - **Inline comment rejected:** the reporter falls back to a non-approving comment for GitHub 422 restrictions.
@@ -309,10 +309,10 @@ The default `added` filter limits inline feedback to changed lines. Choose a bro
 
 ## Releases and maturity
 
-The current package is `0.2.2` and the project is pre-v1:
+The current package is `0.2.3` and the project is pre-v1:
 
 - GitHub-source CLI commands can pin a commit SHA after `github:AgentsKit-io/code-review-cli#<sha>`;
-- Actions should pin `@v0.2.2` or a full commit SHA;
+- Actions should pin `@v0.2.3` or a full commit SHA;
 - a moving `@main` reference is suitable only when that mutability is accepted;
 - the future `@v1` Action tag remains a separate stability milestone.
 
@@ -320,7 +320,7 @@ Release work updates [`CHANGELOG.md`](../CHANGELOG.md), [`ROADMAP.md`](../ROADMA
 
 ### Automated npm publishing
 
-`.github/workflows/publish.yml` publishes only when a stable GitHub Release is published with a semantic version tag such as `v0.2.2`. The workflow checks out that tag, verifies that the tag matches `package.json`, runs `npm run check` and `npm pack --dry-run`, then publishes `@agentskit/code-review` using [npm Trusted Publishing](https://docs.npmjs.com/trusted-publishers/) (OIDC). No long-lived `NPM_TOKEN` is stored in GitHub.
+`.github/workflows/publish.yml` publishes only when a stable GitHub Release is published with a semantic version tag such as `v0.2.3`. The workflow checks out that tag, verifies that the tag matches `package.json`, runs `npm run check` and `npm pack --dry-run`, then publishes `@agentskit/code-review` using [npm Trusted Publishing](https://docs.npmjs.com/trusted-publishers/) (OIDC). No long-lived `NPM_TOKEN` is stored in GitHub.
 
 Before the first release, configure the npm package's Trusted Publisher for GitHub Actions with:
 

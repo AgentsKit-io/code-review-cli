@@ -83,6 +83,8 @@ For the Grok Build ACP worker, use `XAI_API_KEY` (or `--api-key`) in the default
 
 Local `codex-cli` subprocesses have a 300-second deadline per model call; `claude-cli` and the other local workers use 120 seconds. Set `AGENTSKIT_REVIEW_SUBPROCESS_TIMEOUT_MS` to a positive integer when a provider needs a different limit; timed-out lenses fail explicitly and cannot turn an unreviewed file into an approval.
 
+Terminal provider authentication failures stop the remaining lenses immediately; the review still exits incomplete and never converts a credential failure into approval.
+
 The default `isolated` mode does not inherit an interactive CLI login. Use `--mode trusted-local` only on a machine or runner you trust with the provider's local session and environment.
 
 `grok-cli` is stable and uses Grok Build's ACP transport (`grok agent stdio`) by default. In the default isolated mode, pass `XAI_API_KEY`/`--api-key`; the key is injected into the isolated worker environment, never into command arguments. Existing `grok login` state is available only with explicit local-only `--mode trusted-local`. Isolated workers grant no filesystem write, terminal, MCP, plugin, or subagent capability and use a temporary working directory. `--transport headless` is available for explicit non-interactive runs, while `--transport auto` is local-only and reports an ACP fallback before trying headless.
@@ -161,7 +163,7 @@ jobs:
   review:
     runs-on: ubuntu-latest
     steps:
-      - uses: AgentsKit-io/code-review-cli@v0.2.2
+      - uses: AgentsKit-io/code-review-cli@v0.2.3
         with:
           provider: openai
           model: gpt-4o
@@ -177,7 +179,7 @@ The Action fetches the PR diff and posts one batched inline review plus a summar
 
 Building a conversational review experience? Use [AgentsKit Chat](https://chat.agentskit.io/docs) for the cross-framework application layer instead of embedding chat here. Looking for organization-wide orchestration, governance, and production controls? Continue with [AKOS](https://akos.agentskit.io/docs).
 
-Pin the Action to an immutable release tag such as `@v0.2.2`; use a full commit SHA when your policy requires the strongest reproducibility.
+Pin the Action to an immutable release tag such as `@v0.2.3`; use a full commit SHA when your policy requires the strongest reproducibility.
 
 ## Choose how to run
 
@@ -368,7 +370,7 @@ node examples/verify-readme.mjs
 
 ## Maturity
 
-The repository is **pre-v1 (`0.2.x`)**. The CLI and Action are available for evaluation and advisory CI; use an exact release tag such as `@v0.2.2` or a commit SHA, and treat the future `v1` moving tag as a separate stability milestone. See [ROADMAP.md](https://github.com/AgentsKit-io/code-review-cli/blob/main/ROADMAP.md) and the [release guidance](https://github.com/AgentsKit-io/code-review-cli/blob/main/docs/OPERATIONS.md#releases-and-maturity).
+The repository is **pre-v1 (`0.2.x`)**. The CLI and Action are available for evaluation and advisory CI; use an exact release tag such as `@v0.2.3` or a commit SHA, and treat the future `v1` moving tag as a separate stability milestone. See [ROADMAP.md](https://github.com/AgentsKit-io/code-review-cli/blob/main/ROADMAP.md) and the [release guidance](https://github.com/AgentsKit-io/code-review-cli/blob/main/docs/OPERATIONS.md#releases-and-maturity).
 
 ## Compatibility
 
@@ -712,7 +714,7 @@ The default `added` filter limits inline feedback to changed lines. Choose a bro
 ## Failure scenarios
 
 - **Unknown provider or missing model:** validate with `--list-providers`; API/local-server adapters require `--model`.
-- **Authentication failure:** verify only the provider-specific secret/login and avoid printing its value.
+- **Authentication failure:** verify only the provider-specific secret/login and avoid printing its value. A terminal authentication failure stops remaining lenses immediately and the review exits incomplete rather than spending one failed call per lens.
 - **Rate limit or timeout:** Codex calls stop after 300 seconds by default; other local CLI calls use 120 seconds. Set `AGENTSKIT_REVIEW_SUBPROCESS_TIMEOUT_MS` to a positive millisecond value when needed, reduce concurrency/file budget, or use an approved gateway; retry only when provider policy makes the operation safe.
 - **No PR comments:** confirm `pull-requests: write`, token availability, and fork restrictions. The Markdown report still appears in logs.
 - **Inline comment rejected:** the reporter falls back to a non-approving comment for GitHub 422 restrictions.
@@ -722,10 +724,10 @@ The default `added` filter limits inline feedback to changed lines. Choose a bro
 
 ## Releases and maturity
 
-The current package is `0.2.2` and the project is pre-v1:
+The current package is `0.2.3` and the project is pre-v1:
 
 - GitHub-source CLI commands can pin a commit SHA after `github:AgentsKit-io/code-review-cli#<sha>`;
-- Actions should pin `@v0.2.2` or a full commit SHA;
+- Actions should pin `@v0.2.3` or a full commit SHA;
 - a moving `@main` reference is suitable only when that mutability is accepted;
 - the future `@v1` Action tag remains a separate stability milestone.
 
@@ -733,7 +735,7 @@ Release work updates [`CHANGELOG.md`](https://github.com/AgentsKit-io/code-revie
 
 ### Automated npm publishing
 
-`.github/workflows/publish.yml` publishes only when a stable GitHub Release is published with a semantic version tag such as `v0.2.2`. The workflow checks out that tag, verifies that the tag matches `package.json`, runs `npm run check` and `npm pack --dry-run`, then publishes `@agentskit/code-review` using [npm Trusted Publishing](https://docs.npmjs.com/trusted-publishers/) (OIDC). No long-lived `NPM_TOKEN` is stored in GitHub.
+`.github/workflows/publish.yml` publishes only when a stable GitHub Release is published with a semantic version tag such as `v0.2.3`. The workflow checks out that tag, verifies that the tag matches `package.json`, runs `npm run check` and `npm pack --dry-run`, then publishes `@agentskit/code-review` using [npm Trusted Publishing](https://docs.npmjs.com/trusted-publishers/) (OIDC). No long-lived `NPM_TOKEN` is stored in GitHub.
 
 Before the first release, configure the npm package's Trusted Publisher for GitHub Actions with:
 
@@ -935,6 +937,12 @@ Canonical source: https://raw.githubusercontent.com/AgentsKit-io/code-review-cli
 All notable changes will be documented here. This project follows Semantic Versioning.
 
 ## [Unreleased]
+
+## [0.2.3] - 2026-08-30
+
+### Fixed
+
+- Stop issuing additional provider calls after a terminal authentication failure; reviews still fail closed without spending one failed call per lens.
 
 ## [0.2.2] - 2026-08-29
 
