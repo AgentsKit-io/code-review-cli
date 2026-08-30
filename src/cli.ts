@@ -117,7 +117,8 @@ async function resolveSource(reviewConfig: ResolvedReviewConfig): Promise<Source
     const token = process.env.GITHUB_TOKEN
     if (!token) throw new Error('--pr needs GITHUB_TOKEN')
     const lensCount = Object.values(reviewConfig.lenses).filter((lens) => lens.enabled).length
-    const callsPerFile = lensCount * (1 + reviewConfig.retries + reviewConfig.votes)
+    const maxFindingsPerFile = reviewConfig.thresholds.maxPerFile ?? lensCount
+    const callsPerFile = lensCount * (1 + reviewConfig.retries) + maxFindingsPerFile * reviewConfig.votes * (1 + reviewConfig.retries)
     const automaticFileBudget = Math.max(1, Math.floor(((reviewConfig.budget.maxCalls ?? 1000) - 1) / Math.max(1, callsPerFile)))
     return { kind: 'github-pr', owner: m[1]!, repo: m[2]!, number: Number(m[3]), token, redact, limits: { ...limits, maxFiles: limits.maxFiles ?? automaticFileBudget } }
   }
@@ -342,7 +343,7 @@ function formatPlan(plan: ReviewPlan): string {
     `Lenses: ${plan.enabledLenses.join(', ') || 'none'}`,
     `Required: ${plan.requiredLenses.join(', ') || 'none'}`,
     `Votes: ${plan.votes} · Retries: ${plan.retries} · Concurrency: ${plan.concurrency}`,
-    `Estimated provider calls: ${plan.estimatedProviderCalls}/${plan.maxCalls}`,
+    `Estimated provider calls: ${plan.estimatedProviderCalls}/${plan.maxCalls} (${plan.providerCallEstimate})`,
   ]
   for (const reason of plan.overBudget) lines.push(`Refusal: ${reason}`)
   for (const suggestion of plan.suggestions) lines.push(`Suggestion: ${suggestion}`)

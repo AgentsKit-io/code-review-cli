@@ -58,7 +58,7 @@ AgentsKit Code Review is built around a different contract:
 - **Low noise by design.** Findings are challenged by independent verification votes before they survive.
 - **Local first, CI ready.** Review a diff before pushing, inspect complete paths, read stdin, or comment directly on a GitHub PR.
 - **Control cost and policy.** Set file budgets, concurrency, thresholds, project conventions, and blocking severity.
-- **See the cost before execution.** Use `--plan --json` to inspect files, lenses, retries, concurrency, and estimated provider calls without a model request.
+- **See the cost before execution.** Use `--plan --json` to inspect files, lenses, retries, concurrency, and estimated provider calls without a model request. Plans label estimates as `bounded` when `thresholds.maxPerFile` is set; otherwise they are `best-effort` because model output volume is inherently variable.
 
 ## Run your first review
 
@@ -139,7 +139,7 @@ npx --yes github:AgentsKit-io/code-review-cli \
   --no-fail
 ```
 
-This reviews committed changes between `main` and `HEAD`; it is not a staged-files-only hook. The selected model must support Ollama tool calling because every review lens submits a structured result. `--no-fail` keeps findings advisory, but connection, source, and execution errors still exit nonzero. No provider key is required. Local inference reduces code disclosure, but logs, SARIF files, caches, optional gateways, and observability exporters still need their own access and retention policy.
+This reviews committed changes between `main` and `HEAD`; it is not a staged-files-only hook. The selected model must support Ollama tool calling because every review lens submits a structured result. Requests have a 30-second default deadline. `--no-fail` keeps findings advisory, but connection, source, and execution errors still exit nonzero. No provider key is required. Local inference reduces code disclosure, but logs, SARIF files, caches, optional gateways, and observability exporters still need their own access and retention policy.
 
 See the [operations guide](https://github.com/AgentsKit-io/code-review-cli/blob/main/docs/OPERATIONS.md#local-ollama-review) for model sizing, health checks, failure handling, and self-hosted CI guidance.
 
@@ -161,7 +161,7 @@ jobs:
   review:
     runs-on: ubuntu-latest
     steps:
-      - uses: AgentsKit-io/code-review-cli@main
+      - uses: AgentsKit-io/code-review-cli@v0.2.1
         with:
           provider: openai
           model: gpt-4o
@@ -174,7 +174,7 @@ The Action fetches the PR diff and posts one batched inline review plus a summar
 
 Building a conversational review experience? Use [AgentsKit Chat](https://chat.agentskit.io/docs) for the cross-framework application layer instead of embedding chat here. Looking for organization-wide orchestration, governance, and production controls? Continue with [AKOS](https://akos.agentskit.io/docs).
 
-Use `@main` while the project is pre-release. After the first stable release, pin `@v1` or a full release tag when reproducibility matters most.
+Pin the Action to an immutable release tag such as `@v0.2.1`; use a full commit SHA when your policy requires the strongest reproducibility.
 
 ## Choose how to run
 
@@ -364,7 +364,7 @@ node examples/verify-readme.mjs
 
 ## Maturity
 
-The repository is **pre-v1 (`0.2.x`)**. The CLI and Action are available for evaluation and advisory CI, but immutable `v1` Action tags and npm distribution remain planned. Use the GitHub-source command and `@main` only when that update policy is acceptable; pin a commit SHA for stronger CI reproducibility. See [ROADMAP.md](https://github.com/AgentsKit-io/code-review-cli/blob/main/ROADMAP.md) and the [release guidance](https://github.com/AgentsKit-io/code-review-cli/blob/main/docs/OPERATIONS.md#releases-and-maturity).
+The repository is **pre-v1 (`0.2.x`)**. The CLI and Action are available for evaluation and advisory CI; use an exact release tag such as `@v0.2.1` or a commit SHA, and treat the future `v1` moving tag as a separate stability milestone. See [ROADMAP.md](https://github.com/AgentsKit-io/code-review-cli/blob/main/ROADMAP.md) and the [release guidance](https://github.com/AgentsKit-io/code-review-cli/blob/main/docs/OPERATIONS.md#releases-and-maturity).
 
 ## Compatibility
 
@@ -637,7 +637,7 @@ Then require the workflow check in branch protection. CLI exit codes are:
 
 A model response that is malformed may drop one lens while other lenses continue; progress output and the final summary report successful and failed primary-lens counts. If any reviewable file cannot be ingested or has zero successful primary lenses, the pipeline stops before reporters run and exits `2`, including in advisory mode. Treat missing output or exit `2` as unavailable review, not approval.
 
-Use `--plan --json` (or `--dry-run`) to run the source and budget preflight without a model request. The plan reports files, bytes, enabled and required lenses, votes, retries, concurrency, estimated provider calls, and concrete reductions when a limit would be exceeded. The preflight refuses before the provider starts; `maxCalls` is capped at 1000 and unlimited mode is not supported. A required-lens failure is `INCOMPLETE` and exits `2`, including with `--no-fail`.
+Use `--plan --json` (or `--dry-run`) to run the source and budget preflight without a model request. The plan reports files, bytes, enabled and required lenses, votes, retries, concurrency, estimated provider calls, and concrete reductions when a limit would be exceeded. Estimates are `bounded` when `thresholds.maxPerFile` is set and `best-effort` otherwise, because model output volume is variable. The preflight refuses before the provider starts; `maxCalls` is capped at 1000 and unlimited mode is not supported. A required-lens failure is `INCOMPLETE` and exits `2`, including with `--no-fail`.
 
 ## Cost and latency controls
 
@@ -709,23 +709,24 @@ The default `added` filter limits inline feedback to changed lines. Choose a bro
 - **Rate limit or timeout:** Codex calls stop after 300 seconds by default; other local CLI calls use 120 seconds. Set `AGENTSKIT_REVIEW_SUBPROCESS_TIMEOUT_MS` to a positive millisecond value when needed, reduce concurrency/file budget, or use an approved gateway; retry only when provider policy makes the operation safe.
 - **No PR comments:** confirm `pull-requests: write`, token availability, and fork restrictions. The Markdown report still appears in logs.
 - **Inline comment rejected:** the reporter falls back to a non-approving comment for GitHub 422 restrictions.
-- **Large diff:** GitHub PR reviews automatically cap files to the call budget when `--max-files` is omitted. Set `--max-files` or split review by paths; unreviewed files must not be described as reviewed.
+- **Large diff:** GitHub PR reviews cap metadata at 500 files, select only the configured file budget before downloading contents, and stop content downloads at the byte budget. Set `--max-files`/`--max-calls` or split review by paths; truncated or unreviewed files must not be described as reviewed.
+- **Ollama timeout:** Requests stop after 30 seconds by default. Use a smaller scope or a responsive local model when the request is aborted; a stalled model must not hold the review indefinitely.
 - **Provider unavailable:** fail or mark the check unavailable according to team policy; never silently convert it to approval.
 
 ## Releases and maturity
 
-The current package is `0.2.x` and the project is pre-v1. Before immutable releases exist:
+The current package is `0.2.1` and the project is pre-v1:
 
 - GitHub-source CLI commands can pin a commit SHA after `github:AgentsKit-io/code-review-cli#<sha>`;
-- Actions can pin a full commit SHA instead of `@main`;
-- `@main` follows repository updates and is suitable only when that mutability is accepted;
-- the documented future `@agentskit/code-review` npm command and `@v1` Action tag must not be treated as released until published.
+- Actions should pin `@v0.2.1` or a full commit SHA;
+- a moving `@main` reference is suitable only when that mutability is accepted;
+- the future `@v1` Action tag remains a separate stability milestone.
 
 Release work updates [`CHANGELOG.md`](https://github.com/AgentsKit-io/code-review-cli/blob/main/CHANGELOG.md), [`ROADMAP.md`](https://github.com/AgentsKit-io/code-review-cli/blob/main/ROADMAP.md), package version, immutable tag guidance, and signed/provenance evidence when available. Run `npm run check` and `npm pack --dry-run` before publishing.
 
 ### Automated npm publishing
 
-`.github/workflows/publish.yml` publishes only when a stable GitHub Release is published with a semantic version tag such as `v0.2.0`. The workflow checks out that tag, verifies that the tag matches `package.json`, runs `npm run check` and `npm pack --dry-run`, then publishes `@agentskit/code-review` using [npm Trusted Publishing](https://docs.npmjs.com/trusted-publishers/) (OIDC). No long-lived `NPM_TOKEN` is stored in GitHub.
+`.github/workflows/publish.yml` publishes only when a stable GitHub Release is published with a semantic version tag such as `v0.2.1`. The workflow checks out that tag, verifies that the tag matches `package.json`, runs `npm run check` and `npm pack --dry-run`, then publishes `@agentskit/code-review` using [npm Trusted Publishing](https://docs.npmjs.com/trusted-publishers/) (OIDC). No long-lived `NPM_TOKEN` is stored in GitHub.
 
 Before the first release, configure the npm package's Trusted Publisher for GitHub Actions with:
 
@@ -937,6 +938,13 @@ All notable changes will be documented here. This project follows Semantic Versi
 - Prevented Codex authentication, timeout, and process failures from being retried as output-schema compatibility failures.
 - Documented and exposed explicit trusted-local mode for logged-in Codex/Claude CLI workflows.
 - Raised the default Codex local-worker deadline to five minutes and made GitHub PR file budgets enforceable and fail-closed.
+
+## [0.2.1] - 2026-08-29
+
+### Fixed
+
+- Applied Codex timeout defaults in direct library usage, bounded GitHub PR metadata/content ingestion, and transient-only GitHub GET retries.
+- Added Ollama request deadlines and integration coverage for rate limits, posting failures, stalled requests, and large PR limits.
 
 ## [0.2.0] - 2026-08-29
 

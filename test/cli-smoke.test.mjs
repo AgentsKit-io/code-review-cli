@@ -240,6 +240,7 @@ test('plan is provider-free and machine-readable', () => {
   assert.deepEqual(plan.requiredLenses, ['correctness', 'security', 'tests'])
   assert.equal(plan.concurrency, 1)
   assert.ok(plan.estimatedProviderCalls > 0)
+  assert.equal(plan.providerCallEstimate, 'best-effort')
   assert.equal(plan.overBudget.length, 0)
 })
 

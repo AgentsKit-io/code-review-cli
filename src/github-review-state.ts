@@ -29,6 +29,12 @@ export function reviewMarker(sha: string, fingerprint: string): string {
   return `${MARKER_PREFIX} sha=${sha} fingerprint=${fingerprint} -->`
 }
 
+function retryableGithubGet(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error)
+  return /GitHub GET .* → (429|5\d\d)/.test(message)
+    || /(?:aborted|timed out|fetch failed|network)/i.test(message)
+}
+
 export async function githubGet<T>(token: string, path: string): Promise<T> {
   let lastError: unknown
   for (let attempt = 0; attempt < 2; attempt++) {
@@ -41,7 +47,7 @@ export async function githubGet<T>(token: string, path: string): Promise<T> {
       return await response.json() as T
     } catch (error) {
       lastError = error
-      if (attempt === 1) throw error
+      if (attempt === 1 || !retryableGithubGet(error)) throw error
     }
   }
   throw lastError instanceof Error ? lastError : new Error('GitHub GET failed')

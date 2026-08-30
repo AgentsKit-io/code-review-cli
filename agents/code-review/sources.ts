@@ -13,6 +13,8 @@ const ABSOLUTE_SNAPSHOT_FILES = 500
 const ABSOLUTE_TOTAL_BYTES = 25 * 1024 * 1024
 const ABSOLUTE_PROMPT_FILE_BYTES = 1024 * 1024
 const GITHUB_REQUEST_TIMEOUT_MS = 30_000
+const DEFAULT_GITHUB_PR_FILES = 40
+const MAX_GITHUB_PR_METADATA_FILES = 500
 
 export type ContextMode = 'prompt' | 'isolated-snapshot'
 export interface SourceLimits {
@@ -150,6 +152,31 @@ function validatePatterns(patterns: readonly string[]): void {
   }
 }
 
+async function readGithubText(response: Response, maxBytes: number): Promise<{ text: string; exceeded: boolean }> {
+  const reader = response.body?.getReader()
+  if (!reader) {
+    const text = await response.text()
+    return { text, exceeded: Buffer.byteLength(text, 'utf8') > maxBytes }
+  }
+  const chunks: Uint8Array[] = []
+  let bytes = 0
+  try {
+    for (;;) {
+      const { done, value } = await reader.read()
+      if (done) break
+      bytes += value.byteLength
+      if (bytes > maxBytes) {
+        await reader.cancel()
+        return { text: '', exceeded: true }
+      }
+      chunks.push(value)
+    }
+  } finally {
+    reader.releaseLock()
+  }
+  return { text: Buffer.concat(chunks.map((chunk) => Buffer.from(chunk))).toString('utf8'), exceeded: false }
+}
+
 function walkFiles(root: string, current: string, out: string[], unreviewedFiles: ReviewTarget[]): void {
   for (const entry of readdirSync(current)) {
     const abs = join(current, entry)
@@ -190,16 +217,25 @@ async function fromGithubPr(c: Extract<SourceConfig, { kind: 'github-pr' }>): Pr
   }
   const pr = await api<{ head: { sha: string } }>(`/repos/${c.owner}/${c.repo}/pulls/${c.number}`); const sha = pr.head.sha
   const files: Array<{ filename: string; patch?: string; status: string }> = []
+  let metadataTruncated = false
   const filesPath = c.baselineSha
     ? `/repos/${c.owner}/${c.repo}/compare/${c.baselineSha}...${sha}`
     : `/repos/${c.owner}/${c.repo}/pulls/${c.number}/files?per_page=100&page=1`
   if (c.baselineSha) {
     const comparison = await api<{ files?: typeof files }>(filesPath)
-    files.push(...(comparison.files ?? []))
+    const batch = comparison.files ?? []
+    metadataTruncated = batch.length > MAX_GITHUB_PR_METADATA_FILES
+    files.push(...batch.slice(0, MAX_GITHUB_PR_METADATA_FILES))
   } else {
-    for (let page = 1; ; page++) { const batch = await api<typeof files>(`/repos/${c.owner}/${c.repo}/pulls/${c.number}/files?per_page=100&page=${page}`); files.push(...batch); if (batch.length < 100) break }
+    for (let page = 1; ; page++) {
+      const batch = await api<typeof files>(`/repos/${c.owner}/${c.repo}/pulls/${c.number}/files?per_page=100&page=${page}`)
+      const remaining = MAX_GITHUB_PR_METADATA_FILES - files.length
+      files.push(...batch.slice(0, remaining))
+      if (batch.length < 100) break
+      if (remaining <= batch.length) { metadataTruncated = true; break }
+    }
   }
-  const maxFiles = c.limits?.maxFiles ?? Number.POSITIVE_INFINITY
+  const maxFiles = Math.min(c.limits?.maxFiles ?? DEFAULT_GITHUB_PR_FILES, MAX_GITHUB_PR_METADATA_FILES)
   const selectedFiles = new Set(files
     .map((file, index) => ({ file, index }))
     .filter(({ file }) => file.status !== 'removed' && !deniedPath(file.filename) && isReviewableName(file.filename))
@@ -207,26 +243,55 @@ async function fromGithubPr(c: Extract<SourceConfig, { kind: 'github-pr' }>): Pr
     .slice(0, maxFiles)
     .map(({ file }) => file.filename))
   const targets: ReviewTarget[] = []
+  let downloadedBytes = 0
+  let byteBudgetHit = false
   for (const f of files) {
     if (f.status === 'removed') continue
     const denied = deniedPath(f.filename)
     if (denied || !isReviewableName(f.filename)) { targets.push(unreviewed(f.filename, denied ?? 'unsupported text format')); continue }
     if (!selectedFiles.has(f.filename)) { targets.push(unreviewed(f.filename, `PR exceeds ${maxFiles} file limit`)); continue }
+    if (byteBudgetHit || downloadedBytes >= (c.limits?.maxBytes ?? Number.POSITIVE_INFINITY)) {
+      targets.push(unreviewed(f.filename, `PR exceeds ${c.limits?.maxBytes} byte limit`))
+      continue
+    }
+    const fileLimit = c.limits?.maxFileBytes ?? DEFAULT_PROMPT_FILE_BYTES
+    const remainingBytes = (c.limits?.maxBytes ?? Number.POSITIVE_INFINITY) - downloadedBytes
+    const downloadLimit = Math.min(fileLimit, remainingBytes)
     const content = await api<{ content: string; encoding: string; download_url?: string }>(`/repos/${c.owner}/${c.repo}/contents/${encodeURIComponent(f.filename)}?ref=${sha}`)
-    const raw = content.encoding === 'none'
-      ? await (async () => {
+    let raw: string
+    if (content.encoding === 'none') {
         if (!content.download_url) throw new Error(`GitHub contents response has no download URL for ${f.filename}`)
         const downloadUrl = new URL(content.download_url)
         if (downloadUrl.hostname !== 'raw.githubusercontent.com') throw new Error(`GitHub contents response has an unsafe download URL for ${f.filename}`)
         const res = await fetch(downloadUrl, { headers: { authorization: `Bearer ${c.token}`, accept: 'application/vnd.github.raw', 'user-agent': 'agentskit-code-review' }, signal: AbortSignal.timeout(GITHUB_REQUEST_TIMEOUT_MS) })
         if (!res.ok) throw new Error(`GitHub ${content.download_url} → ${res.status}`)
-        return res.text()
-      })()
-      : Buffer.from(content.content, content.encoding as BufferEncoding).toString('utf8')
-    const size = Buffer.byteLength(raw, 'utf8'); const limit = c.limits?.maxFileBytes ?? DEFAULT_PROMPT_FILE_BYTES
+        const limited = await readGithubText(res, downloadLimit)
+        if (limited.exceeded) {
+          targets.push(unreviewed(f.filename, remainingBytes <= fileLimit ? `PR exceeds ${c.limits?.maxBytes} byte limit` : `file exceeds ${fileLimit} byte limit`))
+          if (remainingBytes <= fileLimit) byteBudgetHit = true
+          continue
+        }
+        raw = limited.text
+    } else {
+      const decoded = Buffer.from(content.content, content.encoding as BufferEncoding)
+      if (decoded.byteLength > downloadLimit) {
+        targets.push(unreviewed(f.filename, remainingBytes <= fileLimit ? `PR exceeds ${c.limits?.maxBytes} byte limit` : `file exceeds ${fileLimit} byte limit`))
+        if (remainingBytes <= fileLimit) byteBudgetHit = true
+        continue
+      }
+      raw = decoded.toString('utf8')
+    }
+    const size = Buffer.byteLength(raw, 'utf8'); const limit = fileLimit
     if (size > limit || raw.includes('\0')) { targets.push(unreviewed(f.filename, size > limit ? `file exceeds ${limit} byte limit` : 'binary content')); continue }
+    if (downloadedBytes + size > (c.limits?.maxBytes ?? Number.POSITIVE_INFINITY)) {
+      targets.push(unreviewed(f.filename, `PR exceeds ${c.limits?.maxBytes} byte limit`))
+      byteBudgetHit = true
+      continue
+    }
+    downloadedBytes += size
     targets.push({ file: f.filename, language: langOf(f.filename), fullContent: c.redact ? redactSecrets(raw) : raw, changedRanges: f.patch ? changedRanges(f.patch) : [], isChanged: true, commitId: sha })
   }
+  if (metadataTruncated) targets.push(unreviewed('[github-pr file list]', `PR file metadata truncated after ${MAX_GITHUB_PR_METADATA_FILES} files`))
   return applyLimits(targets, c.limits)
 }
 

@@ -40,6 +40,38 @@ test('retries one idempotent GET and detects fork ownership', async () => {
   } finally { globalThis.fetch = originalFetch }
 })
 
+test('retries a GitHub rate-limit response once', async () => {
+  const originalFetch = globalThis.fetch
+  let calls = 0
+  globalThis.fetch = async () => {
+    calls++
+    return new Response('rate limited', { status: 429 })
+  }
+  try {
+    await assert.rejects(
+      getGithubReviewState({ owner: 'org', repo: 'repo', number: 10, token: 'test-token', fingerprint: 'f' }),
+      /GitHub GET .* → 429/,
+    )
+    assert.equal(calls, 2)
+  } finally { globalThis.fetch = originalFetch }
+})
+
+test('does not retry non-transient GitHub GET failures', async () => {
+  const originalFetch = globalThis.fetch
+  let calls = 0
+  globalThis.fetch = async () => {
+    calls++
+    return new Response('not found', { status: 404 })
+  }
+  try {
+    await assert.rejects(
+      getGithubReviewState({ owner: 'org', repo: 'repo', number: 11, token: 'test-token', fingerprint: 'f' }),
+      /GitHub GET .* → 404/,
+    )
+    assert.equal(calls, 1)
+  } finally { globalThis.fetch = originalFetch }
+})
+
 test('uses incremental scope only when the previous reviewed SHA is an ancestor', async () => {
   const originalFetch = globalThis.fetch
   const fingerprint = 'stable'
