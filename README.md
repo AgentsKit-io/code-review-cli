@@ -40,7 +40,7 @@ AgentsKit Code Review is built around a different contract:
 - **Low noise by design.** Findings are challenged by independent verification votes before they survive.
 - **Local first, CI ready.** Review a diff before pushing, inspect complete paths, read stdin, or comment directly on a GitHub PR.
 - **Control cost and policy.** Set file budgets, concurrency, thresholds, project conventions, and blocking severity.
-- **See the cost before execution.** Use `--plan --json` to inspect files, lenses, retries, concurrency, and estimated provider calls without a model request.
+- **See the cost before execution.** Use `--plan --json` to inspect files, lenses, retries, concurrency, and estimated provider calls without a model request. Plans label estimates as `bounded` when `thresholds.maxPerFile` is set; otherwise they are `best-effort` because model output volume is inherently variable.
 
 ## Run your first review
 
@@ -48,8 +48,8 @@ Open a terminal inside any Git repository and choose a provider you already use.
 
 <!-- readme-example:first-review -->
 ```sh
-# Codex CLI — uses your existing login
-npx --yes github:AgentsKit-io/code-review-cli --provider codex-cli
+# Codex CLI — uses your existing login on a trusted local machine
+npx --yes github:AgentsKit-io/code-review-cli --provider codex-cli --mode trusted-local
 
 # Claude CLI — uses your existing login
 npx --yes github:AgentsKit-io/code-review-cli --provider claude-cli
@@ -63,13 +63,15 @@ The CLI reviews the current repository's diff against `origin/main` and prints t
 
 For the Grok Build ACP worker, use `XAI_API_KEY` (or `--api-key`) in the default isolated mode. To reuse `grok login`, opt in explicitly with `--mode trusted-local`.
 
-Local `codex-cli` and `claude-cli` subprocesses have a 120-second deadline per model call. Set `AGENTSKIT_REVIEW_SUBPROCESS_TIMEOUT_MS` to a positive integer when a provider needs a different limit; timed-out lenses fail explicitly and cannot turn an unreviewed file into an approval.
+Local `codex-cli` subprocesses have a 300-second deadline per model call; `claude-cli` and the other local workers use 120 seconds. Set `AGENTSKIT_REVIEW_SUBPROCESS_TIMEOUT_MS` to a positive integer when a provider needs a different limit; timed-out lenses fail explicitly and cannot turn an unreviewed file into an approval.
+
+The default `isolated` mode does not inherit an interactive CLI login. Use `--mode trusted-local` only on a machine or runner you trust with the provider's local session and environment.
 
 `grok-cli` is stable and uses Grok Build's ACP transport (`grok agent stdio`) by default. In the default isolated mode, pass `XAI_API_KEY`/`--api-key`; the key is injected into the isolated worker environment, never into command arguments. Existing `grok login` state is available only with explicit local-only `--mode trusted-local`. Isolated workers grant no filesystem write, terminal, MCP, plugin, or subagent capability and use a temporary working directory. `--transport headless` is available for explicit non-interactive runs, while `--transport auto` is local-only and reports an ACP fallback before trying headless.
 
 `opencode-cli` is stable and uses OpenCode's ACP transport (`opencode acp`) by default. In the default isolated mode, pass `OPENCODE_API_KEY`/`--api-key`; the selected key is injected into the isolated worker environment, never into command arguments. Existing OpenCode login/configuration state is available only with explicit local-only `--mode trusted-local`. OpenCode is not installed automatically. `--transport headless` is available for explicit non-interactive runs, while `--transport auto` is local-only and reports an ACP fallback before trying headless.
 
-Preflight refuses an over-budget run before the first provider call. `--dry-run` and `--plan` print the refusal and concrete reductions; `--json` makes the plan machine-readable. CLI providers default to concurrency `1`, while API providers retain concurrency `4`. Required-lens or source coverage failures always exit `2`, even with `--no-fail`.
+Preflight refuses an over-budget run before the first provider call. For GitHub PR sources, the CLI automatically caps the reviewed files to the safe call budget when `--max-files` is omitted; the remaining files are marked `UNREVIEWED`, so the result stays incomplete and cannot approve the PR. Use `--max-files` to choose a smaller explicit scope. `--dry-run` and `--plan` print the cap and concrete reductions; `--json` makes the plan machine-readable. CLI providers default to concurrency `1`, while API providers retain concurrency `4`. Required-lens or source coverage failures always exit `2`, even with `--no-fail`.
 
 ![AgentsKit Code Review showing an APPROVE result after seven review lenses complete](docs/assets/code-review-terminal.png)
 
@@ -119,7 +121,7 @@ npx --yes github:AgentsKit-io/code-review-cli \
   --no-fail
 ```
 
-This reviews committed changes between `main` and `HEAD`; it is not a staged-files-only hook. The selected model must support Ollama tool calling because every review lens submits a structured result. `--no-fail` keeps findings advisory, but connection, source, and execution errors still exit nonzero. No provider key is required. Local inference reduces code disclosure, but logs, SARIF files, caches, optional gateways, and observability exporters still need their own access and retention policy.
+This reviews committed changes between `main` and `HEAD`; it is not a staged-files-only hook. The selected model must support Ollama tool calling because every review lens submits a structured result. Requests have a 30-second default deadline. `--no-fail` keeps findings advisory, but connection, source, and execution errors still exit nonzero. No provider key is required. Local inference reduces code disclosure, but logs, SARIF files, caches, optional gateways, and observability exporters still need their own access and retention policy.
 
 See the [operations guide](docs/OPERATIONS.md#local-ollama-review) for model sizing, health checks, failure handling, and self-hosted CI guidance.
 
@@ -141,20 +143,23 @@ jobs:
   review:
     runs-on: ubuntu-latest
     steps:
-      - uses: AgentsKit-io/code-review-cli@main
+      - uses: AgentsKit-io/code-review-cli@v0.2.2
         with:
           provider: openai
           model: gpt-4o
           api-key: ${{ secrets.LLM_API_KEY }}
+          # max-files: '17'
+          # max-calls: '1000'
+          # max-findings-per-file: '7'
           # fail-on-block: 'true' # advisory by default
           # block: high
 ```
 
-The Action fetches the PR diff and posts one batched inline review plus a summary. It is advisory by default. Advisory mode affects findings only: source, provider, or execution failures still fail the check, and any reviewable file with zero successful primary lenses prevents approval. Summaries report successful and failed lens counts so partial degradation stays visible. Enable `fail-on-block` and branch protection when you are ready to use findings as a merge gate.
+The Action fetches the PR diff and posts one batched inline review plus a summary. Its defaults review at most 17 files, 7 findings per file, and 1,000 provider calls. It is advisory by default. Advisory mode affects findings only: source, provider, or execution failures still fail the check, and any reviewable file with zero successful primary lenses prevents approval. Summaries report successful and failed lens counts so partial degradation stays visible. `codex-cli` requires a pre-authenticated `trusted-local` self-hosted runner; use an API provider with a secret on GitHub-hosted runners. Enable `fail-on-block` and branch protection when you are ready to use findings as a merge gate.
 
 Building a conversational review experience? Use [AgentsKit Chat](https://chat.agentskit.io/docs) for the cross-framework application layer instead of embedding chat here. Looking for organization-wide orchestration, governance, and production controls? Continue with [AKOS](https://akos.agentskit.io/docs).
 
-Use `@main` while the project is pre-release. After the first stable release, pin `@v1` or a full release tag when reproducibility matters most.
+Pin the Action to an immutable release tag such as `@v0.2.2`; use a full commit SHA when your policy requires the strongest reproducibility.
 
 ## Choose how to run
 
@@ -264,6 +269,7 @@ In shortened examples, replace `...` with `npx --yes github:AgentsKit-io/code-re
 | `--min-confidence <n>` | Minimum reported confidence |
 | `--max-files <n>` | Positive file budget; over-budget runs are refused before the provider |
 | `--max-calls <n>` | Provider-call budget; absolute ceiling `1000` |
+| `--max-findings-per-file <n>` | Maximum verified findings per file; bounds adversarial verification calls |
 | `--concurrency <n>` | Parallel model calls; default `1` for CLI providers, `4` for API providers |
 | `--plan`, `--dry-run` | Print provider-free preflight; add `--json` for machine output |
 | `--validate-patch` | Run `git apply --check` on suggested patches |
@@ -344,7 +350,7 @@ node examples/verify-readme.mjs
 
 ## Maturity
 
-The repository is **pre-v1 (`0.2.x`)**. The CLI and Action are available for evaluation and advisory CI, but immutable `v1` Action tags and npm distribution remain planned. Use the GitHub-source command and `@main` only when that update policy is acceptable; pin a commit SHA for stronger CI reproducibility. See [ROADMAP.md](ROADMAP.md) and the [release guidance](docs/OPERATIONS.md#releases-and-maturity).
+The repository is **pre-v1 (`0.2.x`)**. The CLI and Action are available for evaluation and advisory CI; use an exact release tag such as `@v0.2.2` or a commit SHA, and treat the future `v1` moving tag as a separate stability milestone. See [ROADMAP.md](ROADMAP.md) and the [release guidance](docs/OPERATIONS.md#releases-and-maturity).
 
 ## Compatibility
 

@@ -4,9 +4,25 @@ All notable changes will be documented here. This project follows Semantic Versi
 
 ## [Unreleased]
 
+## [0.2.2] - 2026-08-29
+
 ### Added
 
 - Added a GitHub Release workflow for tag-verified npm Trusted Publishing with OIDC and provenance.
+
+### Fixed
+
+- Prevented Codex authentication, timeout, and process failures from being retried as output-schema compatibility failures.
+- Documented and exposed explicit trusted-local mode for logged-in Codex/Claude CLI workflows.
+- Raised the default Codex local-worker deadline to five minutes and made GitHub PR file budgets enforceable and fail-closed.
+- Bounded GitHub Action calls, propagated Claude OAuth credentials, made review fingerprints version-aware, paginated comment reconciliation with a fail-closed cap, and bounded GitHub API responses.
+
+## [0.2.1] - 2026-08-29
+
+### Fixed
+
+- Applied Codex timeout defaults in direct library usage, bounded GitHub PR metadata/content ingestion, and transient-only GitHub GET retries.
+- Added Ollama request deadlines and integration coverage for rate limits, posting failures, stalled requests, and large PR limits.
 
 ## [0.2.0] - 2026-08-29
 

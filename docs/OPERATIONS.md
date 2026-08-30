@@ -196,6 +196,8 @@ permissions:
 
 `contents: read` loads the PR source. `pull-requests: write` posts the batched review. Do not grant repository administration, package write, or workflow write. Fork PRs do not receive normal repository secrets; do not switch to `pull_request_target` merely to expose a model key, because that can execute or process untrusted contributions with privileged context.
 
+The composite Action defaults to 17 files, 7 findings per file, and 1,000 provider calls. `codex-cli` is accepted only with `mode: trusted-local` on a pre-authenticated self-hosted runner; use an API provider with a secret on GitHub-hosted runners.
+
 Use environment protection or organization secrets for sensitive providers. Rotate a secret after suspected exposure and review provider usage plus GitHub audit logs.
 
 When `--post` is used with `--pr`, the reviewer stores a hidden SHA and policy
@@ -228,7 +230,7 @@ Then require the workflow check in branch protection. CLI exit codes are:
 
 A model response that is malformed may drop one lens while other lenses continue; progress output and the final summary report successful and failed primary-lens counts. If any reviewable file cannot be ingested or has zero successful primary lenses, the pipeline stops before reporters run and exits `2`, including in advisory mode. Treat missing output or exit `2` as unavailable review, not approval.
 
-Use `--plan --json` (or `--dry-run`) to run the source and budget preflight without a model request. The plan reports files, bytes, enabled and required lenses, votes, retries, concurrency, estimated provider calls, and concrete reductions when a limit would be exceeded. The preflight refuses before the provider starts; `maxCalls` is capped at 1000 and unlimited mode is not supported. A required-lens failure is `INCOMPLETE` and exits `2`, including with `--no-fail`.
+Use `--plan --json` (or `--dry-run`) to run the source and budget preflight without a model request. The plan reports files, bytes, enabled and required lenses, votes, retries, concurrency, estimated provider calls, and concrete reductions when a limit would be exceeded. Estimates are `bounded` when `thresholds.maxPerFile` is set and `best-effort` otherwise, because model output volume is variable. The preflight refuses before the provider starts; `maxCalls` is capped at 1000 and unlimited mode is not supported. A required-lens failure is `INCOMPLETE` and exits `2`, including with `--no-fail`.
 
 ## Cost and latency controls
 
@@ -236,6 +238,7 @@ Seven lenses fan out over selected files; candidate findings then receive advers
 
 - `--max-files`: positive hard file budget;
 - `--max-calls`: bounded provider-call budget (absolute ceiling 1000);
+- `--max-findings-per-file`: positive verified-finding budget per file;
 - `--votes`: verification depth and cost;
 - `--concurrency`: simultaneous model/subprocess calls (default 1 for CLI providers, 4 for API providers);
 - `--paths` or workflow path filters: narrow scope;
@@ -297,26 +300,27 @@ The default `added` filter limits inline feedback to changed lines. Choose a bro
 
 - **Unknown provider or missing model:** validate with `--list-providers`; API/local-server adapters require `--model`.
 - **Authentication failure:** verify only the provider-specific secret/login and avoid printing its value.
-- **Rate limit or timeout:** local CLI calls stop after 120 seconds by default. Set `AGENTSKIT_REVIEW_SUBPROCESS_TIMEOUT_MS` to a positive millisecond value when needed, reduce concurrency/file budget, or use an approved gateway; retry only when provider policy makes the operation safe.
+- **Rate limit or timeout:** Codex calls stop after 300 seconds by default; other local CLI calls use 120 seconds. Set `AGENTSKIT_REVIEW_SUBPROCESS_TIMEOUT_MS` to a positive millisecond value when needed, reduce concurrency/file budget, or use an approved gateway; retry only when provider policy makes the operation safe.
 - **No PR comments:** confirm `pull-requests: write`, token availability, and fork restrictions. The Markdown report still appears in logs.
 - **Inline comment rejected:** the reporter falls back to a non-approving comment for GitHub 422 restrictions.
-- **Large diff:** cap `--max-files` and split review by paths; unreviewed files must not be described as reviewed.
+- **Large diff:** GitHub PR reviews cap metadata at 500 files, select only the configured file budget before downloading contents, and stop content downloads at the byte budget. Set `--max-files`/`--max-calls` or split review by paths; truncated or unreviewed files must not be described as reviewed.
+- **Ollama timeout:** Requests stop after 30 seconds by default. Use a smaller scope or a responsive local model when the request is aborted; a stalled model must not hold the review indefinitely.
 - **Provider unavailable:** fail or mark the check unavailable according to team policy; never silently convert it to approval.
 
 ## Releases and maturity
 
-The current package is `0.2.x` and the project is pre-v1. Before immutable releases exist:
+The current package is `0.2.2` and the project is pre-v1:
 
 - GitHub-source CLI commands can pin a commit SHA after `github:AgentsKit-io/code-review-cli#<sha>`;
-- Actions can pin a full commit SHA instead of `@main`;
-- `@main` follows repository updates and is suitable only when that mutability is accepted;
-- the documented future `@agentskit/code-review` npm command and `@v1` Action tag must not be treated as released until published.
+- Actions should pin `@v0.2.2` or a full commit SHA;
+- a moving `@main` reference is suitable only when that mutability is accepted;
+- the future `@v1` Action tag remains a separate stability milestone.
 
 Release work updates [`CHANGELOG.md`](../CHANGELOG.md), [`ROADMAP.md`](../ROADMAP.md), package version, immutable tag guidance, and signed/provenance evidence when available. Run `npm run check` and `npm pack --dry-run` before publishing.
 
 ### Automated npm publishing
 
-`.github/workflows/publish.yml` publishes only when a stable GitHub Release is published with a semantic version tag such as `v0.2.0`. The workflow checks out that tag, verifies that the tag matches `package.json`, runs `npm run check` and `npm pack --dry-run`, then publishes `@agentskit/code-review` using [npm Trusted Publishing](https://docs.npmjs.com/trusted-publishers/) (OIDC). No long-lived `NPM_TOKEN` is stored in GitHub.
+`.github/workflows/publish.yml` publishes only when a stable GitHub Release is published with a semantic version tag such as `v0.2.2`. The workflow checks out that tag, verifies that the tag matches `package.json`, runs `npm run check` and `npm pack --dry-run`, then publishes `@agentskit/code-review` using [npm Trusted Publishing](https://docs.npmjs.com/trusted-publishers/) (OIDC). No long-lived `NPM_TOKEN` is stored in GitHub.
 
 Before the first release, configure the npm package's Trusted Publisher for GitHub Actions with:
 

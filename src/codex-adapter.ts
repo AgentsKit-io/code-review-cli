@@ -10,6 +10,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { AdapterFactory, AdapterRequest, StreamChunk, StreamSource } from "@agentskit/core";
 import { runLocalCli, type LocalCliMode } from "./local-cli-process.js";
+import { DEFAULT_CODEX_CLI_TIMEOUT_MS, localCliTimeoutMs } from "./local-cli-timeout.js";
 
 /**
  * Pull a JSON object out of a reply while rejecting prose/braces that are not
@@ -39,6 +40,14 @@ function extractJson(text: string): string {
   throw new Error(`codex output was not a JSON object (${text.length} characters)`);
 }
 
+function isOutputSchemaRejection(error: unknown): boolean {
+  const e = error as { message?: string; stderr?: string };
+  const detail = [e.message, e.stderr].filter(Boolean).join(" ");
+  return /invalid[_ -]?json[_ -]?schema/i.test(detail)
+    || /(?:unknown|unrecognized|unexpected|invalid|unsupported)\s+(?:option|flag|argument)[^\n]*--output-schema/i.test(detail)
+    || /--output-schema[^\n]*(?:unsupported|not supported|rejected|invalid)/i.test(detail);
+}
+
 /** Run `codex exec` and return its final message (captured via -o). */
 async function runCodex(prompt: string, schema: unknown, model?: string, signal?: AbortSignal, mode?: LocalCliMode, worker?: { timeoutMs?: number; maxOutputBytes?: number }): Promise<string> {
   const dir = mkdtempSync(join(tmpdir(), "cr-codex-"));
@@ -62,7 +71,12 @@ async function runCodex(prompt: string, schema: unknown, model?: string, signal?
       }
       if (model) args.push("-m", model);
       args.push(prompt);
-      await runLocalCli("codex", args, { signal, mode, ...worker });
+      await runLocalCli("codex", args, {
+        signal,
+        mode,
+        timeoutMs: worker?.timeoutMs ?? localCliTimeoutMs(DEFAULT_CODEX_CLI_TIMEOUT_MS),
+        maxOutputBytes: worker?.maxOutputBytes,
+      });
     };
 
     try {
@@ -70,9 +84,9 @@ async function runCodex(prompt: string, schema: unknown, model?: string, signal?
     } catch (error) {
       // Codex versions can reject an otherwise valid JSON Schema at request time
       // (for example, when they require every object property to be required).
-      // Retry without response-format enforcement; extractJson still validates the
-      // bounded object response before it reaches the runtime tool parser.
-      if (schema === undefined) throw error;
+      // Retry only that compatibility failure; auth, timeout, and process failures
+      // must not double the provider calls.
+      if (schema === undefined || !isOutputSchemaRejection(error)) throw error;
       await run(false);
     }
     return readFileSync(outFile, "utf8");

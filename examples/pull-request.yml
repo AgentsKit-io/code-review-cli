@@ -14,7 +14,7 @@ jobs:
   review:
     runs-on: ubuntu-latest
     steps:
-      - uses: AgentsKit-io/code-review-cli@main
+      - uses: AgentsKit-io/code-review-cli@v0.2.2
         with:
           # Choose any @agentskit adapter. Examples: anthropic, gemini,
           # grok, groq, openrouter, ollama, mistral, or deepseek.
@@ -24,4 +24,6 @@ jobs:
           # advisory by default (posts, never blocks). To gate merges:
           # fail-on-block: 'true'
           # block: 'high'        # or 'blocker'
-          # max-files: '40'
+          # max-files: '17'
+          # max-calls: '1000'
+          # max-findings-per-file: '7'

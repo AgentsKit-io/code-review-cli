@@ -92,6 +92,7 @@ export interface ReviewPlan {
   retries: number
   concurrency: number
   estimatedProviderCalls: number
+  providerCallEstimate: 'bounded' | 'best-effort'
   maxCalls: number
   unreviewedFiles: number
   overBudget: string[]
@@ -376,6 +377,20 @@ export function createCodeReviewAgent(config: CodeReviewConfig) {
     return [...best.values()]
   }
 
+  function capCandidates(findings: Finding[]): Finding[] {
+    const maxPerFile = config.thresholds?.maxPerFile
+    if (maxPerFile === undefined) return findings
+    const counts = new Map<string, number>()
+    return [...findings]
+      .sort((a, b) => SEV_RANK[a.severity] - SEV_RANK[b.severity] || b.confidence - a.confidence)
+      .filter((finding) => {
+        const count = counts.get(finding.file) ?? 0
+        if (count >= maxPerFile) return false
+        counts.set(finding.file, count + 1)
+        return true
+      })
+  }
+
   /**
    * Merge findings that describe the SAME underlying issue across lenses (one LLM call).
    * Distinct problems that merely share a theme stay separate. Resilient: on any failure
@@ -519,10 +534,15 @@ export function createCodeReviewAgent(config: CodeReviewConfig) {
     const bytes = ranked.reduce((total, target) => total + Buffer.byteLength(target.fullContent, 'utf8'), 0)
     const enabledLenses = lenses.map((lens) => lens.key)
     const required = [...requiredLenses]
-    const estimatedProviderCalls = files * enabledLenses.length * (1 + retries + auditVotes) + (files && enabledLenses.length ? 1 : 0)
+    const primaryCalls = files * enabledLenses.length * (1 + retries)
+    const maxFindingsPerFile = config.thresholds?.maxPerFile
+    const verificationCalls = files * (maxFindingsPerFile ?? enabledLenses.length) * auditVotes * (1 + retries)
+    const estimatedProviderCalls = primaryCalls + verificationCalls + (files && enabledLenses.length ? 1 : 0)
     const plan: ReviewPlan = {
       files, bytes, enabledLenses, requiredLenses: required, votes: auditVotes, retries, concurrency,
-      estimatedProviderCalls, maxCalls, unreviewedFiles: all.length - files, overBudget: [], suggestions: [],
+      estimatedProviderCalls,
+      providerCallEstimate: maxFindingsPerFile === undefined ? 'best-effort' : 'bounded',
+      maxCalls, unreviewedFiles: all.length - files, overBudget: [], suggestions: [],
     }
     const maxFiles = config.budget?.maxFiles
     const maxBytes = config.budget?.maxBytes
@@ -608,7 +628,7 @@ export function createCodeReviewAgent(config: CodeReviewConfig) {
       throw new ReviewExecutionError(execution, unreviewedFiles)
     }
     const raw = targetResults.flatMap((result) => result.findings)
-    const deduped = dedupe(raw)
+    const deduped = capCandidates(dedupe(raw))
     emit('review', 'ok', `${deduped.length} candidate finding(s)`, Date.now() - t1)
 
     emit('verify', 'start', `${deduped.length} × ${auditVotes} votes`)

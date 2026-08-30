@@ -3,7 +3,10 @@ import type { AdapterFactory, AdapterRequest, StreamChunk, StreamSource } from "
 export interface OllamaReviewOptions {
   model: string;
   baseUrl?: string;
+  timeoutMs?: number;
 }
+
+const DEFAULT_OLLAMA_TIMEOUT_MS = 30_000;
 
 function parseArguments(args: unknown): unknown {
   if (typeof args !== "string") return args ?? {};
@@ -133,6 +136,7 @@ async function* parseResponse(response: Response): AsyncIterableIterator<StreamC
 
 export function ollamaReview(options: OllamaReviewOptions): AdapterFactory {
   const baseUrl = (options.baseUrl ?? "http://localhost:11434").replace(/\/+$/, "");
+  const timeoutMs = options.timeoutMs ?? DEFAULT_OLLAMA_TIMEOUT_MS;
 
   return {
     capabilities: { streaming: true, tools: true, structuredOutput: true },
@@ -151,7 +155,7 @@ export function ollamaReview(options: OllamaReviewOptions): AdapterFactory {
                 messages: providerMessages(request),
                 ...(tools.length > 0 ? { tools } : {}),
               }),
-              signal: controller.signal,
+              signal: AbortSignal.any([controller.signal, AbortSignal.timeout(timeoutMs)]),
             });
             yield* parseResponse(response);
           } catch (error) {

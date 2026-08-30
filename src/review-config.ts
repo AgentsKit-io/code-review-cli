@@ -3,7 +3,7 @@ import { join } from 'node:path'
 import { z } from 'zod'
 import type { Category, Severity } from '../agents/code-review/agent.js'
 import { ABSOLUTE_LOCAL_CLI_OUTPUT_BYTES, ABSOLUTE_LOCAL_CLI_TIMEOUT_MS, DEFAULT_LOCAL_CLI_OUTPUT_BYTES } from './local-cli-process.js'
-import { localCliTimeoutMs } from './local-cli-timeout.js'
+import { DEFAULT_CODEX_CLI_TIMEOUT_MS, localCliTimeoutMs } from './local-cli-timeout.js'
 
 export const BUILTIN_LENS_KEYS = [
   'correctness', 'security', 'performance', 'maintainability', 'design', 'tests', 'conventions',
@@ -58,7 +58,7 @@ type FileConfig = z.infer<typeof ReviewConfigSchema>
 
 export interface ReviewConfigOverrides {
   provider?: string; model?: string; transport?: string; votes?: number; retries?: number
-  minSeverity?: Severity; minConfidence?: number; maxFiles?: number; maxCalls?: number; concurrency?: number; conventions?: string
+  minSeverity?: Severity; minConfidence?: number; maxPerFile?: number; maxFiles?: number; maxCalls?: number; concurrency?: number; conventions?: string
 }
 
 export interface ResolvedReviewConfig {
@@ -125,7 +125,7 @@ export function resolveReviewConfig(
   if (options.ci && options.allowUnredacted) throw new ReviewConfigError('--allow-unredacted is local-only and cannot disable CI redaction')
   if (incompleteProfile && !options.allowIncomplete) throw new ReviewConfigError('incomplete profile requires explicit --allow-incomplete for a local run')
 
-  const thresholds = { ...file?.thresholds, ...(overrides.minSeverity === undefined ? {} : { minSeverity: overrides.minSeverity }), ...(overrides.minConfidence === undefined ? {} : { minConfidence: overrides.minConfidence }) }
+  const thresholds = { ...file?.thresholds, ...(overrides.minSeverity === undefined ? {} : { minSeverity: overrides.minSeverity }), ...(overrides.minConfidence === undefined ? {} : { minConfidence: overrides.minConfidence }), ...(overrides.maxPerFile === undefined ? {} : { maxPerFile: overrides.maxPerFile }) }
   const budget = {
     ...file?.budget,
     ...(overrides.maxFiles === undefined ? {} : { maxFiles: overrides.maxFiles }),
@@ -138,7 +138,7 @@ export function resolveReviewConfig(
     configVersion: 1 as const, lenses, incompleteProfile,
     votes: overrides.votes ?? file?.votes ?? 3, retries: overrides.retries ?? file?.retries ?? 1,
     thresholds, budget: { ...budget, concurrency: budget.concurrency ?? defaultConcurrency, maxCalls: budget.maxCalls ?? 1000 },
-    worker: { timeoutMs: file?.worker?.timeoutMs ?? localCliTimeoutMs(), maxOutputBytes: file?.worker?.maxOutputBytes ?? DEFAULT_LOCAL_CLI_OUTPUT_BYTES },
+    worker: { timeoutMs: file?.worker?.timeoutMs ?? localCliTimeoutMs(provider === 'codex-cli' ? DEFAULT_CODEX_CLI_TIMEOUT_MS : undefined), maxOutputBytes: file?.worker?.maxOutputBytes ?? DEFAULT_LOCAL_CLI_OUTPUT_BYTES },
     conventions: overrides.conventions ?? file?.conventions,
     context: { mode: file?.context?.mode ?? 'prompt', patterns: file?.context?.patterns ?? [] },
     allowUnredacted: Boolean(options.allowUnredacted),
@@ -148,7 +148,7 @@ export function resolveReviewConfig(
   }
   const validation = z.object({
     votes: positiveInt.max(25), retries: nonNegativeInt.max(1),
-    thresholds: z.object({ minSeverity: z.enum(['blocker', 'high', 'med', 'nit']).optional(), minConfidence: z.number().min(0).max(1).optional() }),
+    thresholds: z.object({ minSeverity: z.enum(['blocker', 'high', 'med', 'nit']).optional(), minConfidence: z.number().min(0).max(1).optional(), maxPerFile: positiveInt.optional() }),
     budget: z.object({ maxFiles: positiveInt.max(500).optional(), maxBytes: positiveInt.max(25 * 1024 * 1024).optional(), maxCalls: positiveInt.max(1000), concurrency: positiveInt.max(32) }),
   }).safeParse(effective)
   if (!validation.success) throw new ReviewConfigError(`invalid effective review config: ${diagnostic(validation.error)}`)
