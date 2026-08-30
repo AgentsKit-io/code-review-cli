@@ -191,8 +191,10 @@ test('a local Codex subprocess timeout fails fast instead of hanging the review'
 test('direct Codex adapter honors the subprocess timeout override', async () => {
   const previousPath = process.env.PATH
   const previousTimeout = process.env.AGENTSKIT_REVIEW_SUBPROCESS_TIMEOUT_MS
+  const previousHang = process.env.CODEX_FIXTURE_HANG
   process.env.PATH = `${join(root, 'test/fixtures/bin')}:${previousPath ?? ''}`
   process.env.AGENTSKIT_REVIEW_SUBPROCESS_TIMEOUT_MS = '50'
+  process.env.CODEX_FIXTURE_HANG = '1'
   try {
     const chunks = []
     for await (const chunk of codexCli().createSource(adapterRequest).stream()) chunks.push(chunk)
@@ -202,6 +204,8 @@ test('direct Codex adapter honors the subprocess timeout override', async () => 
     process.env.PATH = previousPath
     if (previousTimeout === undefined) delete process.env.AGENTSKIT_REVIEW_SUBPROCESS_TIMEOUT_MS
     else process.env.AGENTSKIT_REVIEW_SUBPROCESS_TIMEOUT_MS = previousTimeout
+    if (previousHang === undefined) delete process.env.CODEX_FIXTURE_HANG
+    else process.env.CODEX_FIXTURE_HANG = previousHang
   }
 })
 
