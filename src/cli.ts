@@ -52,6 +52,7 @@ Sources:
 
 Review options:
   --votes <n>             Adversarial verification votes (default: 3)
+  --profile <full|fast>   Full review, or one bounded required-lens batch (fast)
   --min-severity <level>  Minimum finding severity
   --min-confidence <n>    Minimum finding confidence
   --block <level>         CI gate floor (default: blocker)
@@ -59,6 +60,8 @@ Review options:
   --max-findings-per-file <n>  Maximum verified findings per file
   --max-calls <n>         Provider-call budget (absolute ceiling: 1000)
   --concurrency <n>       Parallel model calls (default: 1 for CLI, 4 for API)
+  --deadline-ms <n>       Global run deadline (fast default: 120000; full: 600000)
+  --health-check <mode>   Provider smoke check: auto (default) or off
   --conventions <path>    Project conventions file
   --allow-incomplete      Local-only exception for an explicitly incomplete profile
   --allow-unredacted      Local-only exception for secret redaction
@@ -119,7 +122,7 @@ async function resolveSource(reviewConfig: ResolvedReviewConfig): Promise<Source
     if (!token) throw new Error('--pr needs GITHUB_TOKEN')
     const lensCount = Object.values(reviewConfig.lenses).filter((lens) => lens.enabled).length
     const maxFindingsPerFile = reviewConfig.thresholds.maxPerFile ?? lensCount
-    const callsPerFile = lensCount * (1 + reviewConfig.retries) + maxFindingsPerFile * reviewConfig.votes * (1 + reviewConfig.retries)
+    const callsPerFile = (reviewConfig.batchLenses ? 1 : lensCount) * (1 + reviewConfig.retries) + maxFindingsPerFile * reviewConfig.votes * (1 + reviewConfig.retries)
     const automaticFileBudget = Math.max(1, Math.floor(((reviewConfig.budget.maxCalls ?? 1000) - 1) / Math.max(1, callsPerFile)))
     return { kind: 'github-pr', owner: m[1]!, repo: m[2]!, number: Number(m[3]), token, redact, limits: { ...limits, maxFiles: limits.maxFiles ?? automaticFileBudget } }
   }
@@ -157,6 +160,9 @@ async function main() {
       model: flag('model'),
       transport: flag('transport'),
       votes: flag('votes') === undefined ? undefined : Number(flag('votes')),
+      profile: flag('profile') as 'full' | 'fast' | undefined,
+      deadlineMs: flag('deadline-ms') === undefined ? undefined : Number(flag('deadline-ms')),
+      healthCheck: flag('health-check') as 'auto' | 'off' | undefined,
       minSeverity: flag('min-severity') as Severity | undefined,
       minConfidence: flag('min-confidence') === undefined ? undefined : Number(flag('min-confidence')),
       maxPerFile: flag('max-findings-per-file') === undefined ? undefined : Number(flag('max-findings-per-file')),
@@ -178,6 +184,7 @@ async function main() {
         lenses: reviewConfig.lenses,
         votes: reviewConfig.votes,
         retries: reviewConfig.retries,
+        profile: reviewConfig.profile,
         thresholds: reviewConfig.thresholds,
         budget: reviewConfig.budget,
         context: reviewConfig.context,
@@ -220,7 +227,9 @@ async function main() {
     blockingSeverity: (flag('block') as Severity) ?? 'blocker',
     requiredLenses: Object.entries(reviewConfig.lenses).filter(([, policy]) => policy.required).map(([key]) => key as Category),
     retries: reviewConfig.retries,
-    budget: { maxFiles: reviewConfig.budget.maxFiles, maxBytes: reviewConfig.budget.maxBytes, maxCalls: reviewConfig.budget.maxCalls, concurrency: reviewConfig.budget.concurrency },
+    budget: { maxFiles: reviewConfig.budget.maxFiles, maxBytes: reviewConfig.budget.maxBytes, maxCalls: reviewConfig.budget.maxCalls, concurrency: reviewConfig.budget.concurrency, deadlineMs: reviewConfig.budget.deadlineMs },
+    profile: reviewConfig.profile,
+    batchLenses: reviewConfig.batchLenses,
     conventions: reviewConfig.conventions ? { path: reviewConfig.conventions } : autoConventions(),
     thresholds: reviewConfig.thresholds,
   }
@@ -302,6 +311,8 @@ async function preflightProvider(reviewConfig: ResolvedReviewConfig): Promise<vo
     mode: flag('mode') ?? reviewConfig.trustMode,
     apiKey: flag('api-key'),
     ci: has('ci'),
+    live: reviewConfig.healthCheck === 'auto',
+    liveTimeoutMs: Math.min(reviewConfig.budget.deadlineMs, reviewConfig.worker.timeoutMs, 15_000),
   })
   const version = report.checks.find((check) => check.name === 'version')
   if (version?.status === 'warn') console.error(`warning: ${entry.id} ${version.detail}`)
@@ -340,12 +351,13 @@ function formatDoctor(report: DoctorReport): string {
 function formatPlan(plan: ReviewPlan): string {
   const status = plan.overBudget.length ? 'REFUSED' : 'READY'
   const lines = [
-    `Review preflight — ${status}`,
+    `Review preflight — ${status} · profile=${plan.profile}${plan.batched ? ' · batched' : ''}`,
     `Files: ${plan.files} · Bytes: ${plan.bytes} · Unreviewed: ${plan.unreviewedFiles}`,
     `Lenses: ${plan.enabledLenses.join(', ') || 'none'}`,
     `Required: ${plan.requiredLenses.join(', ') || 'none'}`,
     `Votes: ${plan.votes} · Retries: ${plan.retries} · Concurrency: ${plan.concurrency}`,
     `Estimated provider calls: ${plan.estimatedProviderCalls}/${plan.maxCalls} (${plan.providerCallEstimate})`,
+    `Global deadline: ${plan.deadlineMs}ms`,
   ]
   for (const reason of plan.overBudget) lines.push(`Refusal: ${reason}`)
   for (const suggestion of plan.suggestions) lines.push(`Suggestion: ${suggestion}`)

@@ -4,6 +4,14 @@ All notable changes will be documented here. This project follows Semantic Versi
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-08-30
+
+### Added
+
+- Added global cancellation deadlines, provider health preflight, a circuit breaker, and bounded execution evidence.
+- Added the explicit `fast` profile with a single required-lens batch for lower latency and predictable calls.
+- Added CI Action inputs for profile, deadline, and health-check policy.
+
 ## [0.2.3] - 2026-08-30
 
 ### Fixed

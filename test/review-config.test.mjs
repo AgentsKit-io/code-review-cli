@@ -46,6 +46,18 @@ test('merges independent lens policy and flags override file values', () => {
   assert.equal(resolveReviewConfig({ configVersion: 1, provider: 'openai' }).budget.concurrency, 4)
 })
 
+test('fast profile disables optional lenses, batches, and uses bounded defaults', () => {
+  const config = resolveReviewConfig({ configVersion: 1, profile: 'fast' })
+  assert.equal(config.profile, 'fast')
+  assert.equal(config.batchLenses, true)
+  assert.deepEqual(Object.entries(config.lenses).filter(([, value]) => value.enabled).map(([key]) => key), ['correctness', 'security', 'tests'])
+  assert.equal(config.votes, 1)
+  assert.equal(config.retries, 0)
+  assert.equal(config.thresholds.maxPerFile, 1)
+  assert.equal(config.budget.deadlineMs, 120000)
+  assert.equal(resolveReviewConfig(undefined, { overrides: { deadlineMs: 5000 } }).budget.deadlineMs, 5000)
+})
+
 test('rejects unknown fields, unsupported versions, and impossible required lenses', () => {
   for (const config of [
     { configVersion: 1, unknown: true },

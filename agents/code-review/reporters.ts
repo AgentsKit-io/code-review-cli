@@ -49,7 +49,8 @@ export function markdownReporter(opts: { write?: (s: string) => void; file?: str
 }
 
 export function renderMarkdown(review: ReviewResult): string {
-  const head = `## Code review — ${review.verdict}\n\n${review.summary}`
+  const evidence = `\n\n_Evidence: profile=${review.evidence.profile}; provider calls=${review.evidence.providerCalls} (failed=${review.evidence.failedProviderCalls}, skipped=${review.evidence.skippedProviderCalls}); elapsed=${review.evidence.elapsedMs}ms; circuit=${review.evidence.circuitState}${review.evidence.deadlineExceeded ? '; deadline exceeded' : ''}_`
+  const head = `## Code review — ${review.verdict}\n\n${review.summary}${evidence}`
   const body = review.findings.length ? groupBySeverity(review.findings) : '\nNo findings above threshold. ✅'
   const dropped = review.dropped.length ? `\n\n_${review.dropped.length} finding(s) dropped (verify/threshold). ${review.droppedNote ?? ''}_` : ''
   return `${head}\n${body}${dropped}\n`

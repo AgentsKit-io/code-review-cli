@@ -26,7 +26,7 @@ npx --yes github:AgentsKit-io/code-review-cli doctor --provider codex-cli
 npx --yes github:AgentsKit-io/code-review-cli doctor --provider openai --model gpt-4o --json
 ```
 
-It checks the named executable and version, transport, model requirement, configuration mode, and credential presence without making a model request. API keys are represented only as `configured` or `missing`; they are never printed. Local CLI credentials are represented as login-managed because login storage is provider-specific. `doctor --live` is the explicit provider smoke-test path. Unknown local CLI versions warn during local runs and fail in CI. Doctor exits `0` when checks pass, `1` when a provider check fails, and `2` for invalid usage.
+It checks the named executable and version, transport, model requirement, configuration mode, and credential presence without making a model request. API keys are represented only as `configured` or `missing`; they are never printed. Local CLI credentials are represented as login-managed because login storage is provider-specific. `doctor --live` is the explicit provider smoke-test path; normal Codex reviews run the same bounded smoke check before fan-out. Unknown local CLI versions warn during local runs and fail in CI. Doctor exits `0` when checks pass, `1` when a provider check fails, and `2` for invalid usage.
 
 ## First local setup
 
@@ -113,9 +113,11 @@ The default diff base remains `origin/main`. A pre-commit invocation does not me
 ## Versioned review configuration
 
 Use a strict `.agentskit-review.json` at the repository root for review policy.
-It requires `configVersion: 1` and supports lens policy (`enabled` and
-`required` per built-in lens), votes, retries, thresholds, file/byte/call and
-concurrency budgets, conventions, and context selection. All built-in lenses
+It requires `configVersion: 1` and supports a `full` or `fast` profile. The
+fast profile reviews correctness, security, and tests in one bounded batch with
+one vote and no retry. The config also supports lens policy (`enabled` and
+`required` per built-in lens), votes, retries, thresholds, file/byte/call,
+concurrency and global-deadline budgets, conventions, and context selection. All built-in lenses
 are enabled by default; correctness, security, and tests are required.
 The shared local worker also accepts bounded `timeoutMs` and `maxOutputBytes`
 settings; absolute ceilings are always enforced.
@@ -196,7 +198,7 @@ permissions:
 
 `contents: read` loads the PR source. `pull-requests: write` posts the batched review. Do not grant repository administration, package write, or workflow write. Fork PRs do not receive normal repository secrets; do not switch to `pull_request_target` merely to expose a model key, because that can execute or process untrusted contributions with privileged context.
 
-The composite Action defaults to 17 files, 7 findings per file, and 1,000 provider calls. `codex-cli` is accepted only with `mode: trusted-local` on a pre-authenticated self-hosted runner; use an API provider with a secret on GitHub-hosted runners.
+The composite Action defaults to 17 files, 7 findings per file, 1,000 provider calls, and a 10-minute global deadline. `codex-cli` is accepted only with `mode: trusted-local` on a pre-authenticated self-hosted runner; use an API provider with a secret on GitHub-hosted runners.
 
 Use environment protection or organization secrets for sensitive providers. Rotate a secret after suspected exposure and review provider usage plus GitHub audit logs.
 
@@ -230,7 +232,7 @@ Then require the workflow check in branch protection. CLI exit codes are:
 
 A model response that is malformed may drop one lens while other lenses continue; progress output and the final summary report successful and failed primary-lens counts. If any reviewable file cannot be ingested or has zero successful primary lenses, the pipeline stops before reporters run and exits `2`, including in advisory mode. Treat missing output or exit `2` as unavailable review, not approval.
 
-Use `--plan --json` (or `--dry-run`) to run the source and budget preflight without a model request. The plan reports files, bytes, enabled and required lenses, votes, retries, concurrency, estimated provider calls, and concrete reductions when a limit would be exceeded. Estimates are `bounded` when `thresholds.maxPerFile` is set and `best-effort` otherwise, because model output volume is variable. The preflight refuses before the provider starts; `maxCalls` is capped at 1000 and unlimited mode is not supported. A required-lens failure is `INCOMPLETE` and exits `2`, including with `--no-fail`.
+Use `--plan --json` (or `--dry-run`) to run the source and budget preflight without a model request. The plan reports profile, batching, files, bytes, enabled and required lenses, votes, retries, concurrency, deadline, estimated provider calls, and concrete reductions when a limit would be exceeded. Estimates are `bounded` when `thresholds.maxPerFile` is set and `best-effort` otherwise, because model output volume is variable. The preflight refuses before the provider starts; `maxCalls` is capped at 1000 and unlimited mode is not supported. A required-lens failure is `INCOMPLETE` and exits `2`, including with `--no-fail`.
 
 ## Cost and latency controls
 
@@ -241,10 +243,19 @@ Seven lenses fan out over selected files; candidate findings then receive advers
 - `--max-findings-per-file`: positive verified-finding budget per file;
 - `--votes`: verification depth and cost;
 - `--concurrency`: simultaneous model/subprocess calls (default 1 for CLI providers, 4 for API providers);
+- `--profile fast`: one bounded correctness/security/tests batch per file, one vote, and no retry;
+- `--deadline-ms`: hard global deadline; active local workers receive the abort signal and queued calls do not start;
+- `--health-check`: bounded provider smoke check before fan-out (`auto` or `off`);
 - `--paths` or workflow path filters: narrow scope;
 - `--min-severity` and `--min-confidence`: output noise, not input-token cost.
 
 Start advisory with a small file budget, measure provider usage, and raise depth only where it improves signal. Never present an unmeasured cost estimate as a guaranteed price.
+
+Every completed report includes provider-call evidence: calls started, failed,
+skipped by the circuit/budget, elapsed time, deadline status, and circuit state.
+The circuit opens immediately for authentication, timeout, or cancellation
+failures and after repeated transient provider failures. Incomplete evidence is
+never an approval.
 
 ## SARIF
 
@@ -309,10 +320,10 @@ The default `added` filter limits inline feedback to changed lines. Choose a bro
 
 ## Releases and maturity
 
-The current package is `0.2.3` and the project is pre-v1:
+The current package is `0.3.0` and the project is pre-v1:
 
 - GitHub-source CLI commands can pin a commit SHA after `github:AgentsKit-io/code-review-cli#<sha>`;
-- Actions should pin `@v0.2.3` or a full commit SHA;
+- Actions should pin `@v0.3.0` or a full commit SHA;
 - a moving `@main` reference is suitable only when that mutability is accepted;
 - the future `@v1` Action tag remains a separate stability milestone.
 
@@ -320,7 +331,7 @@ Release work updates [`CHANGELOG.md`](../CHANGELOG.md), [`ROADMAP.md`](../ROADMA
 
 ### Automated npm publishing
 
-`.github/workflows/publish.yml` publishes only when a stable GitHub Release is published with a semantic version tag such as `v0.2.3`. The workflow checks out that tag, verifies that the tag matches `package.json`, runs `npm run check` and `npm pack --dry-run`, then publishes `@agentskit/code-review` using [npm Trusted Publishing](https://docs.npmjs.com/trusted-publishers/) (OIDC). No long-lived `NPM_TOKEN` is stored in GitHub.
+`.github/workflows/publish.yml` publishes only when a stable GitHub Release is published with a semantic version tag such as `v0.3.0`. The workflow checks out that tag, verifies that the tag matches `package.json`, runs `npm run check` and `npm pack --dry-run`, then publishes `@agentskit/code-review` using [npm Trusted Publishing](https://docs.npmjs.com/trusted-publishers/) (OIDC). No long-lived `NPM_TOKEN` is stored in GitHub.
 
 Before the first release, configure the npm package's Trusted Publisher for GitHub Actions with:
 

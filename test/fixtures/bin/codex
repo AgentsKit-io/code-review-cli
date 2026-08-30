@@ -2,6 +2,7 @@
 import { closeSync, openSync, readFileSync, writeFileSync } from 'node:fs'
 
 const prompt = process.argv.at(-1) ?? ''
+const healthProbe = prompt.includes('Reply with exactly OK.')
 if (process.argv.includes('--version')) {
   process.stdout.write(process.env.CODEX_FIXTURE_VERSION ?? 'codex-cli 1.0.0\n')
   process.exit(0)
@@ -34,7 +35,7 @@ if (process.env.CODEX_FIXTURE_REJECT_OUTPUT_SCHEMA === 'invalid-json-schema' && 
   process.stderr.write('invalid_json_schema: optional properties must be required\n')
   process.exit(1)
 }
-if (process.env.CODEX_FIXTURE_REQUIRE_OUTPUT_SCHEMA === '1') {
+if (process.env.CODEX_FIXTURE_REQUIRE_OUTPUT_SCHEMA === '1' && !healthProbe) {
   if (schemaIndex < 0 || !process.argv[schemaIndex + 1]) {
     process.stderr.write('fixture provider did not receive --output-schema\n')
     process.exit(1)
@@ -59,7 +60,11 @@ if (invalidOnceFile) {
     if (error?.code !== 'EEXIST') throw error
   }
 }
-const output = process.env.CODEX_FIXTURE_MULTIPLE_FENCED_OUTPUT === '1'
+const output = healthProbe
+  ? 'OK'
+  : prompt.includes('BATCHED FAST REVIEW')
+  ? JSON.stringify({ completedCategories: ['correctness', 'security', 'tests'], findings: [] })
+  : process.env.CODEX_FIXTURE_MULTIPLE_FENCED_OUTPUT === '1'
   ? 'First result:\n```json\n{"findings":[]}\n```\nSecond result:\n```json\n{"findings":[]}\n```\n'
   : process.env.CODEX_FIXTURE_FENCED_OUTPUT === '1'
   ? 'Here is the requested result:\n```json\n{"findings":[]}\n```\n'

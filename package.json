@@ -1,6 +1,6 @@
 {
   "name": "@agentskit/code-review",
-  "version": "0.2.3",
+  "version": "0.3.0",
   "type": "module",
   "description": "Provider-agnostic, low-noise AI code review for local development and GitHub Actions.",
   "license": "MIT",
