@@ -69,7 +69,11 @@ test('Ollama review adapter surfaces an HTTP failure as an error chunk', async (
 test('Ollama review adapter aborts a stalled request at its timeout', async () => {
   const realFetch = globalThis.fetch
   globalThis.fetch = async (_url, init) => await new Promise((_, reject) => {
-    init?.signal?.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError')), { once: true })
+    const keepAlive = setTimeout(() => reject(new Error('mock fetch did not abort')), 1_000)
+    init?.signal?.addEventListener('abort', () => {
+      clearTimeout(keepAlive)
+      reject(new DOMException('aborted', 'AbortError'))
+    }, { once: true })
   })
 
   try {
