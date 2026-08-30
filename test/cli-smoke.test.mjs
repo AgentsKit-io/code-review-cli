@@ -244,6 +244,20 @@ test('plan is provider-free and machine-readable', () => {
   assert.equal(plan.overBudget.length, 0)
 })
 
+test('plan supports a bounded findings-per-file limit', () => {
+  const run = spawnSync(process.execPath, [
+    'dist/src/cli.js', '--provider', 'codex-cli', '--stdin', '--dry-run', '--json', '--max-findings-per-file', '2',
+  ], {
+    cwd: root, input: 'export const answer = 42\n', encoding: 'utf8',
+    env: { ...process.env, PATH: '/usr/bin:/bin' },
+  })
+
+  assert.equal(run.status, 0, run.stderr)
+  const plan = JSON.parse(run.stdout)
+  assert.equal(plan.providerCallEstimate, 'bounded')
+  assert.equal(plan.estimatedProviderCalls, 27)
+})
+
 test('preflight refuses an over-call-budget run before the provider starts', () => {
   const fixtureBin = join(root, 'test/fixtures/bin')
   const run = spawnSync(process.execPath, [

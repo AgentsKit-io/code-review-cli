@@ -1,4 +1,5 @@
 import { execFile } from 'node:child_process'
+import { GithubResponseLimitError, githubFetch, githubGet, readGithubResponseText } from '../../src/github-review-state.js'
 import { closeSync, fstatSync, lstatSync, openSync, readdirSync, readFileSync, realpathSync } from 'node:fs'
 import { extname, isAbsolute, join, relative } from 'node:path'
 import { promisify } from 'node:util'
@@ -12,7 +13,6 @@ const DEFAULT_PROMPT_FILE_BYTES = 256 * 1024
 const ABSOLUTE_SNAPSHOT_FILES = 500
 const ABSOLUTE_TOTAL_BYTES = 25 * 1024 * 1024
 const ABSOLUTE_PROMPT_FILE_BYTES = 1024 * 1024
-const GITHUB_REQUEST_TIMEOUT_MS = 30_000
 const DEFAULT_GITHUB_PR_FILES = 40
 const MAX_GITHUB_PR_METADATA_FILES = 500
 
@@ -152,31 +152,6 @@ function validatePatterns(patterns: readonly string[]): void {
   }
 }
 
-async function readGithubText(response: Response, maxBytes: number): Promise<{ text: string; exceeded: boolean }> {
-  const reader = response.body?.getReader()
-  if (!reader) {
-    const text = await response.text()
-    return { text, exceeded: Buffer.byteLength(text, 'utf8') > maxBytes }
-  }
-  const chunks: Uint8Array[] = []
-  let bytes = 0
-  try {
-    for (;;) {
-      const { done, value } = await reader.read()
-      if (done) break
-      bytes += value.byteLength
-      if (bytes > maxBytes) {
-        await reader.cancel()
-        return { text: '', exceeded: true }
-      }
-      chunks.push(value)
-    }
-  } finally {
-    reader.releaseLock()
-  }
-  return { text: Buffer.concat(chunks.map((chunk) => Buffer.from(chunk))).toString('utf8'), exceeded: false }
-}
-
 function walkFiles(root: string, current: string, out: string[], unreviewedFiles: ReviewTarget[]): void {
   for (const entry of readdirSync(current)) {
     const abs = join(current, entry)
@@ -210,11 +185,7 @@ async function fromGitDiff(c: Extract<SourceConfig, { kind: 'git-diff' }>): Prom
 }
 
 async function fromGithubPr(c: Extract<SourceConfig, { kind: 'github-pr' }>): Promise<ReviewTarget[]> {
-  const api = async <T>(path: string): Promise<T> => {
-    const res = await fetch(`https://api.github.com${path}`, { headers: { authorization: `Bearer ${c.token}`, accept: 'application/vnd.github+json', 'user-agent': 'agentskit-code-review' }, signal: AbortSignal.timeout(GITHUB_REQUEST_TIMEOUT_MS) })
-    if (!res.ok) throw new Error(`GitHub ${path} → ${res.status}`)
-    return res.json() as Promise<T>
-  }
+  const api = <T>(path: string) => githubGet<T>(c.token, path)
   const pr = await api<{ head: { sha: string } }>(`/repos/${c.owner}/${c.repo}/pulls/${c.number}`); const sha = pr.head.sha
   const files: Array<{ filename: string; patch?: string; status: string }> = []
   let metadataTruncated = false
@@ -263,15 +234,15 @@ async function fromGithubPr(c: Extract<SourceConfig, { kind: 'github-pr' }>): Pr
         if (!content.download_url) throw new Error(`GitHub contents response has no download URL for ${f.filename}`)
         const downloadUrl = new URL(content.download_url)
         if (downloadUrl.hostname !== 'raw.githubusercontent.com') throw new Error(`GitHub contents response has an unsafe download URL for ${f.filename}`)
-        const res = await fetch(downloadUrl, { headers: { authorization: `Bearer ${c.token}`, accept: 'application/vnd.github.raw', 'user-agent': 'agentskit-code-review' }, signal: AbortSignal.timeout(GITHUB_REQUEST_TIMEOUT_MS) })
-        if (!res.ok) throw new Error(`GitHub ${content.download_url} → ${res.status}`)
-        const limited = await readGithubText(res, downloadLimit)
-        if (limited.exceeded) {
+        const res = await githubFetch(c.token, downloadUrl.toString(), 'application/vnd.github.raw')
+        try {
+          raw = await readGithubResponseText(res, downloadLimit)
+        } catch (error) {
+          if (!(error instanceof GithubResponseLimitError)) throw error
           targets.push(unreviewed(f.filename, remainingBytes <= fileLimit ? `PR exceeds ${c.limits?.maxBytes} byte limit` : `file exceeds ${fileLimit} byte limit`))
           if (remainingBytes <= fileLimit) byteBudgetHit = true
           continue
         }
-        raw = limited.text
     } else {
       const decoded = Buffer.from(content.content, content.encoding as BufferEncoding)
       if (decoded.byteLength > downloadLimit) {

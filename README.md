@@ -148,11 +148,14 @@ jobs:
           provider: openai
           model: gpt-4o
           api-key: ${{ secrets.LLM_API_KEY }}
+          # max-files: '17'
+          # max-calls: '1000'
+          # max-findings-per-file: '7'
           # fail-on-block: 'true' # advisory by default
           # block: high
 ```
 
-The Action fetches the PR diff and posts one batched inline review plus a summary. It is advisory by default. Advisory mode affects findings only: source, provider, or execution failures still fail the check, and any reviewable file with zero successful primary lenses prevents approval. Summaries report successful and failed lens counts so partial degradation stays visible. Enable `fail-on-block` and branch protection when you are ready to use findings as a merge gate.
+The Action fetches the PR diff and posts one batched inline review plus a summary. Its defaults review at most 17 files, 7 findings per file, and 1,000 provider calls. It is advisory by default. Advisory mode affects findings only: source, provider, or execution failures still fail the check, and any reviewable file with zero successful primary lenses prevents approval. Summaries report successful and failed lens counts so partial degradation stays visible. `codex-cli` requires a pre-authenticated `trusted-local` self-hosted runner; use an API provider with a secret on GitHub-hosted runners. Enable `fail-on-block` and branch protection when you are ready to use findings as a merge gate.
 
 Building a conversational review experience? Use [AgentsKit Chat](https://chat.agentskit.io/docs) for the cross-framework application layer instead of embedding chat here. Looking for organization-wide orchestration, governance, and production controls? Continue with [AKOS](https://akos.agentskit.io/docs).
 
@@ -266,6 +269,7 @@ In shortened examples, replace `...` with `npx --yes github:AgentsKit-io/code-re
 | `--min-confidence <n>` | Minimum reported confidence |
 | `--max-files <n>` | Positive file budget; over-budget runs are refused before the provider |
 | `--max-calls <n>` | Provider-call budget; absolute ceiling `1000` |
+| `--max-findings-per-file <n>` | Maximum verified findings per file; bounds adversarial verification calls |
 | `--concurrency <n>` | Parallel model calls; default `1` for CLI providers, `4` for API providers |
 | `--plan`, `--dry-run` | Print provider-free preflight; add `--json` for machine output |
 | `--validate-patch` | Run `git apply --check` on suggested patches |

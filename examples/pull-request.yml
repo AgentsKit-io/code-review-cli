@@ -24,4 +24,6 @@ jobs:
           # advisory by default (posts, never blocks). To gate merges:
           # fail-on-block: 'true'
           # block: 'high'        # or 'blocker'
-          # max-files: '40'
+          # max-files: '17'
+          # max-calls: '1000'
+          # max-findings-per-file: '7'

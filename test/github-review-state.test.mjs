@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { getGithubReviewState, reviewFingerprint, reviewMarker } from '../dist/src/github-review-state.js'
+import { GithubResponseLimitError, getGithubReviewState, readGithubResponseText, reviewFingerprint, reviewMarker } from '../dist/src/github-review-state.js'
 
 test('reconciles the same SHA and fingerprint without provider work', async () => {
   const originalFetch = globalThis.fetch
@@ -54,6 +54,31 @@ test('retries a GitHub rate-limit response once', async () => {
     )
     assert.equal(calls, 2)
   } finally { globalThis.fetch = originalFetch }
+})
+
+test('fails closed when comment history exceeds the safe pagination cap', async () => {
+  const originalFetch = globalThis.fetch
+  let commentPages = 0
+  globalThis.fetch = async (url) => {
+    const parsed = new URL(url)
+    if (parsed.pathname.endsWith('/pulls/14')) return Response.json({ head: { sha: 'head-14', repo: { full_name: 'org/repo' } }, base: { sha: 'base-14', repo: { full_name: 'org/repo' } } })
+    if (parsed.pathname.endsWith('/comments')) {
+      commentPages++
+      return Response.json(Array.from({ length: 100 }, (_, index) => ({ id: commentPages * 100 + index, body: 'unrelated' })))
+    }
+    return new Response('not found', { status: 404 })
+  }
+  try {
+    await assert.rejects(
+      getGithubReviewState({ owner: 'org', repo: 'repo', number: 14, token: 'test-token', fingerprint: 'f' }),
+      /refusing to post without idempotency proof/,
+    )
+    assert.equal(commentPages, 10)
+  } finally { globalThis.fetch = originalFetch }
+})
+
+test('bounds shared GitHub response reads', async () => {
+  await assert.rejects(readGithubResponseText(new Response('123456'), 5), GithubResponseLimitError)
 })
 
 test('does not retry non-transient GitHub GET failures', async () => {

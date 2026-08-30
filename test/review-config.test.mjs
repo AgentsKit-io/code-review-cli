@@ -23,6 +23,11 @@ test('defaults enable every lens and require correctness, security, and tests', 
   assert.deepEqual(Object.entries(config.lenses).filter(([, value]) => value.required).map(([key]) => key), ['correctness', 'security', 'tests'])
 })
 
+test('CLI overrides max findings per file without changing project config', () => {
+  const config = resolveReviewConfig({ configVersion: 1, thresholds: { maxPerFile: 9 } }, { overrides: { maxPerFile: 2 } })
+  assert.equal(config.thresholds.maxPerFile, 2)
+})
+
 test('merges independent lens policy and flags override file values', () => {
   const config = resolveReviewConfig({
     configVersion: 1,

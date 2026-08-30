@@ -14,11 +14,11 @@ import { runLocalCli, type LocalCliMode } from "./local-cli-process.js";
  * stdin ("no stdin data received in 3s …") and fails. Locally stdin is a TTY so it
  * never showed. stderr is attached to the error for diagnosis.
  */
-async function runClaude(args: string[], signal?: AbortSignal, mode?: LocalCliMode, worker?: { timeoutMs?: number; maxOutputBytes?: number }): Promise<string> {
+async function runClaude(args: string[], signal?: AbortSignal, mode?: LocalCliMode, worker?: { timeoutMs?: number; maxOutputBytes?: number }, oauthToken?: string): Promise<string> {
   // Run from HOME (a trusted dir): the runner's checkout dir is untrusted and can
   // make claude exit without output (folder-trust). The file under review is in the
   // prompt, not read from cwd, so cwd is irrelevant to the result.
-  const { stdout } = await runLocalCli("claude", args, { signal, mode, ...worker });
+  const { stdout } = await runLocalCli("claude", args, { signal, mode, providerCredential: oauthToken ? { name: "CLAUDE_CODE_OAUTH_TOKEN", value: oauthToken } : undefined, ...worker });
   return stdout;
 }
 
@@ -36,7 +36,7 @@ function extractJson(text: string): string {
   return text.slice(start, end + 1);
 }
 
-export function claudeCode(opts: { model?: string; mode?: LocalCliMode; worker?: { timeoutMs?: number; maxOutputBytes?: number } } = {}): AdapterFactory {
+export function claudeCode(opts: { model?: string; mode?: LocalCliMode; oauthToken?: string; worker?: { timeoutMs?: number; maxOutputBytes?: number } } = {}): AdapterFactory {
   return {
     capabilities: { streaming: false, tools: true, structuredOutput: true },
     createSource: (request: AdapterRequest): StreamSource => {
@@ -59,7 +59,7 @@ export function claudeCode(opts: { model?: string; mode?: LocalCliMode; worker?:
 
           const args = ["-p", prompt];
           if (opts.model) args.push("--model", opts.model);
-          const out = (await runClaude(args, controller.signal, opts.mode, opts.worker)).trim();
+          const out = (await runClaude(args, controller.signal, opts.mode, opts.worker, opts.oauthToken)).trim();
 
           if (tools.length === 1) {
             yield { type: "tool_call", toolCall: { id: `tc-${Date.now()}`, name: tools[0]!.name, args: extractJson(out) } };

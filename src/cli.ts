@@ -56,6 +56,7 @@ Review options:
   --min-confidence <n>    Minimum finding confidence
   --block <level>         CI gate floor (default: blocker)
   --max-files <n>         Positive file budget
+  --max-findings-per-file <n>  Maximum verified findings per file
   --max-calls <n>         Provider-call budget (absolute ceiling: 1000)
   --concurrency <n>       Parallel model calls (default: 1 for CLI, 4 for API)
   --conventions <path>    Project conventions file
@@ -158,6 +159,7 @@ async function main() {
       votes: flag('votes') === undefined ? undefined : Number(flag('votes')),
       minSeverity: flag('min-severity') as Severity | undefined,
       minConfidence: flag('min-confidence') === undefined ? undefined : Number(flag('min-confidence')),
+      maxPerFile: flag('max-findings-per-file') === undefined ? undefined : Number(flag('max-findings-per-file')),
       maxFiles: flag('max-files') === undefined ? undefined : Number(flag('max-files')),
       maxCalls: flag('max-calls') === undefined ? undefined : Number(flag('max-calls')),
       concurrency: flag('concurrency') === undefined ? undefined : Number(flag('concurrency')),
@@ -169,7 +171,7 @@ async function main() {
     ? await getGithubReviewState({
       ...source,
       fingerprint: reviewFingerprint({
-        engine: '@agentskit/code-review@0.2.0',
+        engine: `@agentskit/code-review@${packageVersion()}`,
         provider: reviewConfig.provider,
         model: reviewConfig.model,
         transport: reviewConfig.transport,
@@ -250,7 +252,7 @@ function buildAdapter(reviewConfig: ResolvedReviewConfig): AdapterFactory {
   if (!provider) throw new Error(requestedProvider ? `unknown --provider "${requestedProvider}" (run --list-providers for common options)` : 'choose a provider with --provider <name> (run --list-providers for common options)')
   const model = reviewConfig.model ?? (has('api') ? 'claude-opus-4-8' : undefined)
   const mode = flag('mode') === 'trusted-local' ? 'trusted-local' as const : 'isolated' as const
-  if (provider === 'claude-cli') return claudeCode({ model, mode, worker: reviewConfig.worker })
+  if (provider === 'claude-cli') return claudeCode({ model, mode, oauthToken: process.env.CLAUDE_CODE_OAUTH_TOKEN, worker: reviewConfig.worker })
   if (provider === 'codex-cli') return codexCli({ model, mode, worker: reviewConfig.worker })
   if (provider === 'grok-cli') {
     const apiKey = flag('api-key') ?? process.env.XAI_API_KEY ?? process.env.LLM_API_KEY
@@ -348,6 +350,16 @@ function formatPlan(plan: ReviewPlan): string {
   for (const reason of plan.overBudget) lines.push(`Refusal: ${reason}`)
   for (const suggestion of plan.suggestions) lines.push(`Suggestion: ${suggestion}`)
   return lines.join('\n')
+}
+
+function packageVersion(): string {
+  for (const path of [new URL('../package.json', import.meta.url), new URL('../../package.json', import.meta.url)]) {
+    try {
+      const value = JSON.parse(readFileSync(path, 'utf8')) as { version?: unknown }
+      if (typeof value.version === 'string' && value.version) return value.version
+    } catch { /* try the package root relative to the compiled CLI */ }
+  }
+  return 'unknown'
 }
 
 /** Best-effort: feed a conventions doc to every lens if one exists. */

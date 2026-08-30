@@ -196,6 +196,8 @@ permissions:
 
 `contents: read` loads the PR source. `pull-requests: write` posts the batched review. Do not grant repository administration, package write, or workflow write. Fork PRs do not receive normal repository secrets; do not switch to `pull_request_target` merely to expose a model key, because that can execute or process untrusted contributions with privileged context.
 
+The composite Action defaults to 17 files, 7 findings per file, and 1,000 provider calls. `codex-cli` is accepted only with `mode: trusted-local` on a pre-authenticated self-hosted runner; use an API provider with a secret on GitHub-hosted runners.
+
 Use environment protection or organization secrets for sensitive providers. Rotate a secret after suspected exposure and review provider usage plus GitHub audit logs.
 
 When `--post` is used with `--pr`, the reviewer stores a hidden SHA and policy
@@ -236,6 +238,7 @@ Seven lenses fan out over selected files; candidate findings then receive advers
 
 - `--max-files`: positive hard file budget;
 - `--max-calls`: bounded provider-call budget (absolute ceiling 1000);
+- `--max-findings-per-file`: positive verified-finding budget per file;
 - `--votes`: verification depth and cost;
 - `--concurrency`: simultaneous model/subprocess calls (default 1 for CLI providers, 4 for API providers);
 - `--paths` or workflow path filters: narrow scope;

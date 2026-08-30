@@ -44,12 +44,20 @@ inputs:
   max-files:
     description: 'Max files reviewed per run (budget cap).'
     required: false
-    default: '40'
+    default: '17'
+  max-calls:
+    description: 'Maximum provider calls per run (absolute ceiling 1000).'
+    required: false
+    default: '1000'
+  max-findings-per-file:
+    description: 'Maximum findings verified per file; keeps the provider-call estimate bounded.'
+    required: false
+    default: '7'
 
 runs:
   using: 'composite'
   steps:
-    - uses: actions/setup-node@v4
+    - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
       with:
         node-version: '22'
     - name: Install code-review
@@ -67,10 +75,16 @@ runs:
         INPUT_BASE_URL: ${{ inputs.base-url }}
         INPUT_VOTES: ${{ inputs.votes }}
         INPUT_MAX_FILES: ${{ inputs.max-files }}
+        INPUT_MAX_CALLS: ${{ inputs.max-calls }}
+        INPUT_MAX_FINDINGS_PER_FILE: ${{ inputs.max-findings-per-file }}
         INPUT_BLOCK: ${{ inputs.block }}
         INPUT_FAIL_ON_BLOCK: ${{ inputs.fail-on-block }}
       run: |
         cd "$GITHUB_ACTION_PATH"
+        if [[ "$INPUT_PROVIDER" == "codex-cli" && "$INPUT_MODE" != "trusted-local" ]]; then
+          echo "::error::codex-cli requires a pre-authenticated trusted-local runner; use provider openai with api-key on GitHub-hosted runners."
+          exit 2
+        fi
         args=(
           --pr "${{ github.repository }}#${{ github.event.pull_request.number }}" \
           --post \
@@ -78,6 +92,8 @@ runs:
           --mode "$INPUT_MODE" \
           --votes "$INPUT_VOTES" \
           --max-files "$INPUT_MAX_FILES" \
+          --max-calls "$INPUT_MAX_CALLS" \
+          --max-findings-per-file "$INPUT_MAX_FINDINGS_PER_FILE" \
           --block "$INPUT_BLOCK"
         )
         [[ -n "$INPUT_MODEL" ]] && args+=(--model "$INPUT_MODEL")

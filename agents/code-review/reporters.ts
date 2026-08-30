@@ -1,6 +1,6 @@
 import { writeFileSync } from 'node:fs'
 import type { Finding, Reporter, ReviewResult } from './agent.js'
-import { githubGet } from '../../src/github-review-state.js'
+import { GITHUB_REQUEST_TIMEOUT_MS, githubIssueComments, readGithubResponseText } from '../../src/github-review-state.js'
 
 /**
  * Reporters turn a ReviewResult into an output surface. They are orchestration code
@@ -107,10 +107,13 @@ async function githubPost(token: string, path: string, body: unknown): Promise<{
       'content-type': 'application/json',
     },
     body: JSON.stringify(body),
-    signal: AbortSignal.timeout(10_000),
+    signal: AbortSignal.timeout(GITHUB_REQUEST_TIMEOUT_MS),
   })
-  if (!res.ok) throw new Error(`GitHub POST ${path} → ${res.status}: ${await res.text()}`)
-  return res.json() as Promise<{ html_url?: string }>
+  if (!res.ok) {
+    const detail = (await readGithubResponseText(res, 4096)).trim().slice(0, 300)
+    throw new Error(`GitHub POST ${path} → ${res.status}${detail ? `: ${detail}` : ''}`)
+  }
+  return JSON.parse(await readGithubResponseText(res)) as { html_url?: string }
 }
 
 async function githubPatch(token: string, path: string, body: unknown): Promise<void> {
@@ -123,9 +126,12 @@ async function githubPatch(token: string, path: string, body: unknown): Promise<
       'content-type': 'application/json',
     },
     body: JSON.stringify(body),
-    signal: AbortSignal.timeout(10_000),
+    signal: AbortSignal.timeout(GITHUB_REQUEST_TIMEOUT_MS),
   })
-  if (!res.ok) throw new Error(`GitHub PATCH ${path} → ${res.status}: ${await res.text()}`)
+  if (!res.ok) {
+    const detail = (await readGithubResponseText(res, 4096)).trim().slice(0, 300)
+    throw new Error(`GitHub PATCH ${path} → ${res.status}${detail ? `: ${detail}` : ''}`)
+  }
 }
 
 /** One summary comment on the PR thread (uses the issues endpoint — always available). */
@@ -138,11 +144,9 @@ export function githubSummaryReporter(c: { owner: string; repo: string; number: 
         await githubPost(c.token, `/repos/${c.owner}/${c.repo}/issues/${c.number}/comments`, { body })
         return
       }
-      const comments = await githubGet<Array<{ id: number; body?: string }>>(
-        c.token,
-        `/repos/${c.owner}/${c.repo}/issues/${c.number}/comments?per_page=100`,
-      )
-      const existing = comments.find((comment) => comment.body?.includes(c.marker!))
+      const history = await githubIssueComments(c.token, c.owner, c.repo, c.number)
+      if (history.truncated) throw new Error('GitHub review comment history is too large to update safely')
+      const existing = history.comments.find((comment) => comment.id !== undefined && comment.body?.includes(c.marker!))
       if (existing) await githubPatch(c.token, `/repos/${c.owner}/${c.repo}/issues/comments/${existing.id}`, { body })
       else await githubPost(c.token, `/repos/${c.owner}/${c.repo}/issues/${c.number}/comments`, { body })
     },

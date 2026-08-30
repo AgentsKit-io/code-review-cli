@@ -58,7 +58,7 @@ type FileConfig = z.infer<typeof ReviewConfigSchema>
 
 export interface ReviewConfigOverrides {
   provider?: string; model?: string; transport?: string; votes?: number; retries?: number
-  minSeverity?: Severity; minConfidence?: number; maxFiles?: number; maxCalls?: number; concurrency?: number; conventions?: string
+  minSeverity?: Severity; minConfidence?: number; maxPerFile?: number; maxFiles?: number; maxCalls?: number; concurrency?: number; conventions?: string
 }
 
 export interface ResolvedReviewConfig {
@@ -125,7 +125,7 @@ export function resolveReviewConfig(
   if (options.ci && options.allowUnredacted) throw new ReviewConfigError('--allow-unredacted is local-only and cannot disable CI redaction')
   if (incompleteProfile && !options.allowIncomplete) throw new ReviewConfigError('incomplete profile requires explicit --allow-incomplete for a local run')
 
-  const thresholds = { ...file?.thresholds, ...(overrides.minSeverity === undefined ? {} : { minSeverity: overrides.minSeverity }), ...(overrides.minConfidence === undefined ? {} : { minConfidence: overrides.minConfidence }) }
+  const thresholds = { ...file?.thresholds, ...(overrides.minSeverity === undefined ? {} : { minSeverity: overrides.minSeverity }), ...(overrides.minConfidence === undefined ? {} : { minConfidence: overrides.minConfidence }), ...(overrides.maxPerFile === undefined ? {} : { maxPerFile: overrides.maxPerFile }) }
   const budget = {
     ...file?.budget,
     ...(overrides.maxFiles === undefined ? {} : { maxFiles: overrides.maxFiles }),
@@ -148,7 +148,7 @@ export function resolveReviewConfig(
   }
   const validation = z.object({
     votes: positiveInt.max(25), retries: nonNegativeInt.max(1),
-    thresholds: z.object({ minSeverity: z.enum(['blocker', 'high', 'med', 'nit']).optional(), minConfidence: z.number().min(0).max(1).optional() }),
+    thresholds: z.object({ minSeverity: z.enum(['blocker', 'high', 'med', 'nit']).optional(), minConfidence: z.number().min(0).max(1).optional(), maxPerFile: positiveInt.optional() }),
     budget: z.object({ maxFiles: positiveInt.max(500).optional(), maxBytes: positiveInt.max(25 * 1024 * 1024).optional(), maxCalls: positiveInt.max(1000), concurrency: positiveInt.max(32) }),
   }).safeParse(effective)
   if (!validation.success) throw new ReviewConfigError(`invalid effective review config: ${diagnostic(validation.error)}`)
