@@ -14,7 +14,7 @@ jobs:
   review:
     runs-on: ubuntu-latest
     steps:
-      - uses: AgentsKit-io/code-review-cli@v0.2.1
+      - uses: AgentsKit-io/code-review-cli@v0.2.2
         with:
           # Choose any @agentskit adapter. Examples: anthropic, gemini,
           # grok, groq, openrouter, ollama, mistral, or deepseek.

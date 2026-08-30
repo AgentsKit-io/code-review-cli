@@ -143,7 +143,7 @@ jobs:
   review:
     runs-on: ubuntu-latest
     steps:
-      - uses: AgentsKit-io/code-review-cli@v0.2.1
+      - uses: AgentsKit-io/code-review-cli@v0.2.2
         with:
           provider: openai
           model: gpt-4o
@@ -159,7 +159,7 @@ The Action fetches the PR diff and posts one batched inline review plus a summar
 
 Building a conversational review experience? Use [AgentsKit Chat](https://chat.agentskit.io/docs) for the cross-framework application layer instead of embedding chat here. Looking for organization-wide orchestration, governance, and production controls? Continue with [AKOS](https://akos.agentskit.io/docs).
 
-Pin the Action to an immutable release tag such as `@v0.2.1`; use a full commit SHA when your policy requires the strongest reproducibility.
+Pin the Action to an immutable release tag such as `@v0.2.2`; use a full commit SHA when your policy requires the strongest reproducibility.
 
 ## Choose how to run
 
@@ -350,7 +350,7 @@ node examples/verify-readme.mjs
 
 ## Maturity
 
-The repository is **pre-v1 (`0.2.x`)**. The CLI and Action are available for evaluation and advisory CI; use an exact release tag such as `@v0.2.1` or a commit SHA, and treat the future `v1` moving tag as a separate stability milestone. See [ROADMAP.md](ROADMAP.md) and the [release guidance](docs/OPERATIONS.md#releases-and-maturity).
+The repository is **pre-v1 (`0.2.x`)**. The CLI and Action are available for evaluation and advisory CI; use an exact release tag such as `@v0.2.2` or a commit SHA, and treat the future `v1` moving tag as a separate stability milestone. See [ROADMAP.md](ROADMAP.md) and the [release guidance](docs/OPERATIONS.md#releases-and-maturity).
 
 ## Compatibility
 

@@ -309,10 +309,10 @@ The default `added` filter limits inline feedback to changed lines. Choose a bro
 
 ## Releases and maturity
 
-The current package is `0.2.1` and the project is pre-v1:
+The current package is `0.2.2` and the project is pre-v1:
 
 - GitHub-source CLI commands can pin a commit SHA after `github:AgentsKit-io/code-review-cli#<sha>`;
-- Actions should pin `@v0.2.1` or a full commit SHA;
+- Actions should pin `@v0.2.2` or a full commit SHA;
 - a moving `@main` reference is suitable only when that mutability is accepted;
 - the future `@v1` Action tag remains a separate stability milestone.
 
@@ -320,7 +320,7 @@ Release work updates [`CHANGELOG.md`](../CHANGELOG.md), [`ROADMAP.md`](../ROADMA
 
 ### Automated npm publishing
 
-`.github/workflows/publish.yml` publishes only when a stable GitHub Release is published with a semantic version tag such as `v0.2.1`. The workflow checks out that tag, verifies that the tag matches `package.json`, runs `npm run check` and `npm pack --dry-run`, then publishes `@agentskit/code-review` using [npm Trusted Publishing](https://docs.npmjs.com/trusted-publishers/) (OIDC). No long-lived `NPM_TOKEN` is stored in GitHub.
+`.github/workflows/publish.yml` publishes only when a stable GitHub Release is published with a semantic version tag such as `v0.2.2`. The workflow checks out that tag, verifies that the tag matches `package.json`, runs `npm run check` and `npm pack --dry-run`, then publishes `@agentskit/code-review` using [npm Trusted Publishing](https://docs.npmjs.com/trusted-publishers/) (OIDC). No long-lived `NPM_TOKEN` is stored in GitHub.
 
 Before the first release, configure the npm package's Trusted Publisher for GitHub Actions with:
 

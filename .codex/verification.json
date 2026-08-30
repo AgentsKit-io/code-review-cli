@@ -15,7 +15,8 @@
       { "id": "comment-pagination", "statement": "Review state and summary updates inspect bounded comment history and fail closed before posting when history is truncated.", "checks": ["repo-check"] },
       { "id": "bounded-http", "statement": "GitHub API and reporter responses have shared size limits, deadlines, and transient GET retry behavior.", "checks": ["repo-check"] },
       { "id": "integration-regressions", "statement": "Integration coverage exercises Action defaults, authentication routing, pagination overflow, bounded response bodies, and existing provider failures.", "checks": ["repo-check"] },
-      { "id": "repo-gates", "statement": "The package typechecks, tests, documentation gates, and packs successfully.", "checks": ["repo-check", "package"] }
+      { "id": "repo-gates", "statement": "The package typechecks, tests, documentation gates, and packs successfully.", "checks": ["repo-check", "package"] },
+      { "id": "release-version", "statement": "The patch release is consistently versioned as 0.2.2 in package metadata, lockfile, public examples, and release documentation.", "checks": ["repo-check", "package"] }
     ]
   },
   "surfaces": { "logic": true, "cli": true, "docs": true },
