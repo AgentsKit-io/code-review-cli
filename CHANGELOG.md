@@ -12,6 +12,10 @@ All notable changes will be documented here. This project follows Semantic Versi
 - Added the explicit `fast` profile with a single required-lens batch for lower latency and predictable calls.
 - Added CI Action inputs for profile, deadline, and health-check policy.
 
+### Fixed
+
+- Made provider-call preflight estimates demand-driven for adversarial verification while preserving the hard, fail-closed runtime call ceiling.
+
 ## [0.2.3] - 2026-08-30
 
 ### Fixed

@@ -40,7 +40,7 @@ AgentsKit Code Review is built around a different contract:
 - **Low noise by design.** Findings are challenged by independent verification votes before they survive.
 - **Local first, CI ready.** Review a diff before pushing, inspect complete paths, read stdin, or comment directly on a GitHub PR.
 - **Control cost and policy.** Set file budgets, concurrency, thresholds, project conventions, and blocking severity.
-- **See the cost before execution.** Use `--plan --json` to inspect files, lenses, retries, concurrency, deadline, and estimated provider calls without a model request. Plans label estimates as `bounded` when `thresholds.maxPerFile` is set; otherwise they are `best-effort` because model output volume is inherently variable.
+- **See the cost before execution.** Use `--plan --json` to inspect files, lenses, retries, concurrency, deadline, and estimated provider calls without a model request. Estimates are `best-effort` because model output volume is inherently variable; the runtime call ceiling remains hard and fail-closed.
 
 ## Run your first review
 
@@ -275,7 +275,7 @@ In shortened examples, replace `...` with `npx --yes github:AgentsKit-io/code-re
 | `--min-confidence <n>` | Minimum reported confidence |
 | `--max-files <n>` | Positive file budget; over-budget runs are refused before the provider |
 | `--max-calls <n>` | Provider-call budget; absolute ceiling `1000` |
-| `--max-findings-per-file <n>` | Maximum verified findings per file; bounds adversarial verification calls |
+| `--max-findings-per-file <n>` | Maximum verified findings per file; caps adversarial verification work |
 | `--concurrency <n>` | Parallel model calls; default `1` for CLI providers, `4` for API providers |
 | `--deadline-ms <n>` | Global run deadline; defaults to `600000` (`120000` for `fast`) |
 | `--health-check <auto\|off>` | Bounded provider smoke check before model fan-out |

@@ -1,11 +1,12 @@
 import assert from 'node:assert/strict'
-import { spawnSync } from 'node:child_process'
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import { execFileSync, spawnSync } from 'node:child_process'
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join, resolve } from 'node:path'
 import { tmpdir } from 'node:os'
 import test from 'node:test'
 import { codexCli } from '../dist/src/codex-adapter.js'
+import { createCodeReviewAgent } from '../dist/agents/code-review/agent.js'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -266,7 +267,7 @@ test('plan is provider-free and machine-readable', () => {
   assert.equal(plan.overBudget.length, 0)
 })
 
-test('plan supports a bounded findings-per-file limit', () => {
+test('plan accepts a findings-per-file limit without reserving its worst case', () => {
   const run = spawnSync(process.execPath, [
     'dist/src/cli.js', '--provider', 'codex-cli', '--stdin', '--dry-run', '--json', '--max-findings-per-file', '2',
   ], {
@@ -276,8 +277,36 @@ test('plan supports a bounded findings-per-file limit', () => {
 
   assert.equal(run.status, 0, run.stderr)
   const plan = JSON.parse(run.stdout)
-  assert.equal(plan.providerCallEstimate, 'bounded')
-  assert.equal(plan.estimatedProviderCalls, 27)
+  assert.equal(plan.providerCallEstimate, 'best-effort')
+  assert.equal(plan.estimatedProviderCalls, 15)
+})
+
+test('plan keeps verification demand-driven when primary coverage fits the budget', async () => {
+  const cwd = mkdtempSync(join(tmpdir(), 'agentskit-adaptive-plan-'))
+  try {
+    execFileSync('git', ['-C', cwd, 'init', '-q'])
+    for (let i = 0; i < 20; i++) writeFileSync(join(cwd, `file-${i}.ts`), 'export const value = 1\n')
+    execFileSync('git', ['-C', cwd, 'add', '.'])
+    execFileSync('git', ['-C', cwd, '-c', 'user.name=Test', '-c', 'user.email=test@example.com', 'commit', '-qm', 'initial'])
+    for (let i = 0; i < 20; i++) writeFileSync(join(cwd, `file-${i}.ts`), 'export const value = 2\n')
+    execFileSync('git', ['-C', cwd, 'add', '.'])
+    execFileSync('git', ['-C', cwd, '-c', 'user.name=Test', '-c', 'user.email=test@example.com', 'commit', '-qm', 'change'])
+
+    const plan = await createCodeReviewAgent({
+      source: { kind: 'git-diff', base: 'HEAD~1', cwd },
+      auditVotes: 3,
+      retries: 1,
+      thresholds: { maxPerFile: 7 },
+      budget: { maxFiles: 50, maxCalls: 1000 },
+      reporters: [],
+    }).plan()
+
+    assert.equal(plan.files, 20)
+    assert.equal(plan.unreviewedFiles, 0)
+    assert.equal(plan.providerCallEstimate, 'best-effort')
+    assert.equal(plan.estimatedProviderCalls, 281)
+    assert.equal(plan.overBudget.length, 0)
+  } finally { rmSync(cwd, { recursive: true, force: true }) }
 })
 
 test('fast profile batches required lenses and stays within a small call budget', () => {
