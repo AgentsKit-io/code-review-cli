@@ -50,7 +50,7 @@ inputs:
     required: false
     default: '1000'
   max-findings-per-file:
-    description: 'Maximum findings verified per file; keeps the provider-call estimate bounded.'
+    description: 'Maximum findings verified per file; caps adversarial verification work.'
     required: false
     default: '7'
   profile:
