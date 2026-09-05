@@ -347,7 +347,7 @@ Before the first release, configure the npm package's Trusted Publisher for GitH
 
 Enable GitHub Actions permission to create pull requests only when the repository setting requires it for Changesets. Keep branch protection configured to require human review: the workflow never approves or merges its own version PR. This repository-wide setting can also permit workflow approvals, so restrict `pull-requests: write` to the version workflow and do not count workflow approvals toward the required human review. The npm configuration is a one-time external prerequisite; the GitHub workflow cannot create it. Do not run `npm publish` locally.
 
-If an otherwise validated release is interrupted after the GitHub version commit, a maintainer may use **Publish Package → Run workflow** with the exact current `package.json` version. The workflow fails closed unless that input matches the checked-out package version. It publishes only an absent npm version; if npm already contains it, it can recover only the missing GitHub release. This recovery path is intended for the existing `0.4.0` GitHub release, which was not published because trusted-publisher access was not yet configured.
+The publish workflow has no manual dispatch path: only a merged, bot-authored Changesets version pull request can publish. If a release is interrupted, repair it through a new reviewed version PR rather than granting an arbitrary ref publishing authority.
 
 ## Contribution and security
 

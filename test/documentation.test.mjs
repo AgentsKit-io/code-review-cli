@@ -45,7 +45,7 @@ test('Changesets release automation is tokenless, gated, and recoverable', () =>
   assert.match(publishJob, /id-token: write/)
   assert.match(publishWorkflow, /github\.event\.pull_request\.user\.login == 'github-actions\[bot\]'/)
   assert.match(publishWorkflow, /github\.event\.pull_request\.title == 'chore: version packages'/)
-  assert.match(publishWorkflow, /RECOVERY_VERSION/)
+  assert.doesNotMatch(publishWorkflow, /workflow_dispatch|RECOVERY_VERSION/)
   assert.match(publishWorkflow, /github\.event\.pull_request\.merge_commit_sha \|\| github\.sha/)
   assert.match(publishWorkflow, /gh release view/)
   assert.match(publishWorkflow, /npm publish --access public/)

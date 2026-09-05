@@ -4,12 +4,6 @@ on:
   pull_request:
     branches: [main]
     types: [closed]
-  workflow_dispatch:
-    inputs:
-      version:
-        description: "Exact package version to recover after a verified interrupted publish (for example 0.4.0)"
-        required: true
-        type: string
 
 permissions:
   contents: read
@@ -17,8 +11,7 @@ permissions:
 jobs:
   publish:
     if: >-
-      github.event_name == 'workflow_dispatch' ||
-      (github.event.pull_request.merged == true &&
+      github.event.pull_request.merged == true &&
       github.event.pull_request.user.login == 'github-actions[bot]' &&
       github.event.pull_request.title == 'chore: version packages')
     runs-on: ubuntu-latest
@@ -41,7 +34,6 @@ jobs:
 
       - name: Verify the approved publishing trigger and package version
         env:
-          RECOVERY_VERSION: ${{ inputs.version }}
         run: |
           set -eu
           node <<'NODE'
@@ -49,9 +41,6 @@ jobs:
           const version = JSON.parse(fs.readFileSync('package.json', 'utf8')).version
           if (!/^\d+\.\d+\.\d+(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/.test(version)) {
             throw new Error(`package version ${version} is not a semantic version`)
-          }
-          if (process.env.RECOVERY_VERSION && process.env.RECOVERY_VERSION !== version) {
-            throw new Error(`recovery version ${process.env.RECOVERY_VERSION} does not match package version ${version}`)
           }
           NODE
 
