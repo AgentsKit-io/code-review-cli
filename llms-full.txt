@@ -759,7 +759,11 @@ Release work updates [`CHANGELOG.md`](https://github.com/AgentsKit-io/code-revie
 
 ### Automated npm publishing
 
-`.github/workflows/publish.yml` publishes only when a stable GitHub Release is published with a semantic version tag such as `v0.4.0`. The workflow checks out that tag, verifies that the tag matches `package.json`, runs `npm run check` and `npm pack --dry-run`, then publishes `@agentskit/code-review` using [npm Trusted Publishing](https://docs.npmjs.com/trusted-publishers/) (OIDC). No long-lived `NPM_TOKEN` is stored in GitHub.
+Changesets is the release source of truth. A product-affecting pull request adds a small Markdown file in `.changeset/` that names `@agentskit/code-review`, selects `patch`, `minor`, or `major`, and explains the user-visible change. Documentation-only, test-only, and CI-only pull requests add `npx changeset --empty` when they intentionally require no release.
+
+Every merge to `main` runs `.github/workflows/release.yml`. When pending non-empty changesets exist, it creates or updates the bot-authored `chore: version packages` pull request. That pull request contains the version bump, generated `CHANGELOG.md` entry, and consumed changesets. Merging this version pull request is the only automatic publish trigger. This extra review boundary is intentional: ordinary feature merges collect safely, while the versioned release has a concrete, reviewable diff.
+
+`.github/workflows/publish.yml` runs only after that bot-authored version pull request is merged. It checks out that exact merge commit, verifies the package version and a clean release payload with `npm run check` and `npm pack --dry-run`, refuses an already published version, publishes `@agentskit/code-review` using [npm Trusted Publishing](https://docs.npmjs.com/trusted-publishers/) (OIDC), then creates the immutable `v<version>` GitHub Release. No long-lived `NPM_TOKEN`, npm access token, or personal GitHub token is stored in this repository. GitHub's built-in workflow token is used only to create the version PR and GitHub release.
 
 Before the first release, configure the npm package's Trusted Publisher for GitHub Actions with:
 
@@ -768,7 +772,9 @@ Before the first release, configure the npm package's Trusted Publisher for GitH
 - Workflow filename: `publish.yml`
 - Allowed action: `npm publish`
 
-The npm configuration is a one-time external prerequisite; the GitHub workflow cannot create it. For each release, update the package version and changelog in a reviewed commit, push the commit, then create the matching GitHub Release/tag. Do not run `npm publish` locally.
+Also enable **Settings → Actions → General → Allow GitHub Actions to create and approve pull requests** in the repository. The npm configuration is a one-time external prerequisite; the GitHub workflow cannot create it. Do not run `npm publish` locally.
+
+If an otherwise validated release is interrupted after the GitHub version commit but before npm accepts it, a maintainer may use **Publish Package → Run workflow** with the exact current `package.json` version. The workflow fails closed unless that input matches the checked-out package version, and still refuses a version already present on npm. This recovery path is intended for the existing `0.4.0` GitHub release, which was not published because trusted-publisher access was not yet configured.
 
 ## Contribution and security
 
@@ -809,7 +815,8 @@ Provider-neutral, low-noise AI code review for local Git diffs, files/stdin, and
 - `src/*-adapter.ts`: logged-in local CLI adapters.
 - `agents/code-review/`: review pipeline, lenses, input normalization, reporters.
 - `action.yml`: composite GitHub Action contract.
-- `.github/workflows/publish.yml`: tag-verified npm Trusted Publishing workflow.
+- `.github/workflows/release.yml`: Changesets version-pull-request workflow.
+- `.github/workflows/publish.yml`: version-PR-gated npm Trusted Publishing and GitHub Release workflow.
 - `examples/`: copy-ready Action workflows.
 - `README.md` and `docs/OPERATIONS.md`: public adoption and operations guidance.
 - `ecosystem.json`, `llms.txt`, and `llms-full.txt`: canonical product graph and machine-readable discovery/full-corpus surfaces.
@@ -830,7 +837,7 @@ Provider-neutral, low-noise AI code review for local Git diffs, files/stdin, and
 - Review logic or noise reduction: start at `agents/code-review/agent.ts` and the relevant lens; prove both survival and rejection behavior.
 - GitHub comments/SARIF: start at `agents/code-review/reporters.ts` and verify permissions/failure docs.
 - Action input: update `action.yml`, `examples/pull-request.yml`, README, and contract tests together.
-- Release automation: update `.github/workflows/publish.yml` and the automated publishing section in `docs/OPERATIONS.md` together.
+- Release automation: update `.github/workflows/release.yml`, `.github/workflows/publish.yml`, Changesets configuration, and the automated publishing section in `docs/OPERATIONS.md` together.
 
 ## Verification
 

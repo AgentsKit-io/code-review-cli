@@ -60,6 +60,8 @@
     "docs:index": "ak-docs index && npm run docs:full",
     "docs:gate": "ak-docs gate run && ak-docs conformance run documentation-standard-v1 --text && node scripts/generate-llms-full.mjs --check && node --test test/documentation.test.mjs",
     "docs:doctor": "ak-docs doctor --text",
+    "changeset": "changeset",
+    "version-packages": "changeset version",
     "check": "npm run typecheck && npm run test && npm run docs:gate && node dist/src/cli.js --help && npm run check:readme-standard",
     "prepare": "npm run build",
     "prepack": "npm run build && npm run docs:gate",
@@ -80,6 +82,8 @@
     "@agentskit/doc-bridge": "^1.1.1"
   },
   "devDependencies": {
+    "@changesets/changelog-github": "^0.7.0",
+    "@changesets/cli": "^2.31.0",
     "@types/json-schema": "^7.0.15",
     "@types/node": "^22.10.0",
     "tsx": "^4.19.0",
