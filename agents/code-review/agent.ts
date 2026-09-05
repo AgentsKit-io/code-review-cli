@@ -817,7 +817,7 @@ export function createCodeReviewAgent(config: CodeReviewConfig) {
       // candidate findings have not gone through skeptical verification, so do
       // not emit them.  Return only the auditable coverage evidence, allowing
       // callers to persist a safe result artifact and schedule a retry.
-      const deadlineUnreviewed = unreviewedFiles.map((file) => ({ file, reason: `review deadline exceeded after ${deadlineMs}ms` }))
+      const deadlineUnreviewed = targets.map((target) => ({ file: target.file, reason: `review deadline exceeded after ${deadlineMs}ms` }))
       const result = synthesize(
         [], [], targets.length, droppedFiles, execution,
         unreviewed.length + deadlineUnreviewed.length,
@@ -830,10 +830,11 @@ export function createCodeReviewAgent(config: CodeReviewConfig) {
       result.droppedNote = 'Candidate findings were discarded because the review deadline expired before skeptical verification.'
       const reporters = config.reporters ?? [markdownReporter()]
       emit('report', 'start', reporters.map((r) => r.name).join(', '))
-      for (const reporter of reporters) await reporter.emit(result)
-      emit('report', 'ok', result.verdict)
-      finishRun()
-      return result
+      try {
+        for (const reporter of reporters) await reporter.emit(result)
+        emit('report', 'ok', result.verdict)
+        return result
+      } finally { finishRun() }
     }
     if (unreviewedFiles.length) {
       emit(

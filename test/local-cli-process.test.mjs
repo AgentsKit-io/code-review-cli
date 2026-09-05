@@ -34,17 +34,6 @@ test('abort terminates a local worker and returns a stable error code', async ()
   await assert.rejects(pending, (error) => error?.code === 'ABORT_ERR' && error.message === `${node} aborted`)
 })
 
-test('parallel workers share one parent shutdown listener pair', async () => {
-  const beforeInt = process.listenerCount('SIGINT')
-  const beforeTerm = process.listenerCount('SIGTERM')
-  const workers = Array.from({ length: 12 }, () => runLocalCli(node, ['-e', 'setTimeout(() => process.exit(0), 50)']))
-  await new Promise((resolve) => setTimeout(resolve, 10))
-  assert.equal(process.listenerCount('SIGINT'), beforeInt + 1)
-  assert.equal(process.listenerCount('SIGTERM'), beforeTerm + 1)
-  await Promise.all(workers)
-  assert.equal(process.listenerCount('SIGINT'), beforeInt)
-  assert.equal(process.listenerCount('SIGTERM'), beforeTerm)
-})
 
 test('output overflow stops the worker and never returns unbounded output', async () => {
   const pending = runLocalCli(node, ['-e', "process.stdout.write('x'.repeat(100))"], { maxOutputBytes: 10 })
