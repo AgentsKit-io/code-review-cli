@@ -10,7 +10,7 @@ Profile: <code>top-level-repository</code>
 
 It is intended for developers and teams who want focused review feedback without changing their model subscription, and without adopting a separate chat product surface.
 
-[![CI](https://github.com/AgentsKit-io/code-review-cli/actions/workflows/ci.yml/badge.svg)](https://github.com/AgentsKit-io/code-review-cli/actions/workflows/ci.yml)
+[![CI](https://github.com/AgentsKit-io/code-review/actions/workflows/ci.yml/badge.svg)](https://github.com/AgentsKit-io/code-review/actions/workflows/ci.yml)
 [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/13866/baseline)](https://www.bestpractices.dev/projects/13866)
 [![License: MIT](https://img.shields.io/badge/License-MIT-0f766e.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/Node.js-%3E%3D20-339933?logo=node.js&logoColor=white)](package.json)
@@ -40,7 +40,7 @@ AgentsKit Code Review is built around a different contract:
 - **Low noise by design.** Findings are challenged by independent verification votes before they survive.
 - **Local first, CI ready.** Review a diff before pushing, inspect complete paths, read stdin, or comment directly on a GitHub PR.
 - **Control cost and policy.** Set file budgets, concurrency, thresholds, project conventions, and blocking severity.
-- **See the cost before execution.** Use `--plan --json` to inspect files, lenses, retries, concurrency, deadline, and estimated provider calls without a model request. Plans label estimates as `bounded` when `thresholds.maxPerFile` is set; otherwise they are `best-effort` because model output volume is inherently variable.
+- **See the cost before execution.** Use `--plan --json` to inspect files, lenses, retries, concurrency, deadline, estimated provider calls, and every `UNREVIEWED` path with its reason without a model request. Plans label estimates as `bounded` when `thresholds.maxPerFile` is set; otherwise they are `best-effort` because model output volume is inherently variable.
 
 ## Run your first review
 
@@ -49,13 +49,13 @@ Open a terminal inside any Git repository and choose a provider you already use.
 <!-- readme-example:first-review -->
 ```sh
 # Codex CLI — uses your existing login on a trusted local machine
-npx --yes github:AgentsKit-io/code-review-cli --provider codex-cli --mode trusted-local
+npx --yes github:AgentsKit-io/code-review --provider codex-cli --mode trusted-local
 
 # Claude CLI — uses your existing login
-npx --yes github:AgentsKit-io/code-review-cli --provider claude-cli
+npx --yes github:AgentsKit-io/code-review --provider claude-cli
 
 # OpenAI API
-OPENAI_API_KEY=... npx --yes github:AgentsKit-io/code-review-cli \
+OPENAI_API_KEY=... npx --yes github:AgentsKit-io/code-review \
   --provider openai --model gpt-4o
 ```
 
@@ -76,6 +76,10 @@ The default `isolated` mode does not inherit an interactive CLI login. Use `--mo
 Preflight refuses an over-budget run before the first provider call. For GitHub PR sources, the CLI automatically caps the reviewed files to the safe call budget when `--max-files` is omitted; the remaining files are marked `UNREVIEWED`, so the result stays incomplete and cannot approve the PR. Use `--max-files` to choose a smaller explicit scope. `--dry-run` and `--plan` print the cap and concrete reductions; `--json` makes the plan machine-readable. CLI providers default to concurrency `1`, while API providers retain concurrency `4`. Required-lens or source coverage failures always exit `2`, even with `--no-fail`.
 Use `--profile fast` when latency and provider budget matter more than the optional lenses: correctness, security, and tests run in one structured batch with one verification vote and no retry. The result records provider calls, failures, skips, elapsed time, circuit state, and whether the deadline fired. Any incomplete evidence remains fail-closed.
 
+### Complete coverage for large PRs
+
+Do not silently cap a large PR and treat the partial result as clean. `--plan --json --batch-size <n>` exposes a stable, alphabetically ordered file manifest. With a GitHub PR, `--batch-manifest <private-file>` writes the immutable state that binds every batch to the exact head SHA and review-policy fingerprint. Run each batch with `--batch-index <n> --result <private-file>`; partial batches reject `--post` and their result files are private (`0600`). `--consolidate-manifest <manifest> --artifacts <comma-list> --result <private-file>` accepts only every planned batch with complete evidence. Its output is the only artifact accepted by `--publish-result <file> --pr owner/repo#N --post`; that command rechecks the current SHA and policy before creating one GitHub review. A new commit or policy change invalidates the artifacts and requires a new manifest.
+
 ![AgentsKit Code Review showing an APPROVE result after seven review lenses complete](docs/assets/code-review-terminal.png)
 
 The current command runs directly from GitHub. After the first npm release, the shorter form will be:
@@ -92,7 +96,7 @@ Add this to `.pre-commit-config.yaml`:
 
 ```yaml
 repos:
-  - repo: https://github.com/AgentsKit-io/code-review-cli
+  - repo: https://github.com/AgentsKit-io/code-review
     rev: main # pre-release; pin a release tag when one contains the hook
     hooks:
       - id: agentskit-review
@@ -114,7 +118,7 @@ Use Ollama when repository policy requires model inference to stay on a machine 
 ```sh
 ollama pull qwen2.5-coder:7b
 
-npx --yes github:AgentsKit-io/code-review-cli \
+npx --yes github:AgentsKit-io/code-review \
   --provider ollama \
   --model qwen2.5-coder:7b \
   --base main \
@@ -146,7 +150,7 @@ jobs:
   review:
     runs-on: ubuntu-latest
     steps:
-      - uses: AgentsKit-io/code-review-cli@v0.3.0
+      - uses: AgentsKit-io/code-review@v0.4.0
         with:
           provider: openai
           model: gpt-4o
@@ -160,11 +164,11 @@ jobs:
           # block: high
 ```
 
-The Action fetches the PR diff and posts one batched inline review plus a summary. Its defaults review at most 17 files, 7 findings per file, and 1,000 provider calls. It is advisory by default. Advisory mode affects findings only: source, provider, or execution failures still fail the check, and any reviewable file with zero successful primary lenses prevents approval. Summaries report successful and failed lens counts so partial degradation stays visible. `codex-cli` requires a pre-authenticated `trusted-local` self-hosted runner; use an API provider with a secret on GitHub-hosted runners. Enable `fail-on-block` and branch protection when you are ready to use findings as a merge gate.
+The Action fetches the PR diff and posts one batched inline review plus a compact, persistent walkthrough. The walkthrough reports outcome and review evidence; actionable detail appears only on the relevant diff lines. Its defaults review at most 17 files, 7 findings per file, and 1,000 provider calls. It is advisory by default. Advisory mode affects findings only: source, provider, or execution failures still fail the check, and any reviewable file with zero successful primary lenses prevents approval. `codex-cli` requires a pre-authenticated `trusted-local` self-hosted runner; use an API provider with a secret on GitHub-hosted runners. Enable `fail-on-block` and branch protection when you are ready to use findings as a merge gate.
 
 Building a conversational review experience? Use [AgentsKit Chat](https://chat.agentskit.io/docs) for the cross-framework application layer instead of embedding chat here. Looking for organization-wide orchestration, governance, and production controls? Continue with [AKOS](https://akos.agentskit.io/docs).
 
-Pin the Action to an immutable release tag such as `@v0.3.0`; use a full commit SHA when your policy requires the strongest reproducibility.
+Pin the Action to an immutable release tag such as `@v0.4.0`; use a full commit SHA when your policy requires the strongest reproducibility.
 
 ## Choose how to run
 
@@ -175,7 +179,7 @@ Pin the Action to an immutable release tag such as `@v0.3.0`; use a full commit 
 | Local model | `ollama` | Usually none | Privacy and predictable cost |
 | Gateway | `openrouter` or a custom `--base-url` | Gateway-specific | Central routing and policy |
 
-`grok` is the xAI API provider; `grok-cli` is the separate Grok Build CLI entry. `opencode-cli` is the OpenCode CLI entry. API providers are discovered from factories exported by [`@agentskit/adapters`](https://www.npmjs.com/package/@agentskit/adapters). Run `npx --yes github:AgentsKit-io/code-review-cli --list-providers` to see IDs, support levels, transports, and model requirements.
+`grok` is the xAI API provider; `grok-cli` is the separate Grok Build CLI entry. `opencode-cli` is the OpenCode CLI entry. API providers are discovered from factories exported by [`@agentskit/adapters`](https://www.npmjs.com/package/@agentskit/adapters). Run `npx --yes github:AgentsKit-io/code-review --list-providers` to see IDs, support levels, transports, and model requirements.
 
 Credentials resolve in this order:
 
@@ -203,27 +207,27 @@ The review agent lives in `agents/code-review/` and is vendored from the [Agents
 
 ```sh
 # Tune verification and severity
-npx --yes github:AgentsKit-io/code-review-cli --provider codex-cli \
+npx --yes github:AgentsKit-io/code-review --provider codex-cli \
   --base main --votes 5 --min-severity high
 
 # Review a GitHub PR and post the result
 GITHUB_TOKEN=... OPENAI_API_KEY=... \
-  npx --yes github:AgentsKit-io/code-review-cli --provider openai --model gpt-4o \
+  npx --yes github:AgentsKit-io/code-review --provider openai --model gpt-4o \
   --pr owner/repo#42 --post
 
 # Review complete files or directories
-npx --yes github:AgentsKit-io/code-review-cli --provider claude-cli \
+npx --yes github:AgentsKit-io/code-review --provider claude-cli \
   --paths src --max-files 30
 
 # Review piped source and also write SARIF
-echo 'const x = a.b' | npx --yes github:AgentsKit-io/code-review-cli \
+echo 'const x = a.b' | npx --yes github:AgentsKit-io/code-review \
   --provider ollama --model llama3 \
   --base-url http://localhost:11434 --stdin --lang ts --sarif out.sarif
 
 # After fetching the PR base and installing reviewdog, reuse its annotation transport
 REPORT_FILE="$(mktemp)"
 trap 'rm -f "${REPORT_FILE}"' EXIT
-npx --yes github:AgentsKit-io/code-review-cli#3dfd7427640148281454d52846d369e5ddf85b11 \
+npx --yes github:AgentsKit-io/code-review#3dfd7427640148281454d52846d369e5ddf85b11 \
   --provider openai --model gpt-4o \
   --base "origin/${BASE_REF}" --sarif "${REPORT_FILE}" --no-fail &&
 reviewdog -f=sarif -name=agentskit-review \
@@ -241,8 +245,8 @@ Run these commands from the repository you want to review:
 
 | Provider | What you need | Model | Example |
 |---|---|---|---|
-| `codex-cli` | Codex CLI logged in | Optional | `npx --yes github:AgentsKit-io/code-review-cli --provider codex-cli` |
-| `claude-cli` | Claude CLI logged in | Optional | `npx --yes github:AgentsKit-io/code-review-cli --provider claude-cli` |
+| `codex-cli` | Codex CLI logged in | Optional | `npx --yes github:AgentsKit-io/code-review --provider codex-cli` |
+| `claude-cli` | Claude CLI logged in | Optional | `npx --yes github:AgentsKit-io/code-review --provider claude-cli` |
 | `grok-cli` | Grok Build CLI; stable ACP/headless | Optional | `... --provider grok-cli` |
 | `opencode-cli` | OpenCode CLI; stable ACP/headless | Optional | `... --provider opencode-cli` |
 | `openai` | `OPENAI_API_KEY` | Required | `... --provider openai --model gpt-4o` |
@@ -252,7 +256,7 @@ Run these commands from the repository you want to review:
 | `openrouter` | `OPENROUTER_API_KEY` | Required | `... --provider openrouter --model <model>` |
 | Other adapters | `<PROVIDER>_API_KEY` when applicable | Usually required | `... --provider <name> --model <model>` |
 
-In shortened examples, replace `...` with `npx --yes github:AgentsKit-io/code-review-cli`.
+In shortened examples, replace `...` with `npx --yes github:AgentsKit-io/code-review`.
 
 ### Options
 
@@ -332,8 +336,8 @@ paths are reported as `UNREVIEWED`; content is never silently truncated.
 Run `doctor` before a review to check a registered provider’s executable, version, transport, model requirement, configuration mode, and credential presence. It is offline by default; `doctor --live` and normal Codex reviews use a bounded smoke check to catch authentication or hangs before fan-out. API credentials are checked only for presence and values are never printed. Unknown local CLI versions warn locally and fail when `CI=true`. Exit `0` means healthy, `1` means a failed diagnostic, and `2` means invalid CLI usage.
 
 ```sh
-npx --yes github:AgentsKit-io/code-review-cli doctor --provider codex-cli
-npx --yes github:AgentsKit-io/code-review-cli doctor --provider openai --model gpt-4o --json
+npx --yes github:AgentsKit-io/code-review doctor --provider codex-cli
+npx --yes github:AgentsKit-io/code-review doctor --provider openai --model gpt-4o --json
 ```
 
 ## Cost and privacy
@@ -359,7 +363,7 @@ node examples/verify-readme.mjs
 
 ## Maturity
 
-The repository is **pre-v1 (`0.3.x`)**. The CLI and Action are available for evaluation and advisory CI; use an exact release tag such as `@v0.3.0` or a commit SHA, and treat the future `v1` moving tag as a separate stability milestone. See [ROADMAP.md](ROADMAP.md) and the [release guidance](docs/OPERATIONS.md#releases-and-maturity).
+The repository is **pre-v1 (`0.4.x`)**. The CLI and Action are available for evaluation and advisory CI; use an exact release tag such as `@v0.4.0` or a commit SHA, and treat the future `v1` moving tag as a separate stability milestone. See [ROADMAP.md](ROADMAP.md) and the [release guidance](docs/OPERATIONS.md#releases-and-maturity).
 
 ## Compatibility
 

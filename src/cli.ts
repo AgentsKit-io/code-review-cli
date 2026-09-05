@@ -15,9 +15,9 @@
  */
 import type { AdapterFactory } from '@agentskit/core'
 import { createProgressObserver } from '@agentskit/ink'
-import { readFileSync } from 'node:fs'
+import { readFileSync, writeFileSync } from 'node:fs'
 import { builtInLenses, createCodeReviewAgent, type Category, type CodeReviewConfig, type Reporter, type ReviewPlan, type Severity } from '../agents/code-review/agent.js'
-import { githubInlineReporter, githubSummaryReporter, markdownReporter, sarifReporter } from '../agents/code-review/reporters.js'
+import { githubInlineReporter, githubSummaryReporter, markdownReporter, renderMarkdown, sarifReporter } from '../agents/code-review/reporters.js'
 import { claudeCode } from './claude-code-adapter.js'
 import { codexCli } from './codex-adapter.js'
 import { grokCli, grokHeadless } from './grok-cli-adapter.js'
@@ -28,6 +28,7 @@ import type { SourceConfig } from '../agents/code-review/sources.js'
 import { diagnoseProvider, factoryFor, providerEntry, providerRegistry, resolveProviderId, type DoctorReport, type ProviderEntry } from './provider-registry.js'
 import { loadReviewConfig, type ResolvedReviewConfig } from './review-config.js'
 import { getGithubReviewState, reviewFingerprint } from './github-review-state.js'
+import { consolidateToArtifact, createBatchCoverage, partitionReviewableFiles, type BatchCoverageState, type BatchReviewArtifact, type ConsolidatedReviewArtifact } from './batch-coverage.js'
 
 const HELP = `AgentsKit Code Review — deep, low-noise review with your model
 
@@ -67,9 +68,15 @@ Review options:
   --allow-unredacted      Local-only exception for secret redaction
   --validate-patch        Validate suggested patches with git apply --check
   --sarif <file>          Also write a SARIF report
+  --result <file>         Write a private JSON review result for orchestration
   --post                  Post a PR review (with --pr)
   --no-fail               Report findings without failing the process
   --dry-run, --plan       Print the provider-free preflight plan without model calls
+  --batch-size <n>        Add a deterministic file-batch manifest to --plan --json
+  --batch-index <n>       Review one batch; partial batches cannot use --post
+  --batch-manifest <file> Write the private SHA/policy-bound batch manifest during --plan
+  --consolidate-manifest <file>  Consolidate private artifacts from --artifacts <comma-list>
+  --publish-result <file> Publish one consolidated artifact (requires --pr --post)
   --json                  Emit machine-readable plan output with --plan/--dry-run
 
 Provider options:
@@ -114,6 +121,7 @@ function shouldRedact(reviewConfig: ResolvedReviewConfig): boolean {
 async function resolveSource(reviewConfig: ResolvedReviewConfig): Promise<SourceConfig> {
   const redact = shouldRedact(reviewConfig)
   const limits = { maxFiles: reviewConfig.budget.maxFiles, maxBytes: reviewConfig.budget.maxBytes }
+  const batchRequested = flag('batch-index') !== undefined
   const pr = flag('pr')
   if (pr) {
     const m = pr.match(/^([^/]+)\/([^#]+)#(\d+)$/)
@@ -124,7 +132,7 @@ async function resolveSource(reviewConfig: ResolvedReviewConfig): Promise<Source
     const maxFindingsPerFile = reviewConfig.thresholds.maxPerFile ?? lensCount
     const callsPerFile = (reviewConfig.batchLenses ? 1 : lensCount) * (1 + reviewConfig.retries) + maxFindingsPerFile * reviewConfig.votes * (1 + reviewConfig.retries)
     const automaticFileBudget = Math.max(1, Math.floor(((reviewConfig.budget.maxCalls ?? 1000) - 1) / Math.max(1, callsPerFile)))
-    return { kind: 'github-pr', owner: m[1]!, repo: m[2]!, number: Number(m[3]), token, redact, limits: { ...limits, maxFiles: limits.maxFiles ?? automaticFileBudget } }
+    return { kind: 'github-pr', owner: m[1]!, repo: m[2]!, number: Number(m[3]), token, redact, limits: { ...limits, maxFiles: batchRequested ? 500 : (limits.maxFiles ?? automaticFileBudget) } }
   }
   if (has('stdin')) return { kind: 'stdin', content: await readStdin(), filename: `snippet.${flag('lang') ?? 'txt'}`, redact, limits: { ...limits, maxFileBytes: 1024 * 1024 } }
   if (has('paths')) {
@@ -151,6 +159,18 @@ async function main() {
     await runDoctor()
     return
   }
+  const consolidateManifest = flag('consolidate-manifest')
+  if (consolidateManifest) {
+    const resultFile = flag('result')
+    const artifactFiles = flag('artifacts')?.split(',').filter(Boolean) ?? []
+    if (!resultFile || !artifactFiles.length) throw new Error('--consolidate-manifest needs --artifacts <comma-list> and --result <file>')
+    const manifest = parseJsonFile<BatchCoverageState>(consolidateManifest, 'batch manifest')
+    const artifacts = artifactFiles.map((path) => parseJsonFile<BatchReviewArtifact>(path, 'batch artifact'))
+    const consolidated = consolidateToArtifact(manifest, artifacts)
+    writeFileSync(resultFile, JSON.stringify(consolidated, null, 2), { mode: 0o600 })
+    console.log(renderMarkdown(consolidated.review))
+    return
+  }
   const reviewConfig = loadReviewConfig(process.cwd(), {
     ci: has('ci') || process.env.CI === 'true' || process.env.CI === '1',
     allowIncomplete: has('allow-incomplete'),
@@ -173,37 +193,55 @@ async function main() {
     },
   })
   let source = await resolveSource(reviewConfig)
-  const githubState = source.kind === 'github-pr' && has('post')
+  const requestedBatch = flag('batch-index')
+  const resultFile = flag('result')
+  const publishResult = flag('publish-result')
+  const policyFingerprint = reviewFingerprint({
+    engine: `@agentskit/code-review@${packageVersion()}`,
+    provider: reviewConfig.provider,
+    model: reviewConfig.model,
+    transport: reviewConfig.transport,
+    lenses: reviewConfig.lenses,
+    votes: reviewConfig.votes,
+    retries: reviewConfig.retries,
+    profile: reviewConfig.profile,
+    thresholds: reviewConfig.thresholds,
+    budget: reviewConfig.budget,
+    context: reviewConfig.context,
+    redaction: reviewConfig.redaction,
+    conventions: reviewConfig.conventions ?? 'auto',
+  })
+  const githubState = source.kind === 'github-pr' && (has('post') || requestedBatch !== undefined || resultFile !== undefined || publishResult !== undefined || flag('batch-manifest') !== undefined)
     ? await getGithubReviewState({
       ...source,
-      fingerprint: reviewFingerprint({
-        engine: `@agentskit/code-review@${packageVersion()}`,
-        provider: reviewConfig.provider,
-        model: reviewConfig.model,
-        transport: reviewConfig.transport,
-        lenses: reviewConfig.lenses,
-        votes: reviewConfig.votes,
-        retries: reviewConfig.retries,
-        profile: reviewConfig.profile,
-        thresholds: reviewConfig.thresholds,
-        budget: reviewConfig.budget,
-        context: reviewConfig.context,
-        redaction: reviewConfig.redaction,
-        conventions: reviewConfig.conventions ?? 'auto',
-      }),
+      fingerprint: policyFingerprint,
     })
     : undefined
-  if (githubState?.fork) {
+  if (has('post') && githubState?.fork) {
     console.error(`SKIPPED: fork PR ${githubState.owner}/${githubState.repo}#${githubState.number} cannot be posted from this workflow boundary`)
     process.exitCode = 2
     return
   }
-  if (githubState?.alreadyReviewed) {
+  if (has('post') && githubState?.alreadyReviewed) {
     console.log(`SKIPPED: ${githubState.owner}/${githubState.repo}#${githubState.number} already reviewed at ${githubState.sha} with the same fingerprint`)
     return
   }
-  if (githubState?.scope === 'incremental' && githubState.baselineSha && source.kind === 'github-pr') {
+  if (has('post') && githubState?.scope === 'incremental' && githubState.baselineSha && source.kind === 'github-pr') {
     source = { ...source, baselineSha: githubState.baselineSha }
+  }
+  if (publishResult) {
+    if (!has('post') || source.kind !== 'github-pr' || !githubState) throw new Error('--publish-result needs --pr, --post, and GITHUB_TOKEN')
+    const artifact = parseJsonFile<ConsolidatedReviewArtifact>(publishResult, 'consolidated result')
+    if (artifact.version !== 1 || artifact.repository !== `${source.owner}/${source.repo}` || artifact.pullNumber !== source.number || artifact.headSha !== githubState.sha || artifact.policyFingerprint !== policyFingerprint || !artifact.review || 'batch' in artifact) {
+      throw new Error('consolidated result is stale, mismatched, or not publishable')
+    }
+    if (artifact.review.incomplete || artifact.review.unreviewed?.length || artifact.review.missingRequiredLenses?.length || artifact.review.execution.failed || artifact.review.execution.succeeded !== artifact.review.execution.attempted || artifact.review.evidence.deadlineExceeded) {
+      throw new Error('consolidated result has incomplete review evidence')
+    }
+    if (githubState.fork || githubState.alreadyReviewed) throw new Error('current PR cannot receive this consolidated result safely')
+    await githubInlineReporter({ owner: source.owner, repo: source.repo, number: source.number, token: source.token, commitId: githubState.sha, marker: githubState.marker }).emit(artifact.review)
+    await githubSummaryReporter({ owner: source.owner, repo: source.repo, number: source.number, token: source.token, marker: githubState.marker }).emit(artifact.review)
+    process.exit(artifact.review.blocking && !has('no-fail') ? 1 : 0)
   }
   const reporters: Reporter[] = [markdownReporter()]
   const sarif = flag('sarif')
@@ -234,17 +272,45 @@ async function main() {
     thresholds: reviewConfig.thresholds,
   }
 
-  const agent = createCodeReviewAgent(config)
-  const plan = await agent.plan()
+  let agent = createCodeReviewAgent(config)
+  let plan = await agent.plan()
+  let selectedBatch: { index: number; files: string[] } | undefined
   if (has('dry-run') || has('plan')) {
-    if (has('json')) console.log(JSON.stringify(plan))
+    const batchSize = flag('batch-size')
+    const batches = batchSize === undefined ? undefined : partitionReviewableFiles(plan.reviewableFiles, Number(batchSize))
+    const batchManifest = flag('batch-manifest')
+    if (batchManifest) {
+      if (!batches || source.kind !== 'github-pr' || !githubState) throw new Error('--batch-manifest needs --pr, --batch-size, and GITHUB_TOKEN')
+      writeFileSync(batchManifest, JSON.stringify(createBatchCoverage({ repository: `${source.owner}/${source.repo}`, pullNumber: source.number, headSha: githubState.sha, policyFingerprint, batches }), null, 2), { mode: 0o600 })
+    }
+    if (has('json')) console.log(JSON.stringify({ ...plan, ...(batches ? { batches } : {}) }))
     else console.log(formatPlan(plan))
     if (plan.overBudget.length) process.exitCode = 2
     return
   }
+  if (requestedBatch !== undefined) {
+    if (has('post')) throw new Error('--post is forbidden for a partial batch')
+    const size = Number(flag('batch-size'))
+    const batches = partitionReviewableFiles(plan.reviewableFiles, size)
+    selectedBatch = batches.find((item) => item.index === Number(requestedBatch))
+    if (!selectedBatch) throw new Error('--batch-index is outside the planned batch manifest')
+    config.targetFiles = selectedBatch.files
+    config.incompleteProfile = true
+    config.reviewContext = `Complete PR file manifest (${plan.reviewableFiles.length} reviewable file(s)); only the selected batch source is shown:\n${plan.reviewableFiles.map((file) => `- ${file}`).join('\n')}`
+    agent = createCodeReviewAgent(config)
+    plan = await agent.plan()
+  }
   await preflightProvider(reviewConfig)
   agent.setAdapter(buildAdapter(reviewConfig))
   const review = await agent.run()
+  if (resultFile) {
+    if (requestedBatch !== undefined) {
+      if (source.kind !== 'github-pr' || !githubState) throw new Error('--batch-index result needs a GitHub PR identity')
+      if (!selectedBatch) throw new Error('--batch-index selection was not retained')
+      const artifact: BatchReviewArtifact = { version: 1, repository: `${source.owner}/${source.repo}`, pullNumber: source.number, headSha: githubState.sha, policyFingerprint, batch: selectedBatch, review }
+      writeFileSync(resultFile, JSON.stringify(artifact, null, 2), { mode: 0o600 })
+    } else writeFileSync(resultFile, JSON.stringify(review, null, 2), { mode: 0o600 })
+  }
   // --no-fail = advisory: post the review but never fail the job (exit 0). Real errors
   // still surface via the catch below (exit 2).
   process.exit(review.incomplete ? 2 : review.blocking && !has('no-fail') ? 1 : 0)
@@ -372,6 +438,11 @@ function packageVersion(): string {
     } catch { /* try the package root relative to the compiled CLI */ }
   }
   return 'unknown'
+}
+
+function parseJsonFile<T>(path: string, label: string): T {
+  try { return JSON.parse(readFileSync(path, 'utf8')) as T }
+  catch { throw new Error(`invalid ${label}: ${path}`) }
 }
 
 /** Best-effort: feed a conventions doc to every lens if one exists. */

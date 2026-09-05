@@ -3,10 +3,10 @@ AgentsKit Code Review is a pre-v1 provider-neutral CLI and GitHub Action for low
 ## Documentation surfaces
 
 - Full corpus: llms-full.txt
-- Public README: https://github.com/AgentsKit-io/code-review-cli#readme
+- Public README: https://github.com/AgentsKit-io/code-review#readme
 - Operations: docs/OPERATIONS.md
 - For agents: docs/for-agents/index.md
-- Raw sources: https://raw.githubusercontent.com/AgentsKit-io/code-review-cli/main/
+- Raw sources: https://raw.githubusercontent.com/AgentsKit-io/code-review/main/
 
 ## AgentsKit ecosystem
 
@@ -15,10 +15,10 @@ AgentsKit Code Review is a pre-v1 provider-neutral CLI and GitHub Action for low
 - AgentsKit Chat: https://chat.agentskit.io/docs
 - Playbook: https://playbook.agentskit.io/docs
 - Doc Bridge: https://agentskit-io.github.io/doc-bridge/
-- Code Review: https://github.com/AgentsKit-io/code-review-cli#readme
+- Code Review: https://github.com/AgentsKit-io/code-review#readme
 - AKOS: https://akos.agentskit.io/docs
 
 ## Knowledge
 
 - [Code Review CLI handoff](docs/for-agents/code-review-cli.md): Provider-neutral, low-noise AI code review for local Git diffs, files/stdin, and GitHub pull requests. Seven focused lenses propose findings; adversarial votes remove weak findings; reporters emit Markdown, GitHub reviews, and SARIF.
-- [Code Review agent docs](docs/for-agents/index.md): - Code Review CLI handoff — ownership, change routes, security boundaries, and verification: https://raw.githubusercontent.com/AgentsKit-io/code-review-cli/main/docs/for-agents/code-review-cli.md - Concise machine map — discovery, raw sources, and all seven ecosystem products: https://raw.githubusercontent.com/AgentsKit-io/code-review-cli/main/llms.txt - Full machine corpus — public, operational,
+- [Code Review agent docs](docs/for-agents/index.md): - Code Review CLI handoff — ownership, change routes, security boundaries, and verification: https://raw.githubusercontent.com/AgentsKit-io/code-review/main/docs/for-agents/code-review-cli.md - Concise machine map — discovery, raw sources, and all seven ecosystem products: https://raw.githubusercontent.com/AgentsKit-io/code-review/main/llms.txt - Full machine corpus — public, operational,

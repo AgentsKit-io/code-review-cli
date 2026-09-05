@@ -56,6 +56,45 @@ export function renderMarkdown(review: ReviewResult): string {
   return `${head}\n${body}${dropped}\n`
 }
 
+/**
+ * Compact, persistent PR-thread status. The actionable detail belongs on the
+ * inline review comments; repeating every finding here creates a second,
+ * competing review that is hard to scan and can drift from the diff.
+ */
+export function renderGithubWalkthrough(review: ReviewResult): string {
+  const severity = SEV_ORDER
+    .map((level) => {
+      const count = review.findings.filter((finding) => finding.severity === level).length
+      return count ? `${SEV_EMOJI[level]} ${count} ${level}` : undefined
+    })
+    .filter((entry): entry is string => entry !== undefined)
+    .join(' · ')
+  const coverage = `${review.execution.succeeded}/${review.execution.attempted} lens executions`
+  const outcome = review.findings.length
+    ? 'Actionable findings are attached inline to the relevant changed lines.'
+    : 'No findings met the configured review threshold.'
+  const dropped = review.dropped.length
+    ? ` ${review.dropped.length} candidate finding(s) were rejected during verification or thresholding.`
+    : ''
+  return [
+    `## AgentsKit review · ${review.verdict}`,
+    '',
+    review.summary,
+    '',
+    `**Result:** ${severity || '✅ no findings'}  ·  ${coverage}`,
+    '',
+    outcome + dropped,
+    '',
+    '<details><summary>Review evidence</summary>',
+    '',
+    `- Profile: \`${review.evidence.profile}\``,
+    `- Provider calls: ${review.evidence.providerCalls} (failed: ${review.evidence.failedProviderCalls}, skipped: ${review.evidence.skippedProviderCalls})`,
+    `- Elapsed: ${review.evidence.elapsedMs}ms · Circuit: ${review.evidence.circuitState}${review.evidence.deadlineExceeded ? ' · deadline exceeded' : ''}`,
+    '',
+    '</details>',
+  ].join('\n')
+}
+
 /** Machine output: SARIF 2.1.0 for GitHub code-scanning / dashboards. */
 export function sarifReporter(opts: { file?: string; write?: (s: string) => void } = {}): Reporter {
   const sevToLevel: Record<Finding['severity'], string> = { blocker: 'error', high: 'error', med: 'warning', nit: 'note' }
@@ -96,6 +135,11 @@ export function sarifReporter(opts: { file?: string; write?: (s: string) => void
       if (opts.write) opts.write(text)
     },
   }
+}
+
+/** Private machine-readable handoff for an orchestrator; never posts to GitHub. */
+export function jsonReporter(opts: { file: string }): Reporter {
+  return { name: 'json', async emit(review: ReviewResult) { writeFileSync(opts.file, JSON.stringify(review, null, 2), { mode: 0o600 }) } }
 }
 
 async function githubPost(token: string, path: string, body: unknown): Promise<{ html_url?: string }> {
@@ -140,7 +184,7 @@ export function githubSummaryReporter(c: { owner: string; repo: string; number: 
   return {
     name: 'github-summary',
     async emit(review: ReviewResult) {
-      const body = `${c.marker ? `${c.marker}\n` : ''}${renderMarkdown(review)}`
+      const body = `${c.marker ? `${c.marker}\n` : ''}${renderGithubWalkthrough(review)}`
       if (!c.marker) {
         await githubPost(c.token, `/repos/${c.owner}/${c.repo}/issues/${c.number}/comments`, { body })
         return
@@ -170,7 +214,7 @@ export function githubInlineReporter(c: { owner: string; repo: string; number: n
       const comments = inline.map((f) => ({
         path: f.file,
         line: f.endLine ?? f.line,
-        body: `**${SEV_EMOJI[f.severity]} ${f.severity} · ${f.category}** — ${f.title}\n\n${f.rationale}\n\n💡 ${f.suggestion}${f.suggestedPatch ? `\n\n\`\`\`diff\n${f.suggestedPatch}\n\`\`\`` : ''}`,
+        body: `**${SEV_EMOJI[f.severity]} ${f.severity} · ${f.category}** — ${f.title}\n\n**Why this needs correction**\n${f.rationale}\n\n**Required change**\n${f.suggestion}\n\n**Acceptance check**\nVerify the changed behavior prevents this condition and preserves the intended flow.\n\n**Review evidence**\nVerified finding · confidence ${f.confidence.toFixed(2)}${f.suggestedPatch ? `\n\n\`\`\`diff\n${f.suggestedPatch}\n\`\`\`` : ''}`,
       }))
       const body =
         `${c.marker ? `${c.marker}\n` : ''}## Code review — ${review.verdict}\n\n${review.summary}` +

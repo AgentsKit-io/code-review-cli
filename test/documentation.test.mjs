@@ -65,7 +65,7 @@ test('reviewdog interoperability stays converter-free and explicit about policy 
   assert.match(operations, /--provider openai --model gpt-4o/)
   assert.match(operations, /--no-fail &&/)
   assert.match(operations, /trap 'rm -f/)
-  assert.match(reviewdogSection, /github:AgentsKit-io\/code-review-cli#[0-9a-f]{40}/)
+  assert.match(reviewdogSection, /github:AgentsKit-io\/code-review#[0-9a-f]{40}/)
   assert.doesNotMatch(reviewdogSection, /--base origin\/main/)
   assert.doesNotMatch(reviewdogSection, /--provider codex-cli/)
 })
@@ -138,8 +138,8 @@ test('machine-readable documentation and Doc Bridge ownership are committed', ()
   assert.match(read('llms.txt'), /AgentsKit Code Review/)
   assert.match(read('llms.txt'), /llms-full\.txt/)
   const full = read('llms-full.txt')
-  assert.match(full, /!\[[^\]]+\]\(https:\/\/raw\.githubusercontent\.com\/AgentsKit-io\/code-review-cli\/main\/docs\/assets\/code-review-terminal\.png\)/)
-  assert.doesNotMatch(full, /!\[[^\]]*\]\(https:\/\/github\.com\/AgentsKit-io\/code-review-cli\/blob\/main\//)
+  assert.match(full, /!\[[^\]]+\]\(https:\/\/raw\.githubusercontent\.com\/AgentsKit-io\/code-review\/main\/docs\/assets\/code-review-terminal\.png\)/)
+  assert.doesNotMatch(full, /!\[[^\]]*\]\(https:\/\/github\.com\/AgentsKit-io\/code-review\/blob\/main\//)
   for (const marker of ['Code Review operations guide', '## Security policy', '## Contributing guide', '## Roadmap', '## Changelog']) {
     assert.ok(full.includes(marker), `llms-full.txt missing ${marker}`)
   }
@@ -192,7 +192,7 @@ test('published package keeps documentation generators and freshness enforcement
 test('machine discovery links raw sources and every sibling while staying concise', () => {
   const llms = read('llms.txt')
   assert.ok(Buffer.byteLength(llms) < 12_000, 'llms.txt should remain a concise discovery surface')
-  for (const marker of ['raw.githubusercontent.com/AgentsKit-io/code-review-cli/main/', 'AgentsKit Chat', 'Registry', 'Playbook', 'Doc Bridge', 'AKOS']) {
+  for (const marker of ['raw.githubusercontent.com/AgentsKit-io/code-review/main/', 'AgentsKit Chat', 'Registry', 'Playbook', 'Doc Bridge', 'AKOS']) {
     assert.ok(llms.includes(marker), `llms.txt missing ${marker}`)
   }
 })

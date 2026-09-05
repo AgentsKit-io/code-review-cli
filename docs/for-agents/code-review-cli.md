@@ -63,7 +63,7 @@ Use `llms.txt` for discovery and `llms-full.txt` only when the complete public, 
 
 ## Human guide
 
-- README: https://raw.githubusercontent.com/AgentsKit-io/code-review-cli/main/README.md
-- Operations guide: https://raw.githubusercontent.com/AgentsKit-io/code-review-cli/main/docs/OPERATIONS.md
-- Contributing: https://raw.githubusercontent.com/AgentsKit-io/code-review-cli/main/CONTRIBUTING.md
-- Security: https://raw.githubusercontent.com/AgentsKit-io/code-review-cli/main/SECURITY.md
+- README: https://raw.githubusercontent.com/AgentsKit-io/code-review/main/README.md
+- Operations guide: https://raw.githubusercontent.com/AgentsKit-io/code-review/main/docs/OPERATIONS.md
+- Contributing: https://raw.githubusercontent.com/AgentsKit-io/code-review/main/CONTRIBUTING.md
+- Security: https://raw.githubusercontent.com/AgentsKit-io/code-review/main/SECURITY.md

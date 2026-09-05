@@ -264,6 +264,8 @@ test('plan is provider-free and machine-readable', () => {
   assert.ok(plan.estimatedProviderCalls > 0)
   assert.equal(plan.providerCallEstimate, 'best-effort')
   assert.equal(plan.overBudget.length, 0)
+  assert.deepEqual(plan.unreviewed, [])
+  assert.deepEqual(plan.reviewableFiles, ['snippet.txt'])
 })
 
 test('plan supports a bounded findings-per-file limit', () => {
