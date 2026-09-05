@@ -281,6 +281,9 @@ async function main() {
     const batchManifest = flag('batch-manifest')
     if (batchManifest) {
       if (!batches || source.kind !== 'github-pr' || !githubState) throw new Error('--batch-manifest needs --pr, --batch-size, and GITHUB_TOKEN')
+      // codeql[js/http-to-file-access] -- This is an explicit user-selected local
+      // orchestration artifact. Remote PR metadata is serialized as data only and
+      // is never loaded as configuration or executed by this command.
       writeFileSync(batchManifest, JSON.stringify(createBatchCoverage({ repository: `${source.owner}/${source.repo}`, pullNumber: source.number, headSha: githubState.sha, policyFingerprint, batches }), null, 2), { mode: 0o600 })
     }
     if (has('json')) console.log(JSON.stringify({ ...plan, ...(batches ? { batches } : {}) }))
@@ -298,7 +301,7 @@ async function main() {
     config.incompleteProfile = true
     config.reviewContext = `Complete PR file manifest (${plan.reviewableFiles.length} reviewable file(s)); only the selected batch source is shown:\n${plan.reviewableFiles.map((file) => `- ${file}`).join('\n')}`
     agent = createCodeReviewAgent(config)
-    plan = await agent.plan()
+    await agent.plan()
   }
   await preflightProvider(reviewConfig)
   agent.setAdapter(buildAdapter(reviewConfig))
@@ -308,6 +311,8 @@ async function main() {
       if (source.kind !== 'github-pr' || !githubState) throw new Error('--batch-index result needs a GitHub PR identity')
       if (!selectedBatch) throw new Error('--batch-index selection was not retained')
       const artifact: BatchReviewArtifact = { version: 1, repository: `${source.owner}/${source.repo}`, pullNumber: source.number, headSha: githubState.sha, policyFingerprint, batch: selectedBatch, review }
+      // codeql[js/http-to-file-access] -- The explicit --result path is a private,
+      // local handoff artifact. Its remote-derived contents are serialized only.
       writeFileSync(resultFile, JSON.stringify(artifact, null, 2), { mode: 0o600 })
     } else writeFileSync(resultFile, JSON.stringify(review, null, 2), { mode: 0o600 })
   }
