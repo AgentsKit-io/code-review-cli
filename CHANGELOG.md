@@ -22,6 +22,7 @@ All notable changes will be documented here. This project follows Semantic Versi
 ### Security
 
 - Reject GitHub publication from a partial review batch; only a complete consolidated review may post.
+- Document the intentionally local, private batch-artifact writes so CodeQL does not misclassify serialized PR metadata as executable file access.
 
 ## [0.3.0] - 2026-08-30
 
