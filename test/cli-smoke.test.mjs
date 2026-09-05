@@ -298,14 +298,23 @@ test('fast profile batches required lenses and stays within a small call budget'
 
 test('global review deadline aborts a hanging fast run', () => {
   const fixtureBin = join(root, 'test/fixtures/bin')
-  const run = spawnSync(process.execPath, [
-    'dist/src/cli.js', '--provider', 'codex-cli', '--stdin', '--profile', 'fast', '--health-check', 'off', '--deadline-ms', '50', '--no-fail',
-  ], {
-    cwd: root, input: 'export const answer = 42\n', encoding: 'utf8', timeout: 3000,
-    env: { ...process.env, CODEX_FIXTURE_HANG: '1', PATH: `${fixtureBin}:${process.env.PATH ?? ''}` },
-  })
-  assert.equal(run.status, 2, `stdout:\n${run.stdout}\nstderr:\n${run.stderr}`)
-  assert.match(`${run.stdout}\n${run.stderr}`, /review deadline exceeded after 50ms/i)
+  const dir = mkdtempSync(join(tmpdir(), 'agentskit-review-deadline-'))
+  const result = join(dir, 'result.json')
+  try {
+    const run = spawnSync(process.execPath, [
+      'dist/src/cli.js', '--provider', 'codex-cli', '--stdin', '--profile', 'fast', '--health-check', 'off', '--deadline-ms', '50', '--result', result, '--no-fail',
+    ], {
+      cwd: root, input: 'export const answer = 42\n', encoding: 'utf8', timeout: 3000,
+      env: { ...process.env, CODEX_FIXTURE_HANG: '1', PATH: `${fixtureBin}:${process.env.PATH ?? ''}` },
+    })
+    assert.equal(run.status, 2, `stdout:\n${run.stdout}\nstderr:\n${run.stderr}`)
+    assert.match(`${run.stdout}\n${run.stderr}`, /review deadline exceeded after 50ms/i)
+    const artifact = JSON.parse(readFileSync(result, 'utf8'))
+    assert.equal(artifact.incomplete, true)
+    assert.equal(artifact.evidence.deadlineExceeded, true)
+    assert.equal(artifact.findings.length, 0)
+    assert.match(artifact.droppedNote, /discarded/i)
+  } finally { rmSync(dir, { recursive: true, force: true }) }
 })
 
 test('preflight refuses an over-call-budget run before the provider starts', () => {

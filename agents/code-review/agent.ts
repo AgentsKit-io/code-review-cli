@@ -495,7 +495,10 @@ export function createCodeReviewAgent(config: CodeReviewConfig) {
           succeededLenses: completed,
         }
       } catch (e) {
-        if (e instanceof ReviewCallBudgetError || e instanceof ReviewDeadlineError) throw e
+        // Preserve partial execution evidence on expiry. The enclosing run sees
+        // `deadlineExceeded` and returns an INCOMPLETE artifact rather than
+        // losing the entire report through a rejected Promise.all.
+        if (e instanceof ReviewCallBudgetError) throw e
         emit('lens:batch', 'error', `${target.file}: ${e instanceof Error ? e.message.split('\n')[0] : 'failed'}`)
         return { findings: [], execution: { attempted: 1, succeeded: 0, failed: 1 }, succeededLenses: [] }
       }
@@ -802,6 +805,29 @@ export function createCodeReviewAgent(config: CodeReviewConfig) {
     const unreviewedFiles = targetResults.flatMap((result, index) =>
       result.execution.succeeded === 0 ? [targets[index]!.file] : [],
     )
+    if (deadlineExceeded) {
+      // A deadline is an incomplete review, not a runtime crash.  At this point
+      // candidate findings have not gone through skeptical verification, so do
+      // not emit them.  Return only the auditable coverage evidence, allowing
+      // callers to persist a safe result artifact and schedule a retry.
+      const deadlineUnreviewed = unreviewedFiles.map((file) => ({ file, reason: `review deadline exceeded after ${deadlineMs}ms` }))
+      const result = synthesize(
+        [], [], targets.length, droppedFiles, execution,
+        unreviewed.length + deadlineUnreviewed.length,
+        true, missingRequired, evidence(),
+      )
+      result.unreviewed = [
+        ...unreviewed.map((target) => ({ file: target.file, reason: target.unreviewedReason ?? 'unreviewed' })),
+        ...deadlineUnreviewed,
+      ]
+      result.droppedNote = 'Candidate findings were discarded because the review deadline expired before skeptical verification.'
+      const reporters = config.reporters ?? [markdownReporter()]
+      emit('report', 'start', reporters.map((r) => r.name).join(', '))
+      for (const reporter of reporters) await reporter.emit(result)
+      emit('report', 'ok', result.verdict)
+      finishRun()
+      return result
+    }
     if (unreviewedFiles.length) {
       emit(
         'review',

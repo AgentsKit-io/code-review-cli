@@ -64,17 +64,20 @@ jobs:
       - name: Verify package contents
         run: npm pack --dry-run
 
-      - name: Refuse an already published version
+      - name: Detect an already published version
+        id: npm-version
         run: |
           set -eu
           PACKAGE_NAME="$(node -p \"require('./package.json').name\")"
           PACKAGE_VERSION="$(node -p \"require('./package.json').version\")"
           if npm view "${PACKAGE_NAME}@${PACKAGE_VERSION}" version >/dev/null 2>&1; then
-            echo "${PACKAGE_NAME}@${PACKAGE_VERSION} is already published; refusing to recreate a release."
-            exit 1
+            echo "already_published=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "already_published=false" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Publish to npm with OIDC
+        if: steps.npm-version.outputs.already_published != 'true'
         run: npm publish --access public
 
       - name: Create the immutable GitHub release
