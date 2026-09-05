@@ -38,6 +38,35 @@ const SECRET_PATTERNS = [
   /-----BEGIN [^-]*PRIVATE KEY-----[\s\S]*?-----END [^-]*PRIVATE KEY-----/g,
 ]
 
+// Local review fan-out can start dozens of workers. Register process shutdown
+// listeners once and fan the signal out, rather than adding one listener per
+// child (which emits MaxListenersExceededWarning at normal concurrency).
+const parentShutdownHandlers = new Set<(signal: NodeJS.Signals) => void>()
+let parentShutdownListening = false
+const handleParentShutdown = (signal: NodeJS.Signals): void => {
+  const handlers = [...parentShutdownHandlers]
+  parentShutdownHandlers.clear()
+  process.removeListener('SIGINT', handleParentShutdown)
+  process.removeListener('SIGTERM', handleParentShutdown)
+  parentShutdownListening = false
+  for (const handler of handlers) handler(signal)
+  setImmediate(() => process.kill(process.pid, signal))
+}
+function addParentShutdownHandler(handler: (signal: NodeJS.Signals) => void): void {
+  parentShutdownHandlers.add(handler)
+  if (parentShutdownListening) return
+  parentShutdownListening = true
+  process.on('SIGINT', handleParentShutdown)
+  process.on('SIGTERM', handleParentShutdown)
+}
+function removeParentShutdownHandler(handler: (signal: NodeJS.Signals) => void): void {
+  parentShutdownHandlers.delete(handler)
+  if (parentShutdownHandlers.size || !parentShutdownListening) return
+  process.removeListener('SIGINT', handleParentShutdown)
+  process.removeListener('SIGTERM', handleParentShutdown)
+  parentShutdownListening = false
+}
+
 export function redactSecrets(value: string, secrets: readonly string[] = []): string {
   let redacted = value
   for (const secret of secrets.filter(Boolean)) redacted = redacted.split(secret).join('[REDACTED]')
@@ -110,8 +139,7 @@ export function runLocalCli(command: string, args: string[], options: LocalCliOp
     const cleanup = () => {
       if (timeout) clearTimeout(timeout)
       options.signal?.removeEventListener('abort', onAbort)
-      process.removeListener('SIGINT', onParentShutdown)
-      process.removeListener('SIGTERM', onParentShutdown)
+      removeParentShutdownHandler(onParentShutdown)
       if (tempRoot) rmSync(tempRoot, { recursive: true, force: true })
     }
     const finishError = (error: Error): void => {
@@ -135,7 +163,6 @@ export function runLocalCli(command: string, args: string[], options: LocalCliOp
     const onParentShutdown = (signal: NodeJS.Signals) => {
       parentShutdown = true
       stop(new Error(`${command} stopped because the parent process received ${signal}`))
-      setImmediate(() => process.kill(process.pid, signal))
     }
 
     child.stdout.setEncoding('utf8')
@@ -160,8 +187,7 @@ export function runLocalCli(command: string, args: string[], options: LocalCliOp
       else finishError(new Error(`${command} exited with code ${code ?? 'unknown'}${signal ? ` (${signal})` : ''}`))
     })
     options.signal?.addEventListener('abort', onAbort, { once: true })
-    process.once('SIGINT', onParentShutdown)
-    process.once('SIGTERM', onParentShutdown)
+    addParentShutdownHandler(onParentShutdown)
     child.stdin.end()
     timeout = setTimeout(() => { if (!settled) { timedOut = true; stop(new Error(`${command} timed out after ${timeoutMs}ms`)) } }, timeoutMs)
   })
@@ -205,8 +231,7 @@ export function runLocalCliProtocol<T>(
     const cleanup = () => {
       if (timeout) clearTimeout(timeout)
       options.signal?.removeEventListener('abort', onAbort)
-      process.removeListener('SIGINT', onParentShutdown)
-      process.removeListener('SIGTERM', onParentShutdown)
+      removeParentShutdownHandler(onParentShutdown)
       rl.close()
       if (tempRoot) rmSync(tempRoot, { recursive: true, force: true })
     }
@@ -238,7 +263,6 @@ export function runLocalCliProtocol<T>(
     const onParentShutdown = (signal: NodeJS.Signals) => {
       parentShutdown = true
       stop(new Error(`${command} stopped because the parent process received ${signal}`))
-      setImmediate(() => process.kill(process.pid, signal))
     }
     const readLine = (): Promise<string> => {
       if (lineQueue.length) return Promise.resolve(lineQueue.shift()!)
@@ -276,8 +300,7 @@ export function runLocalCliProtocol<T>(
       else { settled = true; cleanup(); resolve(exchangeResult as T) }
     })
     options.signal?.addEventListener('abort', onAbort, { once: true })
-    process.once('SIGINT', onParentShutdown)
-    process.once('SIGTERM', onParentShutdown)
+    addParentShutdownHandler(onParentShutdown)
     timeout = setTimeout(() => { if (!settled) { timedOut = true; stop(new Error(`${command} timed out after ${timeoutMs}ms`)) } }, timeoutMs)
     void exchange({ cwd, readLine, send }).then((result) => {
       if (settled) return
