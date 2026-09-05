@@ -377,6 +377,16 @@ export function createCodeReviewAgent(config: CodeReviewConfig) {
     for (const o of config.observers ?? []) void o.on({ type: 'progress', label, status, detail, durationMs })
   }
 
+  async function finalize(result: ReviewResult): Promise<ReviewResult> {
+    const reporters = config.reporters ?? [markdownReporter()]
+    emit('report', 'start', reporters.map((r) => r.name).join(', '))
+    try {
+      for (const reporter of reporters) await reporter.emit(result)
+      emit('report', 'ok', result.verdict)
+      return result
+    } finally { finishRun() }
+  }
+
   const submit = (name: string, schema: z.ZodTypeAny): ToolDefinition =>
     defineZodTool({
       name,
@@ -828,13 +838,7 @@ export function createCodeReviewAgent(config: CodeReviewConfig) {
         ...deadlineUnreviewed,
       ]
       result.droppedNote = 'Candidate findings were discarded because the review deadline expired before skeptical verification.'
-      const reporters = config.reporters ?? [markdownReporter()]
-      emit('report', 'start', reporters.map((r) => r.name).join(', '))
-      try {
-        for (const reporter of reporters) await reporter.emit(result)
-        emit('report', 'ok', result.verdict)
-        return result
-      } finally { finishRun() }
+      return finalize(result)
     }
     if (unreviewedFiles.length) {
       emit(
@@ -878,12 +882,7 @@ export function createCodeReviewAgent(config: CodeReviewConfig) {
       `${refuted.length} refuted by skeptics; ${belowThreshold.length} below threshold` +
       (thresholded.length - kept.length ? `; ${thresholded.length - kept.length} merged as duplicates` : '') + '.'
 
-    const reporters = config.reporters ?? [markdownReporter()]
-    emit('report', 'start', reporters.map((r) => r.name).join(', '))
-    for (const r of reporters) await r.emit(result)
-    emit('report', 'ok', result.verdict)
-    finishRun()
-    return result
+    return finalize(result)
   }
 
   return {

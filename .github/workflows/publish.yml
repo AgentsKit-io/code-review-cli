@@ -33,7 +33,6 @@ jobs:
           package-manager-cache: false
 
       - name: Verify the approved publishing trigger and package version
-        env:
         run: |
           set -eu
           node <<'NODE'

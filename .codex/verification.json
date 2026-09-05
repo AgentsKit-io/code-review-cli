@@ -27,7 +27,7 @@
       { "id": "fast-profile", "statement": "The explicit fast profile batches correctness, security, and tests with one vote and no retry, while preserving required-lens fail-closed semantics.", "checks": ["regression", "repo-check"] },
       { "id": "circuit-breaker", "statement": "Repeated transient provider failures and terminal provider failures stop unnecessary fan-out and expose skipped-call evidence.", "checks": ["repo-check"] },
       { "id": "execution-evidence", "statement": "Completed reports expose profile, provider calls, failures, skips, elapsed time, deadline status, and circuit state.", "checks": ["regression", "repo-check"] },
-      { "id": "release-version", "statement": "The minor release is consistently versioned as 0.4.0 in package metadata, lockfile, public examples, and release documentation.", "checks": ["repo-check", "package"] },
+      { "id": "release-version", "statement": "The minor release is consistently versioned as 0.4.0 in package metadata, lockfile, public examples, and release documentation.", "checks": ["repo-check", "docs-gate", "package"] },
       { "id": "changesets-release", "statement": "Changesets creates a reviewable version pull request on main, and only its bot-authored merge can trigger a validated OIDC npm publication and immutable GitHub release without a long-lived npm token.", "checks": ["repo-check", "package"] }
     ]
   },
