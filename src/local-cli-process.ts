@@ -50,7 +50,6 @@ const handleParentShutdown = (signal: NodeJS.Signals): void => {
   process.removeListener('SIGTERM', handleParentShutdown)
   parentShutdownListening = false
   for (const handler of handlers) handler(signal)
-  setImmediate(() => process.kill(process.pid, signal))
 }
 function addParentShutdownHandler(handler: (signal: NodeJS.Signals) => void): void {
   parentShutdownHandlers.add(handler)

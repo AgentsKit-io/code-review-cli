@@ -41,7 +41,7 @@ test('Changesets release automation is tokenless, gated, and recoverable', () =>
   assert.match(versionWorkflow, /changesets\/action@a45c4d594aa4e2c509dc14a9f2b3b67ba3780d0d/)
   assert.match(versionWorkflow, /pull-requests: write/)
   assert.doesNotMatch(versionWorkflow, /id-token: write/)
-  const publishJob = publishWorkflow.match(/\n  publish:\n([\s\S]*?)(?=\n\S|$)/)?.[1] ?? ''
+  const publishJob = publishWorkflow.match(/\n  publish:\n([\s\S]*?)(?=\n  [A-Za-z0-9_-]+:|\n\S|$)/)?.[1] ?? ''
   assert.match(publishJob, /id-token: write/)
   assert.match(publishWorkflow, /github\.event\.pull_request\.user\.login == 'github-actions\[bot\]'/)
   assert.match(publishWorkflow, /github\.event\.pull_request\.title == 'chore: version packages'/)
@@ -50,6 +50,7 @@ test('Changesets release automation is tokenless, gated, and recoverable', () =>
   assert.match(publishWorkflow, /gh release view/)
   assert.match(publishWorkflow, /npm publish --access public/)
   assert.match(publishWorkflow, /steps\.npm-version\.outputs\.already_published != 'true'/)
+  assert.match(publishWorkflow, /E404\|404 Not Found/)
   assert.doesNotMatch(`${versionWorkflow}\n${publishWorkflow}`, /NPM_TOKEN|secrets\.[A-Z_]*NPM/)
   assert.match(operations, /Changesets is the release source of truth/)
   assert.match(operations, /No long-lived `NPM_TOKEN`/)

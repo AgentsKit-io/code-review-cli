@@ -673,7 +673,9 @@ export function createCodeReviewAgent(config: CodeReviewConfig) {
     const counts = (['blocker', 'high', 'med', 'nit'] as Severity[]).map((s) => ({ s, n: kept.filter((f) => f.severity === s).length }))
     const worst = kept.length ? Math.min(...kept.map((f) => SEV_RANK[f.severity])) : 3
     const verdict: Verdict = incomplete ? 'COMMENT' : !kept.length ? 'APPROVE' : worst <= SEV_RANK.high ? 'REQUEST CHANGES' : 'COMMENT'
-    const blocking = kept.some((f) => SEV_RANK[f.severity] <= SEV_RANK[blockingSeverity])
+    // Missing skeptical verification is never an approval path: callers that
+    // gate only on `blocking` must fail closed when the deadline expires.
+    const blocking = runEvidence.deadlineExceeded || kept.some((f) => SEV_RANK[f.severity] <= SEV_RANK[blockingSeverity])
     const breakdown = counts.filter((c) => c.n).map((c) => `${c.n} ${c.s}`).join(', ') || 'no findings'
     const executionSummary =
       `${execution.succeeded}/${execution.attempted} lens executions succeeded` +
