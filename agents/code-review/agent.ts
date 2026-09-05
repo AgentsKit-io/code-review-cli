@@ -380,11 +380,9 @@ export function createCodeReviewAgent(config: CodeReviewConfig) {
   async function finalize(result: ReviewResult): Promise<ReviewResult> {
     const reporters = config.reporters ?? [markdownReporter()]
     emit('report', 'start', reporters.map((r) => r.name).join(', '))
-    try {
-      for (const reporter of reporters) await reporter.emit(result)
-      emit('report', 'ok', result.verdict)
-      return result
-    } finally { finishRun() }
+    for (const reporter of reporters) await reporter.emit(result)
+    emit('report', 'ok', result.verdict)
+    return result
   }
 
   const submit = (name: string, schema: z.ZodTypeAny): ToolDefinition =>
@@ -777,6 +775,7 @@ export function createCodeReviewAgent(config: CodeReviewConfig) {
       throw new RangeError('--max-files must be a positive integer')
     }
     startRun()
+    try {
     emit('ingest', 'start')
     const t0 = Date.now()
     const all = cachedTargets ??= await loadTargets(config.source)
@@ -800,8 +799,7 @@ export function createCodeReviewAgent(config: CodeReviewConfig) {
         unreviewed: unreviewed.map((target) => ({ file: target.file, reason: target.unreviewedReason ?? 'unreviewed' })),
         summary: unreviewed.length ? `${unreviewed.length} file(s) UNREVIEWED; nothing else to review.` : 'Nothing to review.',
       }
-      finishRun()
-      return result
+      return finalize(result)
     }
 
     const conventions = await resolveConventions()
@@ -883,6 +881,7 @@ export function createCodeReviewAgent(config: CodeReviewConfig) {
       (thresholded.length - kept.length ? `; ${thresholded.length - kept.length} merged as duplicates` : '') + '.'
 
     return finalize(result)
+    } finally { finishRun() }
   }
 
   return {
