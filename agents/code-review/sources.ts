@@ -32,7 +32,7 @@ export type SourceConfig =
 
 const CODE_EXT = new Set([
   '.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs', '.py', '.go', '.rs', '.java', '.kt', '.rb', '.php', '.cs', '.c', '.h', '.cpp', '.hpp',
-  '.swift', '.scala', '.sql', '.sh', '.vue', '.svelte', '.json', '.jsonc', '.yaml', '.yml', '.toml', '.ini', '.cfg', '.conf', '.xml',
+  '.swift', '.scala', '.sql', '.sh', '.vue', '.svelte', '.html', '.css', '.md', '.mdx', '.json', '.jsonc', '.yaml', '.yml', '.toml', '.ini', '.cfg', '.conf', '.xml',
   '.graphql', '.gql', '.tf', '.tfvars', '.hcl',
 ])
 const SPECIAL_FILES = new Set(['Dockerfile', 'Containerfile', 'Makefile', 'Jenkinsfile', 'Procfile', ' justfile '].map((name) => name.trim()))

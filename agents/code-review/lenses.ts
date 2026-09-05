@@ -95,7 +95,9 @@ export const testsLens = lens(
   'tests',
   `Judge test coverage of the CHANGED behavior: untested branches, missing edge/error cases,
 assertions that don't actually assert, tests coupled to implementation detail. Flag risky
-changes that ship with no test. Do not demand tests for trivial/mechanical code.`,
+changes that ship with no test. Do not demand tests for trivial/mechanical code. When PR
+CONTEXT lists another changed test file, do not claim a test is absent merely because the
+currently reviewed file is documentation or a changeset; you cannot infer that file's contents.`,
 )
 
 export const conventionsLens = lens(

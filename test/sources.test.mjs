@@ -72,6 +72,28 @@ test('GitHub PR ingestion applies file budgets and marks omitted files unreviewe
   }
 })
 
+test('GitHub PR ingestion covers product markup, styles, and Markdown', async () => {
+  const originalFetch = globalThis.fetch
+  globalThis.fetch = async (url) => {
+    const path = new URL(url).pathname
+    if (path.endsWith('/pulls/14')) return Response.json({ head: { sha: 'abc123' } })
+    if (path.endsWith('/pulls/14/files')) return Response.json([
+      { filename: 'prototype/index.html', patch: '@@ -0,0 +1 @@', status: 'added' },
+      { filename: 'prototype/app.css', patch: '@@ -0,0 +1 @@', status: 'added' },
+      { filename: 'prototype/CONTRACT.md', patch: '@@ -0,0 +1 @@', status: 'added' },
+    ])
+    if (path.includes('/contents/')) return Response.json({ content: 'sample\n', encoding: 'utf8' })
+    return new Response('not found', { status: 404 })
+  }
+  try {
+    const targets = await loadTargets({ kind: 'github-pr', owner: 'AgentsKit-io', repo: 'example', number: 14, token: 'test-token' })
+    assert.equal(targets.filter((target) => target.reviewStatus === 'UNREVIEWED').length, 0)
+    assert.deepEqual(targets.map((target) => target.file), ['prototype/index.html', 'prototype/app.css', 'prototype/CONTRACT.md'])
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})
+
 test('GitHub PR ingestion does not download content for files outside the file budget', async () => {
   const originalFetch = globalThis.fetch
   const contentRequests = []

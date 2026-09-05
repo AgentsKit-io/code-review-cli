@@ -6,8 +6,8 @@ import { fileURLToPath } from 'node:url'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const outputPath = resolve(root, 'llms-full.txt')
-const rawBase = 'https://raw.githubusercontent.com/AgentsKit-io/code-review-cli/main/'
-const blobBase = 'https://github.com/AgentsKit-io/code-review-cli/blob/main/'
+const rawBase = 'https://raw.githubusercontent.com/AgentsKit-io/code-review/main/'
+const blobBase = 'https://github.com/AgentsKit-io/code-review/blob/main/'
 const sources = [
   ['Public README', 'README.md'],
   ['Operations guide', 'docs/OPERATIONS.md'],

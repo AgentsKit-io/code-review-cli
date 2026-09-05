@@ -22,8 +22,8 @@ Provider IDs are versioned registry entries. `grok` is the xAI API adapter, whil
 Use the offline doctor before execution:
 
 ```sh
-npx --yes github:AgentsKit-io/code-review-cli doctor --provider codex-cli
-npx --yes github:AgentsKit-io/code-review-cli doctor --provider openai --model gpt-4o --json
+npx --yes github:AgentsKit-io/code-review doctor --provider codex-cli
+npx --yes github:AgentsKit-io/code-review doctor --provider openai --model gpt-4o --json
 ```
 
 It checks the named executable and version, transport, model requirement, configuration mode, and credential presence without making a model request. API keys are represented only as `configured` or `missing`; they are never printed. Local CLI credentials are represented as login-managed because login storage is provider-specific. `doctor --live` is the explicit provider smoke-test path; normal Codex reviews run the same bounded smoke check before fan-out. Unknown local CLI versions warn during local runs and fail in CI. Doctor exits `0` when checks pass, `1` when a provider check fails, and `2` for invalid usage.
@@ -31,11 +31,11 @@ It checks the named executable and version, transport, model requirement, config
 ## First local setup
 
 ```sh
-git clone https://github.com/AgentsKit-io/code-review-cli.git
-cd code-review-cli
+git clone https://github.com/AgentsKit-io/code-review.git
+cd code-review
 npm install
 npm run check
-npx --yes github:AgentsKit-io/code-review-cli --provider opencode-cli --transport acp --model openai/gpt-4o --no-fail
+npx --yes github:AgentsKit-io/code-review --provider opencode-cli --transport acp --model openai/gpt-4o --no-fail
 ```
 
 The last command requires an installed and authenticated OpenCode CLI. For a
@@ -162,7 +162,7 @@ ollama pull qwen2.5-coder:7b
 Start with a bounded, advisory branch review:
 
 ```sh
-npx --yes github:AgentsKit-io/code-review-cli \
+npx --yes github:AgentsKit-io/code-review \
   --provider ollama \
   --model qwen2.5-coder:7b \
   --base main \
@@ -232,7 +232,9 @@ Then require the workflow check in branch protection. CLI exit codes are:
 
 A model response that is malformed may drop one lens while other lenses continue; progress output and the final summary report successful and failed primary-lens counts. If any reviewable file cannot be ingested or has zero successful primary lenses, the pipeline stops before reporters run and exits `2`, including in advisory mode. Treat missing output or exit `2` as unavailable review, not approval.
 
-Use `--plan --json` (or `--dry-run`) to run the source and budget preflight without a model request. The plan reports profile, batching, files, bytes, enabled and required lenses, votes, retries, concurrency, deadline, estimated provider calls, and concrete reductions when a limit would be exceeded. Estimates are `bounded` when `thresholds.maxPerFile` is set and `best-effort` otherwise, because model output volume is variable. The preflight refuses before the provider starts; `maxCalls` is capped at 1000 and unlimited mode is not supported. A required-lens failure is `INCOMPLETE` and exits `2`, including with `--no-fail`.
+Use `--plan --json` (or `--dry-run`) to run the source and budget preflight without a model request. The plan reports profile, batching, files, bytes, enabled and required lenses, votes, retries, concurrency, deadline, estimated provider calls, every `UNREVIEWED` path with its reason, and concrete reductions when a limit would be exceeded. Estimates are `bounded` when `thresholds.maxPerFile` is set and `best-effort` otherwise, because model output volume is variable. The preflight refuses before the provider starts; `maxCalls` is capped at 1000 and unlimited mode is not supported. A required-lens failure is `INCOMPLETE` and exits `2`, including with `--no-fail`.
+
+For a PR that exceeds one review budget, use deterministic coverage batches instead of accepting an incomplete review. Run `--plan --json --batch-size <n> --batch-manifest <private-file>` to create a private manifest keyed by repository, PR, head SHA, and policy fingerprint. Each `--batch-index <n> --result <private-file>` run is deliberately incomplete by itself and rejects `--post`; its result artifact carries the same identity plus its exact file manifest. `--consolidate-manifest <manifest> --artifacts <comma-list> --result <private-file>` rejects a missing, duplicate, stale, mismatched, failed, deadline-exceeded, or required-lens-incomplete artifact. Only that consolidated artifact is accepted by `--publish-result <file> --pr owner/repo#N --post`, which rechecks current SHA and policy before creating the one GitHub review. Delete or replace the private state when the PR SHA or policy changes; never upload it as a CI artifact or commit it.
 
 ## Cost and latency controls
 
@@ -293,7 +295,7 @@ jobs:
         run: |
           REPORT_FILE="$(mktemp)"
           trap 'rm -f "${REPORT_FILE}"' EXIT
-          npx --yes github:AgentsKit-io/code-review-cli#3dfd7427640148281454d52846d369e5ddf85b11 \
+          npx --yes github:AgentsKit-io/code-review#3dfd7427640148281454d52846d369e5ddf85b11 \
             --provider openai --model gpt-4o --base "origin/${BASE_REF}" \
             --sarif "${REPORT_FILE}" --no-fail &&
           reviewdog -f=sarif -name=agentskit-review \
@@ -320,10 +322,10 @@ The default `added` filter limits inline feedback to changed lines. Choose a bro
 
 ## Releases and maturity
 
-The current package is `0.3.0` and the project is pre-v1:
+The current package is `0.4.0` and the project is pre-v1:
 
-- GitHub-source CLI commands can pin a commit SHA after `github:AgentsKit-io/code-review-cli#<sha>`;
-- Actions should pin `@v0.3.0` or a full commit SHA;
+- GitHub-source CLI commands can pin a commit SHA after `github:AgentsKit-io/code-review#<sha>`;
+- Actions should pin `@v0.4.0` or a full commit SHA;
 - a moving `@main` reference is suitable only when that mutability is accepted;
 - the future `@v1` Action tag remains a separate stability milestone.
 
@@ -331,7 +333,7 @@ Release work updates [`CHANGELOG.md`](../CHANGELOG.md), [`ROADMAP.md`](../ROADMA
 
 ### Automated npm publishing
 
-`.github/workflows/publish.yml` publishes only when a stable GitHub Release is published with a semantic version tag such as `v0.3.0`. The workflow checks out that tag, verifies that the tag matches `package.json`, runs `npm run check` and `npm pack --dry-run`, then publishes `@agentskit/code-review` using [npm Trusted Publishing](https://docs.npmjs.com/trusted-publishers/) (OIDC). No long-lived `NPM_TOKEN` is stored in GitHub.
+`.github/workflows/publish.yml` publishes only when a stable GitHub Release is published with a semantic version tag such as `v0.4.0`. The workflow checks out that tag, verifies that the tag matches `package.json`, runs `npm run check` and `npm pack --dry-run`, then publishes `@agentskit/code-review` using [npm Trusted Publishing](https://docs.npmjs.com/trusted-publishers/) (OIDC). No long-lived `NPM_TOKEN` is stored in GitHub.
 
 Before the first release, configure the npm package's Trusted Publisher for GitHub Actions with:
 

@@ -142,7 +142,7 @@
         ],
         "maturity": [
           "## Maturity",
-          "pre-v1 (`0.3.x`)"
+          "pre-v1 (`0.4.x`)"
         ],
         "compatibility": [
           "## Compatibility",
@@ -189,7 +189,7 @@
         },
         {
           "id": "first-review-codex",
-          "command": "npx --yes github:AgentsKit-io/code-review-cli --provider codex-cli",
+          "command": "npx --yes github:AgentsKit-io/code-review --provider codex-cli",
           "test": "test/cli-smoke.test.mjs",
           "testCommand": "npm test"
         }
@@ -221,7 +221,7 @@
           "docs/OPERATIONS.md",
           "test/cli-smoke.test.mjs"
         ],
-        "sourceHash": "sha256:d60d942075696d400f19636b9c3fa87ca09742b7b29e54028b6c74c9c036193c"
+        "sourceHash": "sha256:800b92e2f2551a1d5071682c6e44023d672094d4344a5014e6c4ac45f5bddd8f"
       },
       "exceptions": []
     }

@@ -1,14 +1,19 @@
 {
   "schemaVersion": 1,
-  "project": "agentskit-code-review-reliability-030",
+  "project": "agentskit-code-review-batched-pr-coverage",
   "root": "..",
   "profile": "custom",
   "exemptions": [
     "This repository is a CLI/library; endpoint, database, MCP, and UI product surfaces are out of scope for this fix."
   ],
   "contract": {
-    "intent": "Implement and release the reliability hardening for the code-review library and GitHub Action: bounded provider execution, fast review mode, fail-closed evidence, and safe CI operation.",
+    "intent": "Implement, validate, and prepare the 0.4.0 release of deterministic, SHA/policy-bound PR batch coverage for Orca orchestration, including a publishable result only after every batch has complete evidence.",
     "outcomes": [
+      { "id": "batch-manifest", "statement": "The CLI exposes a deterministic reviewable-file manifest, batch plan, and private SHA/policy-bound manifest without model execution.", "checks": ["batch-regression", "repo-check"] },
+      { "id": "batch-artifact", "statement": "A partial batch writes a private artifact bound to the exact PR SHA, policy fingerprint, index, and file manifest; it cannot post to GitHub.", "checks": ["batch-regression", "repo-check"] },
+      { "id": "batch-consolidation", "statement": "Only every matching, successful batch artifact can consolidate to a publishable review; stale, duplicate, incomplete, or mismatched artifacts fail closed.", "checks": ["batch-regression", "repo-check"] },
+      { "id": "reviewable-formats", "statement": "HTML, CSS, Markdown, and MDX changes are reviewable rather than silently left outside coverage.", "checks": ["batch-regression", "repo-check"] },
+      { "id": "inline-guidance", "statement": "GitHub inline findings explain why a correction is needed, the required change, an acceptance check, and confidence.", "checks": ["batch-regression", "repo-check"] },
       { "id": "action-budget", "statement": "The GitHub Action defaults stay within the provider-call ceiling and expose max-calls and max-findings-per-file controls.", "checks": ["regression", "repo-check"] },
       { "id": "provider-auth", "statement": "CI gives local CLI providers an explicit safe authentication path and fails early when Codex cannot use the selected isolated mode.", "checks": ["repo-check"] },
       { "id": "fingerprint", "statement": "Review idempotency fingerprints use the installed package version rather than a stale hardcoded version.", "checks": ["repo-check"] },
@@ -22,16 +27,17 @@
       { "id": "fast-profile", "statement": "The explicit fast profile batches correctness, security, and tests with one vote and no retry, while preserving required-lens fail-closed semantics.", "checks": ["regression", "repo-check"] },
       { "id": "circuit-breaker", "statement": "Repeated transient provider failures and terminal provider failures stop unnecessary fan-out and expose skipped-call evidence.", "checks": ["repo-check"] },
       { "id": "execution-evidence", "statement": "Completed reports expose profile, provider calls, failures, skips, elapsed time, deadline status, and circuit state.", "checks": ["regression", "repo-check"] },
-      { "id": "release-version", "statement": "The minor release is consistently versioned as 0.3.0 in package metadata, lockfile, public examples, and release documentation.", "checks": ["repo-check", "package"] }
+      { "id": "release-version", "statement": "The minor release is consistently versioned as 0.4.0 in package metadata, lockfile, public examples, and release documentation.", "checks": ["repo-check", "package"] }
     ]
   },
   "surfaces": { "logic": true, "cli": true, "docs": true },
   "checks": [
+    { "id": "batch-regression", "category": "logic", "execution": "real", "command": "npm run build && node --test test/batch-coverage.test.mjs test/cli-smoke.test.mjs test/sources.test.mjs test/reporters.test.mjs", "timeoutMs": 240000 },
     { "id": "regression", "category": "logic", "execution": "real", "command": "npm run build && node --test test/cli-smoke.test.mjs", "timeoutMs": 180000 },
     { "id": "repo-check", "category": "logic", "execution": "real", "command": "npm run check", "timeoutMs": 300000 },
     { "id": "docs-gate", "category": "docs", "execution": "real", "command": "npm run docs:gate", "timeoutMs": 180000 },
     { "id": "package", "category": "cli", "execution": "real", "command": "npm pack --dry-run", "timeoutMs": 180000 }
   ],
-  "tracking": { "required": false, "reason": "Local library fix; no external issue or PR transition is authorized by this task." },
+  "tracking": { "required": false, "reason": "The human authorized a release PR; its URL will be recorded in the release report. Publication remains blocked until the PR is merged and a stable GitHub Release exists." },
   "cleanup": { "roots": [".codex/verification/tmp"] }
 }

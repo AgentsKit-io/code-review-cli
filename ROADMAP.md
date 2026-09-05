@@ -4,7 +4,7 @@ This roadmap communicates direction, not a promise of dates.
 
 ## Toward v1
 
-- [ ] Publish `@agentskit/code-review` and signed release artifacts.
+- [ ] Publish the calibrated `0.4.x` line of `@agentskit/code-review` and signed release artifacts.
 - [ ] Publish immutable GitHub Action releases with a moving `v1` tag.
 - [ ] Add credential-free adapter contract tests and opt-in provider smoke tests.
 - [ ] Document measured review cost and latency by configuration.

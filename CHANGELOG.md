@@ -4,6 +4,25 @@ All notable changes will be documented here. This project follows Semantic Versi
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-09-05
+
+### Added
+
+- Added machine-readable preflight manifests for reviewable and unreviewed files, with stable file-batch planning for external orchestration.
+- Added private JSON review-result artifacts and SHA/policy-bound batch-coverage primitives for safe Orca aggregation.
+- Added fail-closed consolidation: every batch artifact must match the immutable PR/SHA/policy/file manifest and have complete lens evidence before a single review can be published.
+- Added CLI consolidation and publication gates so Orca can create exactly one review only from a current, complete consolidated artifact.
+
+### Changed
+
+- Expanded reviewable product files to include HTML, CSS, Markdown, and MDX.
+- Made GitHub inline findings agent-actionable with correction rationale, required change, acceptance check, and verification confidence.
+- Reworked the persistent PR walkthrough into a compact CodeRabbit-style status card; finding detail now lives only on the relevant inline review comments.
+
+### Security
+
+- Reject GitHub publication from a partial review batch; only a complete consolidated review may post.
+
 ## [0.3.0] - 2026-08-30
 
 ### Added
