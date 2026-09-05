@@ -602,10 +602,15 @@ export function createCodeReviewAgent(config: CodeReviewConfig) {
           return await runStructured(skeptic, task, submit('submit_verdict', SkepticVerdict), SkepticVerdict)
         } catch (error) {
           if (error instanceof ReviewCallBudgetError) throw error
+          // A deadline leaves this finding unverified. It must not survive by
+          // default, but the enclosing result retains deadline evidence and is
+          // marked INCOMPLETE for safe orchestration recovery.
+          if (error instanceof ReviewDeadlineError) return null
           return null // a malformed vote is ignored, not fatal
         }
       }),
     )
+    if (deadlineExceeded) return false
     const valid = verdicts.filter((v): v is { refuted: boolean; reason: string } => v !== null)
     if (!valid.length) return true // no usable vote → keep the finding, let thresholds decide
     const refuted = valid.filter((v) => v.refuted).length
@@ -863,7 +868,7 @@ export function createCodeReviewAgent(config: CodeReviewConfig) {
       emit('validate-patch', 'ok', undefined, Date.now() - t3)
     }
 
-    const incomplete = Boolean(config.incompleteProfile || unreviewed.length || droppedFiles || missingRequired.length)
+    const incomplete = Boolean(config.incompleteProfile || unreviewed.length || droppedFiles || missingRequired.length || deadlineExceeded)
     const result = synthesize(kept, dropped, targets.length, droppedFiles, execution, unreviewed.length, incomplete, missingRequired, evidence())
     result.unreviewed = unreviewed.map((target) => ({ file: target.file, reason: target.unreviewedReason ?? 'unreviewed' }))
     result.droppedNote =
