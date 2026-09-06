@@ -268,7 +268,7 @@ test('plan is provider-free and machine-readable', () => {
   assert.deepEqual(plan.reviewableFiles, ['snippet.txt'])
 })
 
-test('plan supports a bounded findings-per-file limit', () => {
+test('plan treats verification demand as best-effort even with a findings-per-file limit', () => {
   const run = spawnSync(process.execPath, [
     'dist/src/cli.js', '--provider', 'codex-cli', '--stdin', '--dry-run', '--json', '--max-findings-per-file', '2',
   ], {
@@ -278,8 +278,8 @@ test('plan supports a bounded findings-per-file limit', () => {
 
   assert.equal(run.status, 0, run.stderr)
   const plan = JSON.parse(run.stdout)
-  assert.equal(plan.providerCallEstimate, 'bounded')
-  assert.equal(plan.estimatedProviderCalls, 27)
+  assert.equal(plan.providerCallEstimate, 'best-effort')
+  assert.equal(plan.estimatedProviderCalls, 15)
 })
 
 test('fast profile batches required lenses and stays within a small call budget', () => {
@@ -327,8 +327,23 @@ test('preflight refuses an over-call-budget run before the provider starts', () 
   })
 
   assert.equal(run.status, 2, run.stderr)
-  assert.match(run.stderr, /review preflight refused/i)
+  assert.match(`${run.stdout}\n${run.stderr}`, /review preflight refused/i)
   assert.doesNotMatch(run.stdout, /Code review —/)
+})
+
+test('over-call-budget guidance does not recommend changing votes when estimates exclude verification demand', () => {
+  const fixtureBin = join(root, 'test/fixtures/bin')
+  const run = spawnSync(process.execPath, [
+    'dist/src/cli.js', '--provider', 'codex-cli', '--stdin', '--dry-run', '--json', '--max-calls', '1',
+  ], {
+    cwd: root, input: 'export const answer = 42\n', encoding: 'utf8',
+    env: { ...process.env, PATH: `${fixtureBin}:${process.env.PATH ?? ''}` },
+  })
+
+  assert.equal(run.status, 2, run.stderr)
+  const plan = JSON.parse(run.stdout)
+  assert.match(plan.suggestions.join(' '), /reduce scope to at most/i)
+  assert.doesNotMatch(plan.suggestions.join(' '), /lower --votes/i)
 })
 
 test('retries one invalid structured response but not provider failures', () => {
