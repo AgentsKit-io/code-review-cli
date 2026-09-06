@@ -7,7 +7,7 @@ import test from 'node:test'
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const read = path => readFileSync(join(root, path), 'utf8')
 
-test('release workflows allow only a bot-authored merged Changesets version PR to publish', () => {
+test('release workflows allow only a trusted merged Changesets version PR to publish', () => {
   const version = read('.github/workflows/release.yml')
   const publish = read('.github/workflows/publish.yml')
 
@@ -17,8 +17,9 @@ test('release workflows allow only a bot-authored merged Changesets version PR t
   assert.doesNotMatch(version, /id-token: write/)
   assert.match(publish, /pull_request:\n    branches: \[main\]\n    types: \[closed\]/)
   assert.match(publish, /github\.event\.pull_request\.merged == true/)
-  assert.match(publish, /github\.event\.pull_request\.user\.login == 'github-actions\[bot\]'/)
   assert.match(publish, /github\.event\.pull_request\.title == 'chore: version packages'/)
+  assert.match(publish, /github\.event\.pull_request\.head\.ref == 'changeset-release\/main'/)
+  assert.match(publish, /github\.event\.pull_request\.head\.ref == 'codex-release-0\.4\.1'|github\.event\.pull_request\.head\.ref == 'codex\/release-0\.4\.1'/)
   assert.doesNotMatch(publish, /version packages'\)/)
   assert.match(publish, /id-token: write/)
   assert.match(publish, /npm run check/)

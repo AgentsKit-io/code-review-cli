@@ -761,9 +761,9 @@ Release work updates [`CHANGELOG.md`](https://github.com/AgentsKit-io/code-revie
 
 Changesets is the release source of truth. A product-affecting pull request adds a small Markdown file in `.changeset/` that names `@agentskit/code-review`, selects `patch`, `minor`, or `major`, and explains the user-visible change. Documentation-only, test-only, and CI-only pull requests add `npx changeset --empty` when they intentionally require no release.
 
-Every merge to `main` runs `.github/workflows/release.yml`. When pending non-empty changesets exist, it creates or updates the bot-authored `chore: version packages` pull request. That pull request contains the version bump, generated `CHANGELOG.md` entry, and consumed changesets. Merging this version pull request is the only automatic publish trigger. This extra review boundary is intentional: ordinary feature merges collect safely, while the versioned release has a concrete, reviewable diff.
+Every merge to `main` runs `.github/workflows/release.yml`. When pending non-empty changesets exist, it creates or updates the `chore: version packages` pull request on the trusted `changeset-release/main` branch. That pull request contains the version bump, generated `CHANGELOG.md` entry, and consumed changesets. Merging this version pull request is the only automatic publish trigger. This extra review boundary is intentional: ordinary feature merges collect safely, while the versioned release has a concrete, reviewable diff. A maintainer-authored release PR may use the explicitly allowlisted `codex/release-0.4.1` recovery branch when repository rules prevent the bot PR from receiving required checks.
 
-`.github/workflows/publish.yml` runs only after that bot-authored version pull request is merged. It checks out that exact merge commit, verifies the package version and a clean release payload with `npm run check` and `npm pack --dry-run`, publishes `@agentskit/code-review` using [npm Trusted Publishing](https://docs.npmjs.com/trusted-publishers/) (OIDC), then creates the immutable `v<version>` GitHub Release. If npm already has the exact version, it skips only the publish step and still creates a missing GitHub release; normal PR-triggered runs cannot publish a duplicate. No long-lived `NPM_TOKEN`, npm access token, or personal GitHub token is stored in this repository. GitHub's built-in workflow token is used only to create the version PR and GitHub release.
+`.github/workflows/publish.yml` runs only after that trusted version pull request is merged. It checks out that exact merge commit, verifies the package version and a clean release payload with `npm run check` and `npm pack --dry-run`, publishes `@agentskit/code-review` using [npm Trusted Publishing](https://docs.npmjs.com/trusted-publishers/) (OIDC), then creates the immutable `v<version>` GitHub Release. If npm already has the exact version, it skips only the publish step and still creates a missing GitHub release; normal PR-triggered runs cannot publish a duplicate. No long-lived `NPM_TOKEN`, npm access token, or personal GitHub token is stored in this repository. GitHub's built-in workflow token is used only to create the version PR and GitHub release.
 
 Before the first release, configure the npm package's Trusted Publisher for GitHub Actions with:
 
@@ -773,7 +773,7 @@ Before the first release, configure the npm package's Trusted Publisher for GitH
 
 Enable GitHub Actions permission to create pull requests only when the repository setting requires it for Changesets. Keep branch protection configured to require human review: the workflow never approves or merges its own version PR. This repository-wide setting can also permit workflow approvals, so restrict `pull-requests: write` to the version workflow and do not count workflow approvals toward the required human review. The npm configuration is a one-time external prerequisite; the GitHub workflow cannot create it. Do not run `npm publish` locally.
 
-The publish workflow has no manual dispatch path: only a merged, bot-authored Changesets version pull request can publish. If a release is interrupted, repair it through a new reviewed version PR rather than granting an arbitrary ref publishing authority.
+The publish workflow has no manual dispatch path: only a merged, title-matched Changesets version pull request from an explicitly allowlisted release branch can publish. If a release is interrupted, repair it through a new reviewed version PR rather than granting an arbitrary ref publishing authority.
 
 ## Contribution and security
 
@@ -963,6 +963,14 @@ Open an issue before starting a large item so maintainers and contributors can a
 Canonical source: https://raw.githubusercontent.com/AgentsKit-io/code-review/main/CHANGELOG.md
 
 # Changelog
+
+## 0.4.1
+
+### Patch Changes
+
+- [#73](https://github.com/AgentsKit-io/code-review/pull/73) [`f99c9a3`](https://github.com/AgentsKit-io/code-review/commit/f99c9a37478440b7030c33ac480746db4204d0ef) Thanks [@EmersonBraun](https://github.com/EmersonBraun)! - Add a deterministic continuous-improvement benchmark for clean, required-lens-failure, and deadline review behavior.
+
+- [#73](https://github.com/AgentsKit-io/code-review/pull/73) [`f99c9a3`](https://github.com/AgentsKit-io/code-review/commit/f99c9a37478440b7030c33ac480746db4204d0ef) Thanks [@EmersonBraun](https://github.com/EmersonBraun)! - Automate version pull requests, GitHub releases, and npm trusted publishing without a long-lived npm token. Stabilize OpenCode ACP protocol fixtures without weakening their timeout coverage.
 
 All notable changes will be documented here. This project follows Semantic Versioning.
 
