@@ -964,6 +964,14 @@ Canonical source: https://raw.githubusercontent.com/AgentsKit-io/code-review/mai
 
 # Changelog
 
+## 0.4.1
+
+### Patch Changes
+
+- [#73](https://github.com/AgentsKit-io/code-review/pull/73) [`f99c9a3`](https://github.com/AgentsKit-io/code-review/commit/f99c9a37478440b7030c33ac480746db4204d0ef) Thanks [@EmersonBraun](https://github.com/EmersonBraun)! - Add a deterministic continuous-improvement benchmark for clean, required-lens-failure, and deadline review behavior.
+
+- [#73](https://github.com/AgentsKit-io/code-review/pull/73) [`f99c9a3`](https://github.com/AgentsKit-io/code-review/commit/f99c9a37478440b7030c33ac480746db4204d0ef) Thanks [@EmersonBraun](https://github.com/EmersonBraun)! - Automate version pull requests, GitHub releases, and npm trusted publishing without a long-lived npm token. Stabilize OpenCode ACP protocol fixtures without weakening their timeout coverage.
+
 All notable changes will be documented here. This project follows Semantic Versioning.
 
 ## [Unreleased]
