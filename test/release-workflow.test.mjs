@@ -32,5 +32,5 @@ test('release workflows allow only a trusted merged Changesets version PR to pub
 
 test('Changesets versioning refreshes generated documentation before release gates', () => {
   const packageJson = JSON.parse(read('package.json'))
-  assert.match(packageJson.scripts['version-packages'], /changeset version && npm run docs:full/)
+  assert.match(packageJson.scripts['version-packages'], /changeset version && npm run docs:full && npm run readme:standard:refresh/)
 })
