@@ -964,6 +964,12 @@ Canonical source: https://raw.githubusercontent.com/AgentsKit-io/code-review/mai
 
 # Changelog
 
+## 0.4.2
+
+### Patch Changes
+
+- [#78](https://github.com/AgentsKit-io/code-review/pull/78) [`f50bb3d`](https://github.com/AgentsKit-io/code-review/commit/f50bb3daceb7e48c8cd1401e47352ebd33000a8f) Thanks [@EmersonBraun](https://github.com/EmersonBraun)! - Make provider-call preflight guidance consistent with demand-driven skeptical verification and document the best-effort estimate semantics.
+
 ## 0.4.1
 
 ### Patch Changes
