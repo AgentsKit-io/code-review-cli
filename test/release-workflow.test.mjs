@@ -27,4 +27,5 @@ test('release workflows allow only a trusted merged Changesets version PR to pub
   assert.match(publish, /npm publish --access public/)
   assert.match(publish, /gh release create/)
   assert.doesNotMatch(publish, /workflow_dispatch|NPM_TOKEN|RECOVERY_VERSION/)
+  assert.doesNotMatch(publish, /node -p \\\"/)
 })
