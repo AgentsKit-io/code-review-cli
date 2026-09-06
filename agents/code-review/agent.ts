@@ -725,15 +725,16 @@ export function createCodeReviewAgent(config: CodeReviewConfig) {
     const enabledLenses = lenses.map((lens) => lens.key)
     const required = [...requiredLenses]
     const primaryCalls = files * (batched ? 1 : enabledLenses.length) * (1 + retries)
-    const maxFindingsPerFile = config.thresholds?.maxPerFile
-    const verificationCalls = files * (maxFindingsPerFile ?? enabledLenses.length) * auditVotes * (1 + retries)
-    const estimatedProviderCalls = primaryCalls + verificationCalls + (files && enabledLenses.length ? 1 : 0)
+    // Verification is demand-driven: reserve only the optional consolidation call here.
+    // The runtime counter remains the hard ceiling and fails closed if candidates exhaust it.
+    const consolidationReserve = files && enabledLenses.length ? 1 : 0
+    const estimatedProviderCalls = primaryCalls + consolidationReserve
     const plan: ReviewPlan = {
       profile,
       batched,
       files, bytes, enabledLenses, requiredLenses: required, votes: auditVotes, retries, concurrency,
       estimatedProviderCalls,
-      providerCallEstimate: maxFindingsPerFile === undefined ? 'best-effort' : 'bounded',
+      providerCallEstimate: 'best-effort',
       maxCalls,
       unreviewedFiles: all.length - files,
       unreviewed: all
@@ -757,9 +758,9 @@ export function createCodeReviewAgent(config: CodeReviewConfig) {
       plan.suggestions.push('reduce scope with --paths or an isolated context pattern')
     }
     if (estimatedProviderCalls > maxCalls) {
-      const perFile = Math.max(1, (batched ? 1 : enabledLenses.length) * (1 + retries) + (maxFindingsPerFile ?? enabledLenses.length) * auditVotes * (1 + retries))
+      const perFile = Math.max(1, (batched ? 1 : enabledLenses.length) * (1 + retries))
       plan.overBudget.push(`${estimatedProviderCalls} estimated provider calls exceed maxCalls ${maxCalls}`)
-      plan.suggestions.push(`reduce scope to at most ${Math.max(1, Math.floor((maxCalls - 1) / perFile))} files or lower --votes`)
+      plan.suggestions.push(`reduce scope to at most ${Math.max(1, Math.floor((maxCalls - 1) / perFile))} files`)
     }
     return plan
   }
