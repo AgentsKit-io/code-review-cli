@@ -964,6 +964,12 @@ Canonical source: https://raw.githubusercontent.com/AgentsKit-io/code-review/mai
 
 # Changelog
 
+## 0.4.3
+
+### Patch Changes
+
+- [#80](https://github.com/AgentsKit-io/code-review/pull/80) [`eb8a815`](https://github.com/AgentsKit-io/code-review/commit/eb8a815e6b4765c3e9e9353dd3d617fed8127149) Thanks [@EmersonBraun](https://github.com/EmersonBraun)! - Fix GitHub PR batch planning so `--batch-size` reads the full PR file manifest before partitioning, instead of applying the default single-run file cap and silently omitting batches.
+
 ## 0.4.2
 
 ### Patch Changes
