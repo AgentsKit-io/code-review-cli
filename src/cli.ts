@@ -29,6 +29,7 @@ import { diagnoseProvider, factoryFor, providerEntry, providerRegistry, resolveP
 import { loadReviewConfig, type ResolvedReviewConfig } from './review-config.js'
 import { getGithubReviewState, reviewFingerprint } from './github-review-state.js'
 import { consolidateToArtifact, createBatchCoverage, partitionReviewableFiles, type BatchCoverageState, type BatchReviewArtifact, type ConsolidatedReviewArtifact } from './batch-coverage.js'
+import { assertBatchManifestComplete, batchPlanOverBudget, batchSourceRequested } from './batch-mode.js'
 
 const HELP = `AgentsKit Code Review — deep, low-noise review with your model
 
@@ -121,7 +122,10 @@ function shouldRedact(reviewConfig: ResolvedReviewConfig): boolean {
 async function resolveSource(reviewConfig: ResolvedReviewConfig): Promise<SourceConfig> {
   const redact = shouldRedact(reviewConfig)
   const limits = { maxFiles: reviewConfig.budget.maxFiles, maxBytes: reviewConfig.budget.maxBytes }
-  const batchRequested = flag('batch-index') !== undefined
+  // Planning a batch must widen the PR source limit too. Without this, the
+  // manifest is created from the default single-run cap and silently omits
+  // files before partitioning can cover them.
+  const batchRequested = batchSourceRequested(flag('batch-index'), flag('batch-size'))
   const pr = flag('pr')
   if (pr) {
     const m = pr.match(/^([^/]+)\/([^#]+)#(\d+)$/)
@@ -278,9 +282,11 @@ async function main() {
   if (has('dry-run') || has('plan')) {
     const batchSize = flag('batch-size')
     const batches = batchSize === undefined ? undefined : partitionReviewableFiles(plan.reviewableFiles, Number(batchSize))
+    plan.overBudget = batchPlanOverBudget(plan.overBudget, batches !== undefined)
     const batchManifest = flag('batch-manifest')
     if (batchManifest) {
       if (!batches || source.kind !== 'github-pr' || !githubState) throw new Error('--batch-manifest needs --pr, --batch-size, and GITHUB_TOKEN')
+      assertBatchManifestComplete(plan.unreviewed)
       // codeql[js/http-to-file-access] -- This is an explicit user-selected local
       // orchestration artifact. Remote PR metadata is serialized as data only and
       // is never loaded as configuration or executed by this command.
