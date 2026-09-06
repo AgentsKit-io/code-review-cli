@@ -12,8 +12,9 @@ jobs:
   publish:
     if: >-
       github.event.pull_request.merged == true &&
-      github.event.pull_request.user.login == 'github-actions[bot]' &&
-      github.event.pull_request.title == 'chore: version packages'
+      github.event.pull_request.title == 'chore: version packages' &&
+      (github.event.pull_request.head.ref == 'changeset-release/main' ||
+       github.event.pull_request.head.ref == 'codex/release-0.4.1')
     runs-on: ubuntu-latest
     permissions:
       contents: write
