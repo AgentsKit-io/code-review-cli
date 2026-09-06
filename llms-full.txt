@@ -58,7 +58,7 @@ AgentsKit Code Review is built around a different contract:
 - **Low noise by design.** Findings are challenged by independent verification votes before they survive.
 - **Local first, CI ready.** Review a diff before pushing, inspect complete paths, read stdin, or comment directly on a GitHub PR.
 - **Control cost and policy.** Set file budgets, concurrency, thresholds, project conventions, and blocking severity.
-- **See the cost before execution.** Use `--plan --json` to inspect files, lenses, retries, concurrency, deadline, estimated provider calls, and every `UNREVIEWED` path with its reason without a model request. Plans label estimates as `bounded` when `thresholds.maxPerFile` is set; otherwise they are `best-effort` because model output volume is inherently variable.
+- **See the cost before execution.** Use `--plan --json` to inspect files, lenses, retries, concurrency, deadline, estimated provider calls, and every `UNREVIEWED` path with its reason without a model request. Estimates are always `best-effort` because primary lens demand is predictable but model output determines how many skeptical verification calls are needed; the runtime counter remains the hard ceiling.
 
 ## Run your first review
 
