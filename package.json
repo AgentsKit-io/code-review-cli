@@ -80,7 +80,7 @@
     "@agentskit/ink": "^0.9.0",
     "@agentskit/runtime": "^0.7.3",
     "@agentskit/tools": "^0.9.4",
-    "zod": "^3.25.0",
+    "zod": "^4.4.3",
     "zod-to-json-schema": "^3.24.0"
   },
   "optionalDependencies": {
