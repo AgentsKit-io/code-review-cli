@@ -19,6 +19,7 @@ test('release workflows allow only a bot-authored merged Changesets version PR t
   assert.match(publish, /github\.event\.pull_request\.merged == true/)
   assert.match(publish, /github\.event\.pull_request\.user\.login == 'github-actions\[bot\]'/)
   assert.match(publish, /github\.event\.pull_request\.title == 'chore: version packages'/)
+  assert.doesNotMatch(publish, /version packages'\)/)
   assert.match(publish, /id-token: write/)
   assert.match(publish, /npm run check/)
   assert.match(publish, /npm pack --dry-run/)

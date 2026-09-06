@@ -13,7 +13,7 @@ jobs:
     if: >-
       github.event.pull_request.merged == true &&
       github.event.pull_request.user.login == 'github-actions[bot]' &&
-      github.event.pull_request.title == 'chore: version packages')
+      github.event.pull_request.title == 'chore: version packages'
     runs-on: ubuntu-latest
     permissions:
       contents: write
