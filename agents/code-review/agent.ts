@@ -377,6 +377,14 @@ export function createCodeReviewAgent(config: CodeReviewConfig) {
     for (const o of config.observers ?? []) void o.on({ type: 'progress', label, status, detail, durationMs })
   }
 
+  async function finalize(result: ReviewResult): Promise<ReviewResult> {
+    const reporters = config.reporters ?? [markdownReporter()]
+    emit('report', 'start', reporters.map((r) => r.name).join(', '))
+    for (const reporter of reporters) await reporter.emit(result)
+    emit('report', 'ok', result.verdict)
+    return result
+  }
+
   const submit = (name: string, schema: z.ZodTypeAny): ToolDefinition =>
     defineZodTool({
       name,
@@ -495,7 +503,10 @@ export function createCodeReviewAgent(config: CodeReviewConfig) {
           succeededLenses: completed,
         }
       } catch (e) {
-        if (e instanceof ReviewCallBudgetError || e instanceof ReviewDeadlineError) throw e
+        // Preserve partial execution evidence on expiry. The enclosing run sees
+        // `deadlineExceeded` and returns an INCOMPLETE artifact rather than
+        // losing the entire report through a rejected Promise.all.
+        if (e instanceof ReviewCallBudgetError) throw e
         emit('lens:batch', 'error', `${target.file}: ${e instanceof Error ? e.message.split('\n')[0] : 'failed'}`)
         return { findings: [], execution: { attempted: 1, succeeded: 0, failed: 1 }, succeededLenses: [] }
       }
@@ -599,10 +610,15 @@ export function createCodeReviewAgent(config: CodeReviewConfig) {
           return await runStructured(skeptic, task, submit('submit_verdict', SkepticVerdict), SkepticVerdict)
         } catch (error) {
           if (error instanceof ReviewCallBudgetError) throw error
+          // A deadline leaves this finding unverified. It must not survive by
+          // default, but the enclosing result retains deadline evidence and is
+          // marked INCOMPLETE for safe orchestration recovery.
+          if (error instanceof ReviewDeadlineError) return null
           return null // a malformed vote is ignored, not fatal
         }
       }),
     )
+    if (deadlineExceeded) return false
     const valid = verdicts.filter((v): v is { refuted: boolean; reason: string } => v !== null)
     if (!valid.length) return true // no usable vote → keep the finding, let thresholds decide
     const refuted = valid.filter((v) => v.refuted).length
@@ -665,7 +681,9 @@ export function createCodeReviewAgent(config: CodeReviewConfig) {
     const counts = (['blocker', 'high', 'med', 'nit'] as Severity[]).map((s) => ({ s, n: kept.filter((f) => f.severity === s).length }))
     const worst = kept.length ? Math.min(...kept.map((f) => SEV_RANK[f.severity])) : 3
     const verdict: Verdict = incomplete ? 'COMMENT' : !kept.length ? 'APPROVE' : worst <= SEV_RANK.high ? 'REQUEST CHANGES' : 'COMMENT'
-    const blocking = kept.some((f) => SEV_RANK[f.severity] <= SEV_RANK[blockingSeverity])
+    // Missing skeptical verification is never an approval path: callers that
+    // gate only on `blocking` must fail closed when the deadline expires.
+    const blocking = runEvidence.deadlineExceeded || kept.some((f) => SEV_RANK[f.severity] <= SEV_RANK[blockingSeverity])
     const breakdown = counts.filter((c) => c.n).map((c) => `${c.n} ${c.s}`).join(', ') || 'no findings'
     const executionSummary =
       `${execution.succeeded}/${execution.attempted} lens executions succeeded` +
@@ -757,6 +775,7 @@ export function createCodeReviewAgent(config: CodeReviewConfig) {
       throw new RangeError('--max-files must be a positive integer')
     }
     startRun()
+    try {
     emit('ingest', 'start')
     const t0 = Date.now()
     const all = cachedTargets ??= await loadTargets(config.source)
@@ -780,8 +799,7 @@ export function createCodeReviewAgent(config: CodeReviewConfig) {
         unreviewed: unreviewed.map((target) => ({ file: target.file, reason: target.unreviewedReason ?? 'unreviewed' })),
         summary: unreviewed.length ? `${unreviewed.length} file(s) UNREVIEWED; nothing else to review.` : 'Nothing to review.',
       }
-      finishRun()
-      return result
+      return finalize(result)
     }
 
     const conventions = await resolveConventions()
@@ -802,6 +820,24 @@ export function createCodeReviewAgent(config: CodeReviewConfig) {
     const unreviewedFiles = targetResults.flatMap((result, index) =>
       result.execution.succeeded === 0 ? [targets[index]!.file] : [],
     )
+    if (deadlineExceeded) {
+      // A deadline is an incomplete review, not a runtime crash.  At this point
+      // candidate findings have not gone through skeptical verification, so do
+      // not emit them.  Return only the auditable coverage evidence, allowing
+      // callers to persist a safe result artifact and schedule a retry.
+      const deadlineUnreviewed = targets.map((target) => ({ file: target.file, reason: `review deadline exceeded after ${deadlineMs}ms` }))
+      const result = synthesize(
+        [], [], targets.length, droppedFiles, execution,
+        unreviewed.length + deadlineUnreviewed.length,
+        true, missingRequired, evidence(),
+      )
+      result.unreviewed = [
+        ...unreviewed.map((target) => ({ file: target.file, reason: target.unreviewedReason ?? 'unreviewed' })),
+        ...deadlineUnreviewed,
+      ]
+      result.droppedNote = 'Candidate findings were discarded because the review deadline expired before skeptical verification.'
+      return finalize(result)
+    }
     if (unreviewedFiles.length) {
       emit(
         'review',
@@ -837,19 +873,15 @@ export function createCodeReviewAgent(config: CodeReviewConfig) {
       emit('validate-patch', 'ok', undefined, Date.now() - t3)
     }
 
-    const incomplete = Boolean(config.incompleteProfile || unreviewed.length || droppedFiles || missingRequired.length)
+    const incomplete = Boolean(config.incompleteProfile || unreviewed.length || droppedFiles || missingRequired.length || deadlineExceeded)
     const result = synthesize(kept, dropped, targets.length, droppedFiles, execution, unreviewed.length, incomplete, missingRequired, evidence())
     result.unreviewed = unreviewed.map((target) => ({ file: target.file, reason: target.unreviewedReason ?? 'unreviewed' }))
     result.droppedNote =
       `${refuted.length} refuted by skeptics; ${belowThreshold.length} below threshold` +
       (thresholded.length - kept.length ? `; ${thresholded.length - kept.length} merged as duplicates` : '') + '.'
 
-    const reporters = config.reporters ?? [markdownReporter()]
-    emit('report', 'start', reporters.map((r) => r.name).join(', '))
-    for (const r of reporters) await r.emit(result)
-    emit('report', 'ok', result.verdict)
-    finishRun()
-    return result
+    return finalize(result)
+    } finally { finishRun() }
   }
 
   return {

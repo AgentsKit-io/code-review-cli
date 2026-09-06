@@ -333,16 +333,21 @@ Release work updates [`CHANGELOG.md`](../CHANGELOG.md), [`ROADMAP.md`](../ROADMA
 
 ### Automated npm publishing
 
-`.github/workflows/publish.yml` publishes only when a stable GitHub Release is published with a semantic version tag such as `v0.4.0`. The workflow checks out that tag, verifies that the tag matches `package.json`, runs `npm run check` and `npm pack --dry-run`, then publishes `@agentskit/code-review` using [npm Trusted Publishing](https://docs.npmjs.com/trusted-publishers/) (OIDC). No long-lived `NPM_TOKEN` is stored in GitHub.
+Changesets is the release source of truth. A product-affecting pull request adds a small Markdown file in `.changeset/` that names `@agentskit/code-review`, selects `patch`, `minor`, or `major`, and explains the user-visible change. Documentation-only, test-only, and CI-only pull requests add `npx changeset --empty` when they intentionally require no release.
+
+Every merge to `main` runs `.github/workflows/release.yml`. When pending non-empty changesets exist, it creates or updates the bot-authored `chore: version packages` pull request. That pull request contains the version bump, generated `CHANGELOG.md` entry, and consumed changesets. Merging this version pull request is the only automatic publish trigger. This extra review boundary is intentional: ordinary feature merges collect safely, while the versioned release has a concrete, reviewable diff.
+
+`.github/workflows/publish.yml` runs only after that bot-authored version pull request is merged. It checks out that exact merge commit, verifies the package version and a clean release payload with `npm run check` and `npm pack --dry-run`, publishes `@agentskit/code-review` using [npm Trusted Publishing](https://docs.npmjs.com/trusted-publishers/) (OIDC), then creates the immutable `v<version>` GitHub Release. If npm already has the exact version, it skips only the publish step and still creates a missing GitHub release; normal PR-triggered runs cannot publish a duplicate. No long-lived `NPM_TOKEN`, npm access token, or personal GitHub token is stored in this repository. GitHub's built-in workflow token is used only to create the version PR and GitHub release.
 
 Before the first release, configure the npm package's Trusted Publisher for GitHub Actions with:
 
 - Organization: `AgentsKit-io`
 - Repository: `code-review`
 - Workflow filename: `publish.yml`
-- Allowed action: `npm publish`
 
-The npm configuration is a one-time external prerequisite; the GitHub workflow cannot create it. For each release, update the package version and changelog in a reviewed commit, push the commit, then create the matching GitHub Release/tag. Do not run `npm publish` locally.
+Enable GitHub Actions permission to create pull requests only when the repository setting requires it for Changesets. Keep branch protection configured to require human review: the workflow never approves or merges its own version PR. This repository-wide setting can also permit workflow approvals, so restrict `pull-requests: write` to the version workflow and do not count workflow approvals toward the required human review. The npm configuration is a one-time external prerequisite; the GitHub workflow cannot create it. Do not run `npm publish` locally.
+
+The publish workflow has no manual dispatch path: only a merged, bot-authored Changesets version pull request can publish. If a release is interrupted, repair it through a new reviewed version PR rather than granting an arbitrary ref publishing authority.
 
 ## Contribution and security
 

@@ -14,10 +14,11 @@ Provider-neutral, low-noise AI code review for local Git diffs, files/stdin, and
 ## Ownership map
 
 - `src/cli.ts`: public flags, source selection, provider selection, exit policy.
-- `src/*-adapter.ts`: logged-in local CLI adapters.
+- `src/<provider>-adapter.ts`: logged-in local CLI adapters.
 - `agents/code-review/`: review pipeline, lenses, input normalization, reporters.
 - `action.yml`: composite GitHub Action contract.
-- `.github/workflows/publish.yml`: tag-verified npm Trusted Publishing workflow.
+- `.github/workflows/release.yml`: Changesets version-pull-request workflow.
+- `.github/workflows/publish.yml`: version-PR-gated npm Trusted Publishing and GitHub Release workflow.
 - `examples/`: copy-ready Action workflows.
 - `README.md` and `docs/OPERATIONS.md`: public adoption and operations guidance.
 - `ecosystem.json`, `llms.txt`, and `llms-full.txt`: canonical product graph and machine-readable discovery/full-corpus surfaces.
@@ -34,11 +35,11 @@ Provider-neutral, low-noise AI code review for local Git diffs, files/stdin, and
 ## Change routes
 
 - CLI flag/provider behavior: start at `src/cli.ts`, then update README, operations docs, and tests.
-- Local CLI subprocess behavior: start at the matching `src/*-adapter.ts` and add an offline fixture.
+- Local CLI subprocess behavior: start at the matching `src/<provider>-adapter.ts` and add an offline fixture.
 - Review logic or noise reduction: start at `agents/code-review/agent.ts` and the relevant lens; prove both survival and rejection behavior.
 - GitHub comments/SARIF: start at `agents/code-review/reporters.ts` and verify permissions/failure docs.
 - Action input: update `action.yml`, `examples/pull-request.yml`, README, and contract tests together.
-- Release automation: update `.github/workflows/publish.yml` and the automated publishing section in `docs/OPERATIONS.md` together.
+- Release automation: update `.github/workflows/release.yml`, `.github/workflows/publish.yml`, Changesets configuration, and the automated publishing section in `docs/OPERATIONS.md` together.
 
 ## Verification
 

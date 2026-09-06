@@ -7,7 +7,7 @@
     "This repository is a CLI/library; endpoint, database, MCP, and UI product surfaces are out of scope for this fix."
   ],
   "contract": {
-    "intent": "Implement, validate, and prepare the 0.4.0 release of deterministic, SHA/policy-bound PR batch coverage for Orca orchestration, including a publishable result only after every batch has complete evidence.",
+    "intent": "Implement, validate, and prepare deterministic, SHA/policy-bound PR batch coverage for Orca orchestration and a Changesets-based, tokenless npm release path for @agentskit/code-review.",
     "outcomes": [
       { "id": "batch-manifest", "statement": "The CLI exposes a deterministic reviewable-file manifest, batch plan, and private SHA/policy-bound manifest without model execution.", "checks": ["batch-regression", "repo-check"] },
       { "id": "batch-artifact", "statement": "A partial batch writes a private artifact bound to the exact PR SHA, policy fingerprint, index, and file manifest; it cannot post to GitHub.", "checks": ["batch-regression", "repo-check"] },
@@ -27,13 +27,17 @@
       { "id": "fast-profile", "statement": "The explicit fast profile batches correctness, security, and tests with one vote and no retry, while preserving required-lens fail-closed semantics.", "checks": ["regression", "repo-check"] },
       { "id": "circuit-breaker", "statement": "Repeated transient provider failures and terminal provider failures stop unnecessary fan-out and expose skipped-call evidence.", "checks": ["repo-check"] },
       { "id": "execution-evidence", "statement": "Completed reports expose profile, provider calls, failures, skips, elapsed time, deadline status, and circuit state.", "checks": ["regression", "repo-check"] },
-      { "id": "release-version", "statement": "The minor release is consistently versioned as 0.4.0 in package metadata, lockfile, public examples, and release documentation.", "checks": ["repo-check", "package"] }
+      { "id": "continuous-improvement-benchmark", "statement": "A deterministic, credential-free benchmark proves clean approval, required-lens failure, and deadline fail-closed behavior with machine-readable evidence.", "checks": ["cycle-benchmark", "repo-check"] },
+      { "id": "release-version", "statement": "The minor release is consistently versioned as 0.4.0 in package metadata, lockfile, public examples, and release documentation.", "checks": ["repo-check", "docs-gate", "package"] },
+      { "id": "changesets-release", "statement": "Changesets creates a reviewable version pull request on main, and only its bot-authored merge can trigger a validated OIDC npm publication and immutable GitHub release without a long-lived npm token.", "checks": ["release-workflow", "repo-check", "package"] }
     ]
   },
   "surfaces": { "logic": true, "cli": true, "docs": true },
   "checks": [
     { "id": "batch-regression", "category": "logic", "execution": "real", "command": "npm run build && node --test test/batch-coverage.test.mjs test/cli-smoke.test.mjs test/sources.test.mjs test/reporters.test.mjs", "timeoutMs": 240000 },
     { "id": "regression", "category": "logic", "execution": "real", "command": "npm run build && node --test test/cli-smoke.test.mjs", "timeoutMs": 180000 },
+    { "id": "cycle-benchmark", "category": "logic", "execution": "real", "command": "npm run benchmark:cycle", "timeoutMs": 60000 },
+    { "id": "release-workflow", "category": "cli", "execution": "real", "command": "npm run build && node --test test/release-workflow.test.mjs", "timeoutMs": 60000 },
     { "id": "repo-check", "category": "logic", "execution": "real", "command": "npm run check", "timeoutMs": 300000 },
     { "id": "docs-gate", "category": "docs", "execution": "real", "command": "npm run docs:gate", "timeoutMs": 180000 },
     { "id": "package", "category": "cli", "execution": "real", "command": "npm pack --dry-run", "timeoutMs": 180000 }

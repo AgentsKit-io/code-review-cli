@@ -25,6 +25,37 @@ test('operations guide covers every required security and release topic', () => 
   }
 })
 
+test('Changesets release automation is tokenless, gated, and recoverable', () => {
+  const manifest = JSON.parse(read('package.json'))
+  const changesets = JSON.parse(read('.changeset/config.json'))
+  const versionWorkflow = read('.github/workflows/release.yml')
+  const publishWorkflow = read('.github/workflows/publish.yml')
+  const operations = read('docs/OPERATIONS.md')
+
+  assert.equal(manifest.devDependencies['@changesets/cli'], '^2.31.0')
+  assert.equal(manifest.devDependencies['@changesets/changelog-github'], '^0.7.0')
+  assert.equal(manifest.scripts.changeset, 'changeset')
+  assert.equal(manifest.scripts['version-packages'], 'changeset version')
+  assert.equal(changesets.baseBranch, 'main')
+  assert.deepEqual(changesets.changelog, ['@changesets/changelog-github', { repo: 'AgentsKit-io/code-review' }])
+  assert.match(versionWorkflow, /changesets\/action@a45c4d594aa4e2c509dc14a9f2b3b67ba3780d0d/)
+  assert.match(versionWorkflow, /pull-requests: write/)
+  assert.doesNotMatch(versionWorkflow, /id-token: write/)
+  const publishJob = publishWorkflow.match(/\n  publish:\n([\s\S]*?)(?=\n  [A-Za-z0-9_-]+:|\n\S|$)/)?.[1] ?? ''
+  assert.match(publishJob, /id-token: write/)
+  assert.match(publishWorkflow, /github\.event\.pull_request\.user\.login == 'github-actions\[bot\]'/)
+  assert.match(publishWorkflow, /github\.event\.pull_request\.title == 'chore: version packages'/)
+  assert.doesNotMatch(publishWorkflow, /workflow_dispatch|RECOVERY_VERSION/)
+  assert.match(publishWorkflow, /github\.event\.pull_request\.merge_commit_sha \|\| github\.sha/)
+  assert.match(publishWorkflow, /gh release view/)
+  assert.match(publishWorkflow, /npm publish --access public/)
+  assert.match(publishWorkflow, /steps\.npm-version\.outputs\.already_published != 'true'/)
+  assert.match(publishWorkflow, /E404\|404 Not Found/)
+  assert.doesNotMatch(`${versionWorkflow}\n${publishWorkflow}`, /NPM_TOKEN|secrets\.[A-Z_]*NPM/)
+  assert.match(operations, /Changesets is the release source of truth/)
+  assert.match(operations, /No long-lived `NPM_TOKEN`/)
+})
+
 test('pre-commit hook is manual, provider-neutral, and reviews the repository diff', () => {
   const hook = read('.pre-commit-hooks.yaml')
   const readme = read('README.md')

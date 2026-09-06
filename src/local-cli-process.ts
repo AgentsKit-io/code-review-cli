@@ -38,6 +38,7 @@ const SECRET_PATTERNS = [
   /-----BEGIN [^-]*PRIVATE KEY-----[\s\S]*?-----END [^-]*PRIVATE KEY-----/g,
 ]
 
+
 export function redactSecrets(value: string, secrets: readonly string[] = []): string {
   let redacted = value
   for (const secret of secrets.filter(Boolean)) redacted = redacted.split(secret).join('[REDACTED]')
@@ -110,8 +111,6 @@ export function runLocalCli(command: string, args: string[], options: LocalCliOp
     const cleanup = () => {
       if (timeout) clearTimeout(timeout)
       options.signal?.removeEventListener('abort', onAbort)
-      process.removeListener('SIGINT', onParentShutdown)
-      process.removeListener('SIGTERM', onParentShutdown)
       if (tempRoot) rmSync(tempRoot, { recursive: true, force: true })
     }
     const finishError = (error: Error): void => {
@@ -132,11 +131,6 @@ export function runLocalCli(command: string, args: string[], options: LocalCliOp
       terminateProcessTree(child)
     }
     const onAbort = () => { aborted = true; stop(new Error(`${command} aborted`)) }
-    const onParentShutdown = (signal: NodeJS.Signals) => {
-      parentShutdown = true
-      stop(new Error(`${command} stopped because the parent process received ${signal}`))
-      setImmediate(() => process.kill(process.pid, signal))
-    }
 
     child.stdout.setEncoding('utf8')
     child.stderr.setEncoding('utf8')
@@ -160,8 +154,6 @@ export function runLocalCli(command: string, args: string[], options: LocalCliOp
       else finishError(new Error(`${command} exited with code ${code ?? 'unknown'}${signal ? ` (${signal})` : ''}`))
     })
     options.signal?.addEventListener('abort', onAbort, { once: true })
-    process.once('SIGINT', onParentShutdown)
-    process.once('SIGTERM', onParentShutdown)
     child.stdin.end()
     timeout = setTimeout(() => { if (!settled) { timedOut = true; stop(new Error(`${command} timed out after ${timeoutMs}ms`)) } }, timeoutMs)
   })
@@ -205,8 +197,6 @@ export function runLocalCliProtocol<T>(
     const cleanup = () => {
       if (timeout) clearTimeout(timeout)
       options.signal?.removeEventListener('abort', onAbort)
-      process.removeListener('SIGINT', onParentShutdown)
-      process.removeListener('SIGTERM', onParentShutdown)
       rl.close()
       if (tempRoot) rmSync(tempRoot, { recursive: true, force: true })
     }
@@ -235,11 +225,6 @@ export function runLocalCliProtocol<T>(
       finishError(reason)
     }
     const onAbort = () => { aborted = true; stop(new Error(`${command} aborted`)) }
-    const onParentShutdown = (signal: NodeJS.Signals) => {
-      parentShutdown = true
-      stop(new Error(`${command} stopped because the parent process received ${signal}`))
-      setImmediate(() => process.kill(process.pid, signal))
-    }
     const readLine = (): Promise<string> => {
       if (lineQueue.length) return Promise.resolve(lineQueue.shift()!)
       if (lineFailure) return Promise.reject(lineFailure)
@@ -276,8 +261,6 @@ export function runLocalCliProtocol<T>(
       else { settled = true; cleanup(); resolve(exchangeResult as T) }
     })
     options.signal?.addEventListener('abort', onAbort, { once: true })
-    process.once('SIGINT', onParentShutdown)
-    process.once('SIGTERM', onParentShutdown)
     timeout = setTimeout(() => { if (!settled) { timedOut = true; stop(new Error(`${command} timed out after ${timeoutMs}ms`)) } }, timeoutMs)
     void exchange({ cwd, readLine, send }).then((result) => {
       if (settled) return

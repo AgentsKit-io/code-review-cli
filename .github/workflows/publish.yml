@@ -1,24 +1,28 @@
 name: Publish Package
 
 on:
-  release:
-    types: [published]
+  pull_request:
+    branches: [main]
+    types: [closed]
 
 permissions:
   contents: read
 
 jobs:
   publish:
-    if: ${{ !github.event.release.prerelease && startsWith(github.event.release.tag_name, 'v') }}
+    if: >-
+      github.event.pull_request.merged == true &&
+      github.event.pull_request.user.login == 'github-actions[bot]' &&
+      github.event.pull_request.title == 'chore: version packages')
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
       id-token: write
     steps:
-      - name: Check out the released tag
+      - name: Check out the version pull request merge commit
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ github.event.release.tag_name }}
+          ref: ${{ github.event.pull_request.merge_commit_sha || github.sha }}
           persist-credentials: false
 
       - name: Set up Node.js
@@ -28,17 +32,14 @@ jobs:
           registry-url: https://registry.npmjs.org
           package-manager-cache: false
 
-      - name: Verify release tag matches package version
-        env:
-          RELEASE_TAG: ${{ github.event.release.tag_name }}
+      - name: Verify the approved publishing trigger and package version
         run: |
           set -eu
           node <<'NODE'
           const fs = require('node:fs')
-          const tag = process.env.RELEASE_TAG
           const version = JSON.parse(fs.readFileSync('package.json', 'utf8')).version
-          if (!/^v\d+\.\d+\.\d+$/.test(tag) || tag.slice(1) !== version) {
-            throw new Error(`release tag ${tag} does not match package version ${version}`)
+          if (!/^(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)(?:-(?:0|[1-9]\d*|[0-9A-Za-z-]*[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9]\d*|[0-9A-Za-z-]*[A-Za-z-][0-9A-Za-z-]*))*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/.test(version)) {
+            throw new Error(`package version ${version} is not a semantic version`)
           }
           NODE
 
@@ -51,5 +52,35 @@ jobs:
       - name: Verify package contents
         run: npm pack --dry-run
 
+      - name: Detect an already published version
+        id: npm-version
+        run: |
+          set -eu
+          PACKAGE_NAME="$(node -p \"require('./package.json').name\")"
+          PACKAGE_VERSION="$(node -p \"require('./package.json').version\")"
+          if NPM_VIEW_OUTPUT="$(npm view "${PACKAGE_NAME}@${PACKAGE_VERSION}" version 2>&1)"; then
+            echo "already_published=true" >> "$GITHUB_OUTPUT"
+          elif printf '%s' "$NPM_VIEW_OUTPUT" | grep -Eq 'E404|404 Not Found'; then
+            echo "already_published=false" >> "$GITHUB_OUTPUT"
+          else
+            printf '%s\n' "$NPM_VIEW_OUTPUT" >&2
+            exit 1
+          fi
+
       - name: Publish to npm with OIDC
+        if: steps.npm-version.outputs.already_published != 'true'
         run: npm publish --access public
+
+      - name: Create the immutable GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -eu
+          PACKAGE_VERSION="$(node -p \"require('./package.json').version\")"
+          RELEASE_TAG="v${PACKAGE_VERSION}"
+          if gh release view "${RELEASE_TAG}" >/dev/null 2>&1; then
+            echo "${RELEASE_TAG} already exists; preserving the existing immutable release."
+            exit 0
+          fi
+          gh release create "${RELEASE_TAG}" --target "$(git rev-parse HEAD)" \
+            --title "${RELEASE_TAG}" --generate-notes
