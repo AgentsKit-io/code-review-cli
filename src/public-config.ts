@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto'
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs'
 import { dirname, isAbsolute, join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { z } from 'zod'
@@ -185,6 +185,20 @@ async function importConfigModule(file: string): Promise<unknown> {
   }
 }
 
+async function importTypeScriptConfig(file: string): Promise<unknown> {
+  try {
+    const { transform } = await import('esbuild')
+    const source = readFileSync(file, 'utf8')
+    const compiled = await transform(source, { loader: 'ts', format: 'esm', platform: 'node', sourcemap: false, target: 'es2022' })
+    const compiledFile = `${file}.agentskit-${process.pid}-${Date.now()}.mjs`
+    writeFileSync(compiledFile, compiled.code, { encoding: 'utf8', mode: 0o600 })
+    try { return unwrapConfigModule(await import(pathToFileURL(compiledFile).href)) }
+    finally { unlinkSync(compiledFile) }
+  } catch (error) {
+    throw new PublicConfigError(`unable to load ${file}: ${error instanceof Error ? error.message : String(error)}`)
+  }
+}
+
 function unwrapConfigModule(module: unknown): unknown {
   let exported: unknown = module && typeof module === 'object'
     ? ((module as { default?: unknown; config?: unknown }).default ?? (module as { config?: unknown }).config ?? module)
@@ -209,16 +223,7 @@ export async function loadProjectConfig(cwd: string, requested?: string): Promis
     catch (error) { if (error instanceof PublicConfigError) throw error; throw new PublicConfigError(`unable to load ${file}: ${error instanceof Error ? error.message : String(error)}`) }
   }
   if (file.endsWith('.ts')) {
-    try {
-      const { register } = await import('tsx/esm/api')
-      const scope = register({ namespace: `agentskit-review-config-${Date.now()}` })
-      try {
-        return { config: parseConfig(unwrapConfigModule(await scope.import(pathToFileURL(file).href, import.meta.url))), path: file }
-      } finally { await scope.unregister() }
-    } catch (error) {
-      if (error instanceof PublicConfigError) throw error
-      throw new PublicConfigError(`unable to load ${file}: ${error instanceof Error ? error.message : String(error)}`)
-    }
+    return { config: parseConfig(await importTypeScriptConfig(file)), path: file }
   }
   return { config: parseConfig(await importConfigModule(file)), path: file }
 }
