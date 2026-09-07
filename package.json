@@ -7,6 +7,11 @@
   "bin": {
     "agentskit-review": "dist/src/cli.js"
   },
+  "exports": {
+    ".": "./dist/src/index.js",
+    "./config": "./dist/src/public-config.js",
+    "./package.json": "./package.json"
+  },
   "files": [
     "dist",
     "README.md",
@@ -80,6 +85,7 @@
     "@agentskit/ink": "^0.9.0",
     "@agentskit/runtime": "^0.7.3",
     "@agentskit/tools": "^0.9.4",
+    "tsx": "^4.23.13",
     "zod": "^3.25.0",
     "zod-to-json-schema": "^3.24.0"
   },
@@ -91,7 +97,6 @@
     "@changesets/cli": "^2.31.0",
     "@types/json-schema": "^7.0.15",
     "@types/node": "^22.10.0",
-    "tsx": "^4.19.0",
     "typescript": "^5.7.2"
   },
   "engines": {

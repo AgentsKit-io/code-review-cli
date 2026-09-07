@@ -6,6 +6,7 @@ import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import test from 'node:test'
 import { resolveReviewConfig, loadReviewConfig, ReviewConfigError } from '../dist/src/review-config.js'
+import { configFingerprint, defineConfig, generateConfigSchema, loadProjectConfig, validateConfig } from '../dist/src/public-config.js'
 
 const root = resolve(fileURLToPath(new URL('.', import.meta.url)), '..')
 
@@ -126,4 +127,28 @@ test('an explicitly incomplete local profile never reports approval', () => {
 test('loadReviewConfig reads only the repository config filename', () => {
   const cwd = tempRepo({ configVersion: 1, votes: 2 })
   try { assert.equal(loadReviewConfig(cwd).votes, 2) } finally { rmSync(cwd, { recursive: true, force: true }) }
+})
+
+test('public config API provides presets, schema validation, and stable fingerprints', () => {
+  const config = defineConfig({
+    target: { repository: 'AgentsKit-io/agentskit-os' },
+    review: { lenses: { security: true } },
+  })
+  assert.equal(config.target.provider, 'github')
+  assert.equal(config.review.lenses.security, true)
+  assert.equal(typeof configFingerprint(config), 'string')
+  assert.equal((generateConfigSchema().$schema), 'http://json-schema.org/draft-07/schema#')
+  assert.doesNotThrow(() => validateConfig(config))
+  assert.throws(() => validateConfig({ target: { repository: 'not-a-repository' }, review: {} }), /owner\/repository/)
+})
+
+test('public config loader imports JavaScript and TypeScript config modules', async () => {
+  const cwd = mkdtempSync(join(tmpdir(), 'agentskit-public-config-'))
+  const modulePath = join(cwd, 'code-review.config.ts')
+  writeFileSync(modulePath, `import { defineConfig } from ${JSON.stringify(resolve(root, 'dist/src/index.js'))}\nexport default defineConfig({ target: { repository: 'AgentsKit-io/agentskit-os' }, review: { provider: 'codex-cli' } })\n`)
+  try {
+    const loaded = await loadProjectConfig(cwd)
+    assert.equal(loaded.config.target.repository, 'AgentsKit-io/agentskit-os')
+    assert.equal(loaded.path, modulePath)
+  } finally { rmSync(cwd, { recursive: true, force: true }) }
 })

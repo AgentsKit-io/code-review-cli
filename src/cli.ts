@@ -26,10 +26,15 @@ import { createAutoCliAdapter } from './headless-cli-adapter.js'
 import { ollamaReview } from './ollama-adapter.js'
 import type { SourceConfig } from '../agents/code-review/sources.js'
 import { diagnoseProvider, factoryFor, providerEntry, providerRegistry, resolveProviderId, type DoctorReport, type ProviderEntry } from './provider-registry.js'
-import { loadReviewConfig, type ResolvedReviewConfig } from './review-config.js'
+import { loadReviewConfig, resolveReviewConfig, type ResolvedReviewConfig } from './review-config.js'
 import { getGithubReviewState, reviewFingerprint } from './github-review-state.js'
 import { consolidateToArtifact, createBatchCoverage, partitionReviewableFiles, type BatchCoverageState, type BatchReviewArtifact, type ConsolidatedReviewArtifact } from './batch-coverage.js'
 import { assertBatchManifestComplete, batchPlanOverBudget, batchSourceRequested } from './batch-mode.js'
+import { generateConfigSchema, loadProjectConfig, toReviewConfig } from './public-config.js'
+
+function loadReviewConfigFromProject(config: Parameters<typeof toReviewConfig>[0], options: Parameters<typeof resolveReviewConfig>[1]): ResolvedReviewConfig {
+  return resolveReviewConfig(toReviewConfig(config), options)
+}
 
 const HELP = `AgentsKit Code Review — deep, low-noise review with your model
 
@@ -65,6 +70,8 @@ Review options:
   --deadline-ms <n>       Global run deadline (fast default: 120000; full: 600000)
   --health-check <mode>   Provider smoke check: auto (default) or off
   --conventions <path>    Project conventions file
+  --config <path>         Load a validated code-review.config.mjs/js/json file
+  --config-schema          Print the JSON Schema for code-review.config.ts
   --allow-incomplete      Local-only exception for an explicitly incomplete profile
   --allow-unredacted      Local-only exception for secret redaction
   --validate-patch        Validate suggested patches with git apply --check
@@ -159,6 +166,10 @@ async function main() {
     console.log(providerRegistry().map(formatProvider).join('\n'))
     return
   }
+  if (has('config-schema')) {
+    console.log(JSON.stringify(generateConfigSchema(), null, 2))
+    return
+  }
   if (process.argv.includes('doctor') || has('doctor')) {
     await runDoctor()
     return
@@ -175,7 +186,29 @@ async function main() {
     console.log(renderMarkdown(consolidated.review))
     return
   }
-  const reviewConfig = loadReviewConfig(process.cwd(), {
+  const configPath = flag('config')
+  const projectConfig = configPath ? await loadProjectConfig(process.cwd(), configPath) : undefined
+  const reviewConfig = projectConfig
+    ? (loadReviewConfigFromProject(projectConfig.config, {
+      ci: has('ci') || process.env.CI === 'true' || process.env.CI === '1',
+      allowIncomplete: has('allow-incomplete'),
+      allowUnredacted: has('allow-unredacted'),
+      overrides: {
+        provider: flag('provider'), model: flag('model'), transport: flag('transport'),
+        votes: flag('votes') === undefined ? undefined : Number(flag('votes')),
+        profile: flag('profile') as 'full' | 'fast' | undefined,
+        deadlineMs: flag('deadline-ms') === undefined ? undefined : Number(flag('deadline-ms')),
+        healthCheck: flag('health-check') as 'auto' | 'off' | undefined,
+        minSeverity: flag('min-severity') as Severity | undefined,
+        minConfidence: flag('min-confidence') === undefined ? undefined : Number(flag('min-confidence')),
+        maxPerFile: flag('max-findings-per-file') === undefined ? undefined : Number(flag('max-findings-per-file')),
+        maxFiles: flag('max-files') === undefined ? undefined : Number(flag('max-files')),
+        maxCalls: flag('max-calls') === undefined ? undefined : Number(flag('max-calls')),
+        concurrency: flag('concurrency') === undefined ? undefined : Number(flag('concurrency')),
+        conventions: flag('conventions'),
+      },
+    }))
+    : loadReviewConfig(process.cwd(), {
     ci: has('ci') || process.env.CI === 'true' || process.env.CI === '1',
     allowIncomplete: has('allow-incomplete'),
     allowUnredacted: has('allow-unredacted'),
@@ -195,7 +228,7 @@ async function main() {
       concurrency: flag('concurrency') === undefined ? undefined : Number(flag('concurrency')),
       conventions: flag('conventions'),
     },
-  })
+    })
   let source = await resolveSource(reviewConfig)
   const requestedBatch = flag('batch-index')
   const resultFile = flag('result')

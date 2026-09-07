@@ -112,6 +112,26 @@ The default diff base remains `origin/main`. A pre-commit invocation does not me
 
 ## Versioned review configuration
 
+The preferred developer-facing format is a typed `code-review.config.ts` loaded
+with `--config`. It uses the same Zod contracts as the CLI, supports presets,
+and fails before provider execution when invalid. Use `--config-schema` to emit
+JSON Schema for editor autocomplete. JavaScript/ESM and the legacy
+`.agentskit-review.json` format remain supported.
+
+```ts
+import { defineConfig } from "@agentskit/code-review";
+
+export default defineConfig({
+  target: { repository: "owner/repository" },
+  review: {
+    provider: "codex-cli",
+    lenses: { correctness: true, security: true, tests: true },
+  },
+  memory: { enabled: true, provider: "self-hosted" },
+  comments: { renderer: "coderabbit-inspired", language: "en" },
+});
+```
+
 Use a strict `.agentskit-review.json` at the repository root for review policy.
 It requires `configVersion: 1` and supports a `full` or `fast` profile. The
 fast profile reviews correctness, security, and tests in one bounded batch with

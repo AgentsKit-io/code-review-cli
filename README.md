@@ -288,6 +288,8 @@ In shortened examples, replace `...` with `npx --yes github:AgentsKit-io/code-re
 | `--block <severity>` | CI gate floor; default `blocker` |
 | `--no-fail` | Keep findings advisory |
 | `--conventions <path>` | Inject project conventions |
+| `--config <path>` | Load a validated `code-review.config.ts`, `.mjs`, `.js`, or JSON config |
+| `--config-schema` | Print the JSON Schema for editor autocomplete |
 | `--allow-incomplete` | Local-only exception for a config that declares incomplete lens coverage |
 | `--allow-unredacted` | Local-only exception; rejected in CI |
 | `--api` | Back-compatible alias for `--provider anthropic` |
@@ -300,6 +302,25 @@ In shortened examples, replace `...` with `npx --yes github:AgentsKit-io/code-re
 When no conventions path is supplied, the CLI looks for `CONVENTIONS.md`, `CONTRIBUTING.md`, `.cursorrules`, or `AGENTS.md`.
 
 ### Versioned configuration
+
+For the best developer experience, use a typed `code-review.config.ts` and
+import `defineConfig` from the package. The loader validates it before any
+provider call and the CLI can print the editor schema with
+`agentskit-review --config-schema`.
+
+```ts
+import { defineConfig, presets } from "@agentskit/code-review";
+
+export default defineConfig({
+  target: { repository: "owner/repository" },
+  review: { preset: presets.strict().review, lenses: { security: true, tests: true } },
+  comments: { renderer: "coderabbit-inspired", language: "en", inline: true },
+});
+```
+
+Run it with `agentskit-review --config code-review.config.ts --provider codex-cli`.
+Credentials and trusted execution settings remain in the environment or
+explicit CLI flags; they are never accepted from the project config.
 
 The repository may contain one strict `.agentskit-review.json` file. It must use
 `configVersion: 1`; unknown fields, secrets, unsupported values, and unsafe lens
