@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.5.1
+
+### Patch Changes
+
+- [#88](https://github.com/AgentsKit-io/code-review/pull/88) [`cb0b3b6`](https://github.com/AgentsKit-io/code-review/commit/cb0b3b63fcfc59b3e23509ba66f00cf889c17fda) Thanks [@EmersonBraun](https://github.com/EmersonBraun)! - Make configured batch planning widen GitHub PR discovery before partitioning, carry batch policy into the executable review configuration, and recognize TSV files as reviewable text.
+
 ## 0.5.0
 
 ### Minor Changes
