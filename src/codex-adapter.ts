@@ -48,6 +48,17 @@ function isOutputSchemaRejection(error: unknown): boolean {
     || /--output-schema[^\n]*(?:unsupported|not supported|rejected|invalid)/i.test(detail);
 }
 
+/** Codex's response-format validator requires closed object schemas at every level. */
+export function hardenOutputSchema(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(hardenOutputSchema)
+  if (value === null || typeof value !== "object") return value
+  const object = value as Record<string, unknown>
+  const hardened: Record<string, unknown> = {}
+  for (const [key, child] of Object.entries(object)) hardened[key] = hardenOutputSchema(child)
+  if (object.type === "object" && hardened.additionalProperties === undefined) hardened.additionalProperties = false
+  return hardened
+}
+
 /** Run `codex exec` and return its final message (captured via -o). */
 async function runCodex(prompt: string, schema: unknown, model?: string, signal?: AbortSignal, mode?: LocalCliMode, worker?: { timeoutMs?: number; maxOutputBytes?: number }): Promise<string> {
   const dir = mkdtempSync(join(tmpdir(), "cr-codex-"));
@@ -64,7 +75,7 @@ async function runCodex(prompt: string, schema: unknown, model?: string, signal?
       ];
       if (useSchema && schema !== undefined) {
         const schemaFile = join(dir, "output-schema.json");
-        const serializedSchema = JSON.stringify(schema);
+        const serializedSchema = JSON.stringify(hardenOutputSchema(schema));
         if (serializedSchema === undefined) throw new Error("codex output schema could not be serialized");
         writeFileSync(schemaFile, serializedSchema, { encoding: "utf8", mode: 0o600 });
         args.push("--output-schema", schemaFile);
