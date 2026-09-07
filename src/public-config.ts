@@ -179,14 +179,23 @@ export const presets = {
 async function importConfigModule(file: string): Promise<unknown> {
   try {
     const module = await import(pathToFileURL(file).href)
-    const exported = module.default ?? module.config
-    if (exported && typeof exported === 'object' && 'default' in exported) {
-      return (exported as { default?: unknown }).default
-    }
-    return exported
+    return unwrapConfigModule(module)
   } catch (error) {
     throw new PublicConfigError(`unable to load ${file}: ${error instanceof Error ? error.message : String(error)}`)
   }
+}
+
+function unwrapConfigModule(module: unknown): unknown {
+  let exported: unknown = module && typeof module === 'object'
+    ? ((module as { default?: unknown; config?: unknown }).default ?? (module as { config?: unknown }).config ?? module)
+    : module
+  for (let depth = 0; depth < 3 && exported && typeof exported === 'object'; depth += 1) {
+    const candidate = exported as { default?: unknown; 'module.exports'?: unknown }
+    const nested = candidate.default ?? candidate['module.exports']
+    if (nested === undefined || nested === exported) break
+    exported = nested
+  }
+  return exported
 }
 
 export async function loadProjectConfig(cwd: string, requested?: string): Promise<{ config: ReviewProjectConfig; path?: string }> {
@@ -202,9 +211,10 @@ export async function loadProjectConfig(cwd: string, requested?: string): Promis
   if (file.endsWith('.ts')) {
     try {
       const { register } = await import('tsx/esm/api')
-      const unregister = register()
-      try { return { config: parseConfig(await importConfigModule(file)), path: file } }
-      finally { unregister() }
+      const scope = register({ namespace: `agentskit-review-config-${Date.now()}` })
+      try {
+        return { config: parseConfig(unwrapConfigModule(await scope.import(pathToFileURL(file).href, import.meta.url))), path: file }
+      } finally { await scope.unregister() }
     } catch (error) {
       if (error instanceof PublicConfigError) throw error
       throw new PublicConfigError(`unable to load ${file}: ${error instanceof Error ? error.message : String(error)}`)
