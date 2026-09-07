@@ -5,9 +5,20 @@ import { fileURLToPath } from 'node:url'
 import { dirname, join, resolve } from 'node:path'
 import { tmpdir } from 'node:os'
 import test from 'node:test'
-import { codexCli } from '../dist/src/codex-adapter.js'
+import { codexCli, hardenOutputSchema } from '../dist/src/codex-adapter.js'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
+
+test('Codex response schemas close every object for strict response validation', () => {
+  assert.deepEqual(hardenOutputSchema({
+    type: 'object',
+    properties: { nested: { type: 'object', properties: { value: { type: 'string' } } } },
+  }), {
+    type: 'object',
+    properties: { nested: { type: 'object', properties: { value: { type: 'string' } }, additionalProperties: false } },
+    additionalProperties: false,
+  })
+})
 
 const adapterRequest = {
   messages: [{ id: '1', role: 'user', content: 'review this', status: 'complete', createdAt: new Date() }],
