@@ -33,7 +33,7 @@ export type SourceConfig =
 const CODE_EXT = new Set([
   '.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs', '.py', '.go', '.rs', '.java', '.kt', '.rb', '.php', '.cs', '.c', '.h', '.cpp', '.hpp',
   '.swift', '.scala', '.sql', '.sh', '.vue', '.svelte', '.html', '.css', '.md', '.mdx', '.json', '.jsonc', '.yaml', '.yml', '.toml', '.ini', '.cfg', '.conf', '.xml',
-  '.graphql', '.gql', '.tf', '.tfvars', '.hcl',
+  '.graphql', '.gql', '.tf', '.tfvars', '.hcl', '.tsv',
 ])
 const SPECIAL_FILES = new Set(['Dockerfile', 'Containerfile', 'Makefile', 'Jenkinsfile', 'Procfile', 'llms.txt', 'llms-full.txt', ' justfile '].map((name) => name.trim()))
 const DENY_DIRS = new Set(['.git', 'node_modules', 'dist', 'build', 'coverage', '.next', 'out', 'vendor'])

@@ -54,6 +54,12 @@ const ReviewConfigSchema = z.object({
   trustMode: z.enum(['isolated', 'trusted-local']).optional(),
   redaction: z.enum(['required', 'high-confidence']).optional(),
   permissions: z.object({ tools: z.boolean().optional(), write: z.boolean().optional(), shell: z.boolean().optional(), mcp: z.boolean().optional() }).strict().optional(),
+  batching: z.object({
+    enabled: z.boolean().default(false),
+    size: positiveInt.max(100).default(10),
+    requireCompleteCoverage: z.boolean().default(true),
+    failOnUnreviewableFiles: z.boolean().default(true),
+  }).strict().optional(),
 }).strict()
 
 type FileConfig = z.infer<typeof ReviewConfigSchema>
@@ -82,6 +88,7 @@ export interface ResolvedReviewConfig {
   healthCheck: 'auto' | 'off'
   trustMode: 'isolated'; redaction: 'required' | 'high-confidence'
   permissions: { tools?: boolean; write?: boolean; shell?: boolean; mcp?: boolean }
+  batching: { enabled: boolean; size: number; requireCompleteCoverage: boolean; failOnUnreviewableFiles: boolean }
 }
 
 export class ReviewConfigError extends Error {
@@ -158,6 +165,7 @@ export function resolveReviewConfig(
     transport: (overrides.transport ?? file?.transport) as ResolvedReviewConfig['transport'],
     healthCheck: overrides.healthCheck ?? file?.healthCheck ?? 'auto',
     trustMode: 'isolated' as const, redaction: file?.redaction ?? 'required', permissions: file?.permissions ?? {},
+    batching: { enabled: file?.batching?.enabled ?? false, size: file?.batching?.size ?? 10, requireCompleteCoverage: file?.batching?.requireCompleteCoverage ?? true, failOnUnreviewableFiles: file?.batching?.failOnUnreviewableFiles ?? true },
   }
   const validation = z.object({
     profile: z.enum(['full', 'fast']), healthCheck: z.enum(['auto', 'off']),

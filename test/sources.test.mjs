@@ -94,6 +94,22 @@ test('GitHub PR ingestion covers product markup, styles, and Markdown', async ()
   }
 })
 
+test('GitHub PR ingestion treats tab-separated data as reviewable text', async () => {
+  const originalFetch = globalThis.fetch
+  globalThis.fetch = async (url) => {
+    const path = new URL(url).pathname
+    if (path.endsWith('/pulls/15')) return Response.json({ head: { sha: 'abc123' } })
+    if (path.endsWith('/pulls/15/files')) return Response.json([{ filename: 'data/scope-classification.tsv', patch: '@@ -0,0 +1 @@', status: 'added' }])
+    if (path.includes('/contents/')) return Response.json({ content: 'scope\tclass\n', encoding: 'utf8' })
+    return new Response('not found', { status: 404 })
+  }
+  try {
+    const [target] = await loadTargets({ kind: 'github-pr', owner: 'AgentsKit-io', repo: 'example', number: 15, token: 'test-token' })
+    assert.equal(target?.reviewStatus, undefined)
+    assert.equal(target?.language, 'tsv')
+  } finally { globalThis.fetch = originalFetch }
+})
+
 test('GitHub PR ingestion does not download content for files outside the file budget', async () => {
   const originalFetch = globalThis.fetch
   const contentRequests = []
