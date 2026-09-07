@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.5.0
+
+### Minor Changes
+
+- [#86](https://github.com/AgentsKit-io/code-review/pull/86) [`295477d`](https://github.com/AgentsKit-io/code-review/commit/295477d90beaa49283c5e07e4ba3f1a2bab7255f) Thanks [@EmersonBraun](https://github.com/EmersonBraun)! - Add a typed, Zod-validated `code-review.config.ts` API with presets, project
+  config loading, stable fingerprints, JSON Schema generation, and `--config`
+  and `--config-schema` CLI support. Existing `.agentskit-review.json` behavior
+  and flags remain compatible.
+
 ## 0.4.3
 
 ### Patch Changes
