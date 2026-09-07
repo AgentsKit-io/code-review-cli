@@ -132,7 +132,11 @@ async function resolveSource(reviewConfig: ResolvedReviewConfig): Promise<Source
   // Planning a batch must widen the PR source limit too. Without this, the
   // manifest is created from the default single-run cap and silently omits
   // files before partitioning can cover them.
-  const batchRequested = batchSourceRequested(flag('batch-index'), flag('batch-size'))
+  // A configured planning run must fetch the complete PR before partitioning.
+  // Actual review invocations still require --batch-index, so a normal run
+  // cannot accidentally fan out or exceed its provider budget.
+  const batchRequested = batchSourceRequested(flag('batch-index'), flag('batch-size')) ||
+    (reviewConfig.batching.enabled && (has('plan') || has('dry-run')))
   const pr = flag('pr')
   if (pr) {
     const m = pr.match(/^([^/]+)\/([^#]+)#(\d+)$/)
@@ -143,7 +147,11 @@ async function resolveSource(reviewConfig: ResolvedReviewConfig): Promise<Source
     const maxFindingsPerFile = reviewConfig.thresholds.maxPerFile ?? lensCount
     const callsPerFile = (reviewConfig.batchLenses ? 1 : lensCount) * (1 + reviewConfig.retries) + maxFindingsPerFile * reviewConfig.votes * (1 + reviewConfig.retries)
     const automaticFileBudget = Math.max(1, Math.floor(((reviewConfig.budget.maxCalls ?? 1000) - 1) / Math.max(1, callsPerFile)))
-    return { kind: 'github-pr', owner: m[1]!, repo: m[2]!, number: Number(m[3]), token, redact, limits: { ...limits, maxFiles: batchRequested ? 500 : (limits.maxFiles ?? automaticFileBudget) } }
+    // GitHub PRs are reviewed from changed source, and the absolute local
+    // source ceiling is 1 MiB per file. Keeping this explicit prevents a
+    // provider-specific default (256 KiB) from silently making complete
+    // configured batch reviews impossible while still bounding ingestion.
+    return { kind: 'github-pr', owner: m[1]!, repo: m[2]!, number: Number(m[3]), token, redact, limits: { ...limits, maxFileBytes: 1024 * 1024, maxFiles: batchRequested ? 500 : (limits.maxFiles ?? automaticFileBudget) } }
   }
   if (has('stdin')) return { kind: 'stdin', content: await readStdin(), filename: `snippet.${flag('lang') ?? 'txt'}`, redact, limits: { ...limits, maxFileBytes: 1024 * 1024 } }
   if (has('paths')) {
@@ -247,6 +255,7 @@ async function main() {
     context: reviewConfig.context,
     redaction: reviewConfig.redaction,
     conventions: reviewConfig.conventions ?? 'auto',
+    batching: reviewConfig.batching,
   })
   const githubState = source.kind === 'github-pr' && (has('post') || requestedBatch !== undefined || resultFile !== undefined || publishResult !== undefined || flag('batch-manifest') !== undefined)
     ? await getGithubReviewState({
@@ -314,12 +323,13 @@ async function main() {
   let selectedBatch: { index: number; files: string[] } | undefined
   if (has('dry-run') || has('plan')) {
     const batchSize = flag('batch-size')
-    const batches = batchSize === undefined ? undefined : partitionReviewableFiles(plan.reviewableFiles, Number(batchSize))
+    const configuredBatchSize = batchSize === undefined && reviewConfig.batching.enabled ? reviewConfig.batching.size : batchSize
+    const batches = configuredBatchSize === undefined ? undefined : partitionReviewableFiles(plan.reviewableFiles, Number(configuredBatchSize))
     plan.overBudget = batchPlanOverBudget(plan.overBudget, batches !== undefined)
     const batchManifest = flag('batch-manifest')
     if (batchManifest) {
       if (!batches || source.kind !== 'github-pr' || !githubState) throw new Error('--batch-manifest needs --pr, --batch-size, and GITHUB_TOKEN')
-      assertBatchManifestComplete(plan.unreviewed)
+      if (reviewConfig.batching.requireCompleteCoverage || reviewConfig.batching.failOnUnreviewableFiles) assertBatchManifestComplete(plan.unreviewed)
       // codeql[js/http-to-file-access] -- This is an explicit user-selected local
       // orchestration artifact. Remote PR metadata is serialized as data only and
       // is never loaded as configuration or executed by this command.

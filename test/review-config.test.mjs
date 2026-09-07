@@ -6,7 +6,7 @@ import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import test from 'node:test'
 import { resolveReviewConfig, loadReviewConfig, ReviewConfigError } from '../dist/src/review-config.js'
-import { configFingerprint, defineConfig, generateConfigSchema, loadProjectConfig, validateConfig } from '../dist/src/public-config.js'
+import { configFingerprint, defineConfig, generateConfigSchema, loadProjectConfig, toReviewConfig, validateConfig } from '../dist/src/public-config.js'
 
 const root = resolve(fileURLToPath(new URL('.', import.meta.url)), '..')
 
@@ -140,6 +140,16 @@ test('public config API provides presets, schema validation, and stable fingerpr
   assert.equal((generateConfigSchema().$schema), 'http://json-schema.org/draft-07/schema#')
   assert.doesNotThrow(() => validateConfig(config))
   assert.throws(() => validateConfig({ target: { repository: 'not-a-repository' }, review: {} }), /owner\/repository/)
+})
+
+test('public batch policy is carried into the executable review config', () => {
+  const config = defineConfig({
+    target: { provider: 'github', repository: 'AgentsKit-io/agentskit-os' },
+    review: {},
+    batches: { enabled: true, size: 8, requireCompleteCoverage: true, failOnUnreviewableFiles: true },
+  })
+  const resolved = resolveReviewConfig(toReviewConfig(config))
+  assert.deepEqual(resolved.batching, { enabled: true, size: 8, requireCompleteCoverage: true, failOnUnreviewableFiles: true })
 })
 
 test('public config loader imports JavaScript and TypeScript config modules', async () => {

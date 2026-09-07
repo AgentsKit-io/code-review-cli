@@ -156,6 +156,7 @@ export function toReviewConfig(config: ReviewProjectConfig): Record<string, unkn
     thresholds: { minSeverity: config.review.minSeverity, minConfidence: config.review.minConfidence, maxPerFile: config.review.maxFindingsPerFile },
     budget: { maxCalls: config.review.maxCalls, deadlineMs: config.review.deadlineMs, concurrency: config.execution.maxConcurrentPullRequests },
     conventions: config.review.conventions,
+    batching: config.batches,
   }
 }
 
